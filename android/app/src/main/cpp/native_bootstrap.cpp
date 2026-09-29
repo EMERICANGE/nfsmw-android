@@ -1,10 +1,15 @@
 #include <jni.h>
 #include <android/log.h>
+#include <android/native_window_jni.h>
 #include <vulkan/vulkan.h>
+#include <rex/platform.h>
 
 #include <filesystem>
 #include <string>
 #include <vector>
+
+static_assert(REX_PLATFORM_ANDROID && REX_PLATFORM_LINUX && REX_ARCH_ARM64,
+              "The native app must target ReXGlue Android ARM64.");
 
 namespace {
 constexpr char kTag[] = "NFSMW";
@@ -95,4 +100,95 @@ Java_com_nfsmw_android_MainActivity_nativeInitialize(JNIEnv* env, jclass, jstrin
   const std::string status = VulkanStatus();
   Log(ANDROID_LOG_INFO, kTag, "Native bootstrap complete");
   return env->NewStringUTF(status.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_nfsmw_android_MainActivity_nativeSurfaceReady(JNIEnv* env, jclass, jobject surface) {
+  Log(ANDROID_LOG_INFO, "NFSMW-VULKAN", "Android surface created; checking Vulkan presentation support");
+  const char* extensions[] = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME};
+  VkApplicationInfo app_info{};
+  app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  app_info.pApplicationName = "Need for Speed Most Wanted";
+  app_info.apiVersion = VK_API_VERSION_1_0;
+  VkInstanceCreateInfo instance_info{};
+  instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+  instance_info.pApplicationInfo = &app_info;
+  instance_info.enabledExtensionCount = 2;
+  instance_info.ppEnabledExtensionNames = extensions;
+
+  VkInstance instance = VK_NULL_HANDLE;
+  VkResult result = vkCreateInstance(&instance_info, nullptr, &instance);
+  if (result != VK_SUCCESS) {
+    Log(ANDROID_LOG_ERROR, "NFSMW-VULKAN", "Android Vulkan instance/extensions failed: " + std::to_string(result));
+    return env->NewStringUTF("Vulkan Android surface extensions unavailable");
+  }
+
+  ANativeWindow* window = ANativeWindow_fromSurface(env, surface);
+  if (window == nullptr) {
+    vkDestroyInstance(instance, nullptr);
+    Log(ANDROID_LOG_ERROR, "NFSMW-VULKAN", "ANativeWindow_fromSurface returned null");
+    return env->NewStringUTF("Android window unavailable");
+  }
+
+  const auto create_surface = reinterpret_cast<PFN_vkCreateAndroidSurfaceKHR>(
+      vkGetInstanceProcAddr(instance, "vkCreateAndroidSurfaceKHR"));
+  const auto destroy_surface = reinterpret_cast<PFN_vkDestroySurfaceKHR>(
+      vkGetInstanceProcAddr(instance, "vkDestroySurfaceKHR"));
+  const auto get_present_support = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(
+      vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
+  const auto get_surface_formats = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceFormatsKHR>(
+      vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"));
+  VkSurfaceKHR vk_surface = VK_NULL_HANDLE;
+  VkAndroidSurfaceCreateInfoKHR surface_info{};
+  surface_info.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+  surface_info.window = window;
+  if (create_surface == nullptr || destroy_surface == nullptr || get_present_support == nullptr ||
+      get_surface_formats == nullptr || create_surface(instance, &surface_info, nullptr, &vk_surface) != VK_SUCCESS) {
+    ANativeWindow_release(window);
+    vkDestroyInstance(instance, nullptr);
+    Log(ANDROID_LOG_ERROR, "NFSMW-VULKAN", "Could not create VkSurfaceKHR for Android window");
+    return env->NewStringUTF("Could not create Vulkan Android surface");
+  }
+
+  uint32_t device_count = 0;
+  result = vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
+  bool present_supported = false;
+  std::string device_name = "no Vulkan device";
+  if (result == VK_SUCCESS && device_count > 0) {
+    std::vector<VkPhysicalDevice> devices(device_count);
+    result = vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
+    if (result == VK_SUCCESS) {
+      for (VkPhysicalDevice device : devices) {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(device, &properties);
+        uint32_t family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, nullptr);
+        std::vector<VkQueueFamilyProperties> families(family_count);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, families.data());
+        for (uint32_t family = 0; family < family_count; ++family) {
+          VkBool32 supported = VK_FALSE;
+          if ((families[family].queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
+              get_present_support(device, family, vk_surface, &supported) == VK_SUCCESS && supported) {
+            uint32_t format_count = 0;
+            if (get_surface_formats(device, vk_surface, &format_count, nullptr) == VK_SUCCESS && format_count > 0) {
+              present_supported = true;
+              device_name = properties.deviceName;
+              break;
+            }
+          }
+        }
+        if (present_supported) break;
+      }
+    }
+  }
+
+  destroy_surface(instance, vk_surface, nullptr);
+  ANativeWindow_release(window);
+  vkDestroyInstance(instance, nullptr);
+  if (!present_supported) {
+    Log(ANDROID_LOG_ERROR, "NFSMW-VULKAN", "No graphics queue supports presentation to this surface");
+    return env->NewStringUTF("Vulkan device cannot present to the Android surface");
+  }
+  Log(ANDROID_LOG_INFO, "NFSMW-VULKAN", "Android surface presentation supported by " + device_name);
+  return env->NewStringUTF(("Vulkan surface ready: " + device_name).c_str());
 }

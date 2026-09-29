@@ -17,7 +17,7 @@ The checked-in SDK platform header already recognizes `__ANDROID__` as `REX_PLAT
 | Threads/fibers | SDK pthread paths and Switch branches | Bionic pthread/std::thread; validate ucontext/fiber support | Adapt and verify |
 | Game filesystem | `sdmc:` and Switch game-root lookup | app-private files plus SAF URI import/copy | Replace path selection; SAF bridge not implemented |
 | Window/lifecycle | libnx window/app loop | Android Activity + JNI + `ANativeWindow` or SDL Android | Replace; current shell uses Activity/JNI |
-| Vulkan presentation | Switch surface and Mesa/NVK | Android Vulkan surface/loader; optional AdrenoTools/Turnip | Replace surface/device setup; instance-only bootstrap implemented |
+| Vulkan presentation | Switch surface and Mesa/NVK | Android Vulkan surface/loader; optional AdrenoTools/Turnip | Android `VkSurfaceKHR` and graphics-queue presentation support verified on Adreno 830; swapchain/rendering still pending |
 | NFSMW renderer | PM4 ring parser, shader library, Vulkan pipelines | Same renderer against Android Vulkan device | Likely reusable after SDK surface/device adaptation |
 | Shaders | SPIR-V and NFSSPV game-derived library | SPIR-V; user-generated library in app storage | Reuse format; game-derived files remain user supplied |
 | Input | libnx HID/controller | SDL3 Android/gamepad and touch mapping | Replace |

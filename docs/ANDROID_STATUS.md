@@ -7,6 +7,7 @@ Updated: 2026-09-29
 - [x] Debug and Release APKs build
 - [x] APK launches on a connected Galaxy device
 - [x] Vulkan instance and physical device discovery (Adreno 830)
+- [x] Android Vulkan surface created; graphics queue and surface formats support presentation
 - [ ] ReXGlue runtime initialized in the Android process
 - [ ] Guest memory initialized
 - [ ] `default.xex` loaded
@@ -20,7 +21,9 @@ Updated: 2026-09-29
 
 ## Current implementation
 
-The Android launcher and JNI library are a bootstrap only. JNI startup logs to Logcat, creates app-private `game_root` and `cache` directories, and successfully creates a Vulkan instance and discovers the connected device's Adreno 830. It does not yet create a Vulkan surface/swapchain, initialize ReXGlue, or load game data.
+The Android launcher and JNI library are a bootstrap only. JNI startup logs to Logcat, creates app-private `game_root` and `cache` directories, creates an Android `VkSurfaceKHR`, and confirms the Adreno 830 has a graphics queue and surface formats for presentation. It does not yet create a swapchain or render a frame, initialize ReXGlue, or load game data.
+
+The bootstrap includes the SDK's `rex/platform.h` and has a compile-time assertion that the NDK build is simultaneously Android, POSIX/Linux-compatible, and ARM64. This validates the SDK's existing platform macro path without claiming that the full SDK runtime is linked.
 
 Verified on 2026-09-29:
 
@@ -29,6 +32,7 @@ Verified on 2026-09-29:
 - `adb install -r ...app-debug.apk` — passed.
 - Launched `com.nfsmw.android.debug/com.nfsmw.android.MainActivity` — passed.
 - Logcat confirmed JNI startup, private directory setup, Vulkan loader API 1.1, and physical device `Adreno (TM) 830`; no `AndroidRuntime` crash was reported.
+- Reinstalled and relaunched after adding `SurfaceView`; Logcat confirmed `Android surface presentation supported by Adreno (TM) 830`.
 - APK inspection confirmed `lib/arm64-v8a/libnfsmw_android.so`.
 
 ## Blockers and findings
