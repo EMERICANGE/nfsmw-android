@@ -44,6 +44,10 @@ En el launcher puedes cambiar resolución interna, límite de FPS, antialiasing,
 
 El juego se abre en horizontal. La superposición táctil incluye dirección, botones de acción, START, freno y acelerador. Desde el editor de controles puedes mover y redimensionar botones, ocultarlos y ajustar su opacidad. También se admiten mandos Bluetooth y USB.
 
+## Voces de cinemáticas
+
+Las voces de las cinemáticas siguen en desarrollo. En esta versión pueden faltar o escucharse como ruido; estamos trabajando en corregir su reproducción. El audio de gameplay se ha ajustado por separado.
+
 ## Compilar
 
 Requisitos: Android SDK, NDK `28.2.13676358`, JDK 17 o posterior y PowerShell.

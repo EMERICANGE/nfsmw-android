@@ -47,6 +47,8 @@ REXCVAR_DECLARE(bool, audio_diag_prioridad_critica);  // definida en audio_syste
  */
 #if REX_PLATFORM_SWITCH
 #define REX_XMA_EN_TRABAJADOR_POR_DEFECTO 1
+#elif REX_PLATFORM_ANDROID
+#define REX_XMA_EN_TRABAJADOR_POR_DEFECTO 2
 #else
 #define REX_XMA_EN_TRABAJADOR_POR_DEFECTO 0
 #endif

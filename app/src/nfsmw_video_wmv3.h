@@ -62,6 +62,22 @@ class DescodificadorWmv3 {
   int64_t fotogramas_ = 0;
 };
 
+// Decodes and plays the WMA Pro audio track carried alongside the WMV3 picture.
+// The game does not route the movie audio through its XMA mixer.
+class AudioWmaPro {
+ public:
+  AudioWmaPro();
+  ~AudioWmaPro();
+  AudioWmaPro(const AudioWmaPro&) = delete;
+  AudioWmaPro& operator=(const AudioWmaPro&) = delete;
+
+  bool Abrir(const std::string& ruta);
+
+ private:
+  struct Estado;
+  std::unique_ptr<Estado> e_;
+};
+
 class PeliculaWmv {
  public:
   PeliculaWmv();

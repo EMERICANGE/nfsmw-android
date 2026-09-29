@@ -100,7 +100,8 @@ REXCVAR_DEFINE_INT32(nfsmw_audio_diag_anillo_ms, 10000, "NFSMW",
 REXCVAR_DEFINE_DOUBLE(nfsmw_audio_diag_lentitud_mezcla, 0.0, "NFSMW",
                       "Diagnostico: tras cada mezcla del hilo servidor de audio espera activamente N veces lo que "
                       "ha tardado, antes de entregar el paquete; 3 imita una mezcla 4 veces mas lenta; 0 = nada");
-REXCVAR_DEFINE_INT32(nfsmw_audio_esperar_servidor_ms, REX_PLATFORM_SWITCH != 0 ? 30 : 0, "NFSMW",
+REXCVAR_DEFINE_INT32(nfsmw_audio_esperar_servidor_ms,
+                     (REX_PLATFORM_SWITCH != 0 || REX_PLATFORM_ANDROID != 0) ? 30 : 0, "NFSMW",
                      "Antes de cada trama, si la voz del servidor de audio del juego no tiene paquete y el "
                      "servidor esta en marcha, esperar como mucho N ms a que lo entregue (en vez de mezclar la "
                      "trama con esa voz en silencio); 0 = no esperar (por defecto 30 en la Switch y 0 en el PC). "

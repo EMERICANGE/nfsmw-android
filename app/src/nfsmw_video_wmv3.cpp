@@ -14,9 +14,13 @@
 #include "nfsmw_video_wmv3.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <map>
+#include <thread>
 #include <span>
 
 #include <rex/filesystem.h>
@@ -25,9 +29,12 @@
 #include <rex/filesystem/vfs.h>
 #include <rex/logging.h>
 #include <rex/system/kernel_state.h>
+#include <SDL3/SDL.h>
 
 extern "C" {
 #include "libavcodec/avcodec.h"
+#include "libavutil/channel_layout.h"
+#include "libavutil/samplefmt.h"
 }
 
 namespace nfsmw::video_wmv3 {
@@ -40,6 +47,8 @@ constexpr uint8_t kGuidFichero[16] = {0xA1, 0xDC, 0xAB, 0x8C, 0x47, 0xA9, 0xCF, 
 constexpr uint8_t kGuidFlujo[16] = {0x91, 0x07, 0xDC, 0xB7, 0xB7, 0xA9, 0xCF, 0x11,
                                     0x8E, 0xE6, 0x00, 0xC0, 0x0C, 0x20, 0x53, 0x65};
 constexpr uint8_t kGuidVideo[16] = {0xC0, 0xEF, 0x19, 0xBC, 0x4D, 0x5B, 0xCF, 0x11,
+                                    0xA8, 0xFD, 0x00, 0x80, 0x5F, 0x5C, 0x44, 0x2B};
+constexpr uint8_t kGuidAudio[16] = {0x40, 0x9E, 0x69, 0xF8, 0x4D, 0x5B, 0xCF, 0x11,
                                     0xA8, 0xFD, 0x00, 0x80, 0x5F, 0x5C, 0x44, 0x2B};
 constexpr uint8_t kGuidDatos[16] = {0x36, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11,
                                     0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C};
@@ -105,6 +114,12 @@ struct Contenedor {
   uint64_t paquetes = 0;
   uint32_t tamano_paquete = 0;
   uint32_t flujo_video = 0;
+  uint32_t flujo_audio = 0;
+  int canales_audio = 0;
+  int frecuencia_audio = 0;
+  int bloque_audio = 0;
+  std::vector<uint8_t> extra_audio;
+  bool wma_pro = false;
 };
 
 bool LeerCabecera(FicheroVfs& fichero, const std::string& ruta, Contenedor& c) {
@@ -126,17 +141,34 @@ bool LeerCabecera(FicheroVfs& fichero, const std::string& ruta, Contenedor& c) {
     if (std::memcmp(o, kGuidFichero, 16) == 0 && tam >= 104) {
       c.paquetes = Le64(o + 56);
       c.tamano_paquete = Le32(o + 92);
-    } else if (std::memcmp(o, kGuidFlujo, 16) == 0 && tam >= 78 + 11 + 40 && !video &&
-               std::memcmp(o + 24, kGuidVideo, 16) == 0) {
-      c.flujo_video = Le16(o + 72) & 0x7F;
-      const uint8_t* bmi = o + 78 + 11;
-      const uint32_t tam_bmi = Le32(bmi);
-      c.info.ancho = int(Le32(bmi + 4));
-      c.info.alto = std::abs(int(Le32(bmi + 8)));
-      if (tam_bmi > 40 && 78 + 11 + uint64_t(tam_bmi) <= tam) {
-        c.info.secuencia.assign(bmi + 40, bmi + tam_bmi);
+    } else if (std::memcmp(o, kGuidFlujo, 16) == 0 && tam >= 78) {
+      const uint32_t flujo = Le16(o + 72) & 0x7F;
+      const uint8_t* especifico = o + 78;
+      const uint32_t tam_especifico = Le32(o + 64);
+      if (!video && std::memcmp(o + 24, kGuidVideo, 16) == 0 && tam_especifico >= 51 &&
+          78 + uint64_t(tam_especifico) <= tam) {
+        c.flujo_video = flujo;
+        const uint8_t* bmi = especifico + 11;
+        const uint32_t tam_bmi = Le32(bmi);
+        c.info.ancho = int(Le32(bmi + 4));
+        c.info.alto = std::abs(int(Le32(bmi + 8)));
+        if (tam_bmi > 40 && tam_bmi <= tam_especifico - 11) {
+          c.info.secuencia.assign(bmi + 40, bmi + tam_bmi);
+        }
+        video = std::memcmp(bmi + 16, "WMV3", 4) == 0;
+      } else if (std::memcmp(o + 24, kGuidAudio, 16) == 0 && tam_especifico >= 18 &&
+                 78 + uint64_t(tam_especifico) <= tam) {
+        const uint8_t* wave = especifico;
+        const uint32_t cb_extra = Le16(wave + 16);
+        if (Le16(wave) == 0x0162 && 18 + cb_extra <= tam_especifico) {
+          c.flujo_audio = flujo;
+          c.canales_audio = Le16(wave + 2);
+          c.frecuencia_audio = int(Le32(wave + 4));
+          c.bloque_audio = Le16(wave + 12);
+          c.extra_audio.assign(wave + 18, wave + 18 + cb_extra);
+          c.wma_pro = c.canales_audio > 0 && c.frecuencia_audio > 0;
+        }
       }
-      video = std::memcmp(bmi + 16, "WMV3", 4) == 0;
     }
     p += size_t(tam);
   }
@@ -164,6 +196,252 @@ bool LeerInfoWmv(const std::string& ruta, InfoWmv& info) {
     return false;
   }
   info = std::move(c.info);
+  return true;
+}
+
+// --- Audio WMA Pro de las peliculas ------------------------------------------------------------------------
+
+struct AudioWmaPro::Estado {
+  struct PaqueteAudio {
+    std::vector<uint8_t> datos;
+    uint32_t recibidos = 0;
+  };
+
+  FicheroVfs fichero;
+  Contenedor c;
+  uint64_t siguiente_paquete = 0;
+  std::vector<uint8_t> paquete;
+  std::map<uint32_t, PaqueteAudio> en_curso;
+  AVCodecContext* codec = nullptr;
+  AVPacket* pkt = nullptr;
+  AVFrame* frame = nullptr;
+  SDL_AudioStream* salida = nullptr;
+  std::atomic<bool> detener{false};
+  std::thread hilo;
+  std::atomic<uint64_t> paquetes_decodificados{0};
+  std::atomic<uint64_t> muestras_salida{0};
+
+  ~Estado() {
+    detener.store(true, std::memory_order_relaxed);
+    if (hilo.joinable()) {
+      hilo.join();
+    }
+    if (salida) {
+      SDL_DestroyAudioStream(salida);
+    }
+    if (frame) av_frame_free(&frame);
+    if (pkt) av_packet_free(&pkt);
+    if (codec) avcodec_free_context(&codec);
+  }
+
+  void Entregar(const uint8_t* datos, uint32_t bytes) {
+    auto decodificar = [&]() {
+      av_packet_unref(pkt);
+      if (bytes > uint32_t(std::numeric_limits<int>::max()) || av_new_packet(pkt, int(bytes)) < 0) {
+        return;
+      }
+      std::memcpy(pkt->data, datos, bytes);
+      if (avcodec_send_packet(codec, pkt) < 0) {
+        return;
+      }
+      while (avcodec_receive_frame(codec, frame) >= 0) {
+        ConvertirYEnviar(frame);
+        av_frame_unref(frame);
+      }
+      paquetes_decodificados.fetch_add(1, std::memory_order_relaxed);
+    };
+    decodificar();
+  }
+
+  float Muestra(int canal, int indice, bool planar, AVSampleFormat formato) const {
+    const uint8_t* p = frame->extended_data[planar ? canal : 0];
+    const int canales = std::max(frame->channels, 1);
+    const int posicion = planar ? indice : indice * canales + canal;
+    switch (formato) {
+      case AV_SAMPLE_FMT_U8: return (float(p[posicion]) - 128.0f) / 128.0f;
+      case AV_SAMPLE_FMT_S16: return reinterpret_cast<const int16_t*>(p)[posicion] / 32768.0f;
+      case AV_SAMPLE_FMT_S32: return reinterpret_cast<const int32_t*>(p)[posicion] / 2147483648.0f;
+      case AV_SAMPLE_FMT_S64: return float(double(reinterpret_cast<const int64_t*>(p)[posicion]) / 9223372036854775808.0);
+      case AV_SAMPLE_FMT_FLT: return reinterpret_cast<const float*>(p)[posicion];
+      case AV_SAMPLE_FMT_DBL: return float(reinterpret_cast<const double*>(p)[posicion]);
+      default: return 0.0f;
+    }
+  }
+
+  void ConvertirYEnviar(const AVFrame* f) {
+    if (f->nb_samples <= 0 || !f->extended_data || !f->extended_data[0]) return;
+    const AVSampleFormat formato = static_cast<AVSampleFormat>(f->format);
+    const AVSampleFormat compacto = av_get_packed_sample_fmt(formato);
+    if (compacto == AV_SAMPLE_FMT_NONE) return;
+    frame = const_cast<AVFrame*>(f);
+    const bool planar = av_sample_fmt_is_planar(formato) != 0;
+    const int canales = std::max(f->channels, 1);
+    const int frecuencia = f->sample_rate > 0 ? f->sample_rate : c.frecuencia_audio;
+    if (frecuencia <= 0) return;
+    const int cantidad = int((int64_t(f->nb_samples) * 48000 + frecuencia / 2) / frecuencia);
+    if (cantidad <= 0) return;
+
+    auto posicion_canal = [&](int i) {
+      const uint64_t layout = f->channel_layout ? f->channel_layout : uint64_t(av_get_default_channel_layout(canales));
+      return layout ? av_channel_layout_extract_channel(layout, i) : 0;
+    };
+    std::vector<float> pcm(size_t(cantidad) * 2);
+    for (int i = 0; i < cantidad; ++i) {
+      const double origen = double(i) * frecuencia / 48000.0;
+      const int a = std::min(int(origen), f->nb_samples - 1);
+      const int b = std::min(a + 1, f->nb_samples - 1);
+      const float t = float(origen - a);
+      float izq = 0.0f, der = 0.0f;
+      for (int ch = 0; ch < canales; ++ch) {
+        const float sa = Muestra(ch, a, planar, compacto);
+        const float sb = Muestra(ch, b, planar, compacto);
+        const float s = sa + (sb - sa) * t;
+        const uint64_t destino = posicion_canal(ch);
+        switch (destino) {
+          case AV_CH_FRONT_LEFT: case AV_CH_FRONT_LEFT_OF_CENTER: case AV_CH_BACK_LEFT:
+          case AV_CH_SIDE_LEFT: case AV_CH_TOP_FRONT_LEFT: case AV_CH_TOP_BACK_LEFT:
+            izq += s * (destino == AV_CH_FRONT_LEFT ? 1.0f : 0.70710678f); break;
+          case AV_CH_FRONT_RIGHT: case AV_CH_FRONT_RIGHT_OF_CENTER: case AV_CH_BACK_RIGHT:
+          case AV_CH_SIDE_RIGHT: case AV_CH_TOP_FRONT_RIGHT: case AV_CH_TOP_BACK_RIGHT:
+            der += s * (destino == AV_CH_FRONT_RIGHT ? 1.0f : 0.70710678f); break;
+          case AV_CH_FRONT_CENTER: case AV_CH_TOP_CENTER: case AV_CH_TOP_FRONT_CENTER:
+            izq += s * 0.70710678f; der += s * 0.70710678f; break;
+          case AV_CH_LOW_FREQUENCY:
+            izq += s * 0.25f; der += s * 0.25f; break;
+          default:
+            if (canales == 1) { izq += s; der += s; }
+            else if (ch == 0) izq += s;
+            else if (ch == 1) der += s;
+            break;
+        }
+      }
+      pcm[size_t(i) * 2] = std::clamp(izq, -1.0f, 1.0f);
+      pcm[size_t(i) * 2 + 1] = std::clamp(der, -1.0f, 1.0f);
+    }
+
+    // Keep a short lead-in so decoding can run independently without buffering the whole movie.
+    constexpr int kMaxColaBytes = 48000 * 2 * int(sizeof(float)) / 4;
+    while (!detener.load(std::memory_order_relaxed) && SDL_GetAudioStreamQueued(salida) > kMaxColaBytes) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    if (!detener.load(std::memory_order_relaxed) &&
+        SDL_PutAudioStreamData(salida, pcm.data(), int(pcm.size() * sizeof(float)))) {
+      muestras_salida.fetch_add(uint64_t(cantidad), std::memory_order_relaxed);
+    }
+  }
+
+  void Carga(uint32_t objeto, uint32_t desplazamiento, uint32_t tamano, const uint8_t* datos, uint32_t bytes) {
+    if (!tamano || tamano > 1024 * 1024 || uint64_t(desplazamiento) + bytes > tamano) return;
+    auto& o = en_curso[objeto];
+    if (o.datos.empty()) o.datos.assign(tamano, 0);
+    if (o.datos.size() != tamano) { en_curso.erase(objeto); return; }
+    std::memcpy(o.datos.data() + desplazamiento, datos, bytes);
+    o.recibidos += bytes;
+    if (o.recibidos >= o.datos.size()) {
+      Entregar(o.datos.data(), uint32_t(o.datos.size()));
+      en_curso.erase(objeto);
+    }
+  }
+
+  bool LeerPaquete() {
+    if (siguiente_paquete >= c.paquetes) return false;
+    paquete.resize(c.tamano_paquete);
+    if (!fichero.Leer(c.inicio_datos + siguiente_paquete * uint64_t(c.tamano_paquete), paquete.data(), c.tamano_paquete))
+      return false;
+    ++siguiente_paquete;
+    const auto& b = paquete;
+    size_t p = 0;
+    const uint8_t ec = b[p];
+    if (ec & 0x80) p += 1 + (ec & 0x0F);
+    if (p + 2 > b.size()) return false;
+    const uint8_t tipos = b[p++];
+    const uint8_t propiedades = b[p++];
+    uint32_t longitud = 0, secuencia = 0, relleno = 0;
+    if (!LeerVariable(b, p, (tipos >> 5) & 3, longitud) || !LeerVariable(b, p, (tipos >> 1) & 3, secuencia) ||
+        !LeerVariable(b, p, (tipos >> 3) & 3, relleno)) return false;
+    p += 6;
+    const bool multiples = tipos & 1;
+    int n = 1, tipo_longitud = 0;
+    if (multiples) {
+      if (p >= b.size()) return false;
+      n = b[p] & 0x3F;
+      tipo_longitud = (b[p] >> 6) & 3;
+      ++p;
+    }
+    const size_t fin = std::min<size_t>(b.size(), (longitud ? longitud : c.tamano_paquete)) -
+                       std::min<size_t>(relleno, b.size());
+    for (int i = 0; i < n && p < fin; ++i) {
+      const uint32_t flujo = b[p++] & 0x7F;
+      uint32_t objeto = 0, desplazamiento = 0, replicados = 0;
+      if (!LeerVariable(b, p, (propiedades >> 4) & 3, objeto) ||
+          !LeerVariable(b, p, (propiedades >> 2) & 3, desplazamiento) ||
+          !LeerVariable(b, p, propiedades & 3, replicados) || p + replicados > b.size()) return false;
+      const size_t pos_replicados = p;
+      p += replicados;
+      uint32_t bytes = 0;
+      if (multiples) {
+        if (!LeerVariable(b, p, tipo_longitud, bytes)) return false;
+      } else {
+        bytes = uint32_t(fin > p ? fin - p : 0);
+      }
+      if (p + bytes > b.size()) return false;
+      if (flujo == c.flujo_audio && replicados >= 8) {
+        Carga(objeto, desplazamiento, Le32(&b[pos_replicados]), &b[p], bytes);
+      }
+      p += bytes;
+    }
+    return true;
+  }
+
+  void Ejecutar() {
+    while (!detener.load(std::memory_order_relaxed) && LeerPaquete()) {}
+    REXLOG_INFO("[video] audio WMA Pro: {} paquetes ASF, {} bloques decodificados, {} muestras estéreo", c.paquetes,
+                paquetes_decodificados.load(), muestras_salida.load());
+  }
+};
+
+AudioWmaPro::AudioWmaPro() : e_(std::make_unique<Estado>()) {}
+AudioWmaPro::~AudioWmaPro() = default;
+
+bool AudioWmaPro::Abrir(const std::string& ruta) {
+  auto& e = *e_;
+  if (!e.fichero.Abrir(ruta) || !LeerCabecera(e.fichero, ruta, e.c) || !e.c.wma_pro) {
+    REXLOG_WARN("[video] audio WMA Pro no disponible para '{}'", ruta);
+    return false;
+  }
+  const AVCodec* decoder = avcodec_find_decoder(AV_CODEC_ID_WMAPRO);
+  if (!decoder) {
+    REXLOG_ERROR("[video] FFmpeg no tiene descodificador WMA Pro");
+    return false;
+  }
+  e.codec = avcodec_alloc_context3(decoder);
+  e.codec->sample_rate = e.c.frecuencia_audio;
+  e.codec->channels = e.c.canales_audio;
+  e.codec->block_align = e.c.bloque_audio;
+  e.codec->channel_layout = uint64_t(av_get_default_channel_layout(e.c.canales_audio));
+  if (!e.c.extra_audio.empty()) {
+    e.codec->extradata = static_cast<uint8_t*>(av_mallocz(e.c.extra_audio.size() + AV_INPUT_BUFFER_PADDING_SIZE));
+    std::memcpy(e.codec->extradata, e.c.extra_audio.data(), e.c.extra_audio.size());
+    e.codec->extradata_size = int(e.c.extra_audio.size());
+  }
+  if (avcodec_open2(e.codec, decoder, nullptr) < 0) {
+    REXLOG_ERROR("[video] no se pudo abrir el descodificador WMA Pro para '{}'", ruta);
+    return false;
+  }
+  e.pkt = av_packet_alloc();
+  e.frame = av_frame_alloc();
+  SDL_AudioSpec spec{};
+  spec.freq = 48000;
+  spec.format = SDL_AUDIO_F32LE;
+  spec.channels = 2;
+  e.salida = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+  if (!e.salida || !SDL_ResumeAudioStreamDevice(e.salida)) {
+    REXLOG_ERROR("[video] no se pudo abrir la salida de audio de la cinematica: {}", SDL_GetError());
+    return false;
+  }
+  REXLOG_INFO("[video] audio WMA Pro '{}' flujo {}: {} canales a {} Hz, bloque {}, extradata {} bytes",
+              ruta, e.c.flujo_audio, e.c.canales_audio, e.c.frecuencia_audio, e.c.bloque_audio, e.c.extra_audio.size());
+  e.hilo = std::thread([estado = e_.get()] { estado->Ejecutar(); });
   return true;
 }
 

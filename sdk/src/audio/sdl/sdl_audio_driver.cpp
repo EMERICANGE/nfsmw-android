@@ -27,6 +27,7 @@
 #include <rex/filesystem.h>
 #include <rex/logging.h>
 #include <rex/perf/counter.h>
+#include <rex/platform.h>
 #include <SDL3/SDL.h>
 
 REXCVAR_DEFINE_BOOL(audio_mute, false, "Audio", "Mute audio output");
@@ -131,6 +132,13 @@ SDLAudioDriver::~SDLAudioDriver() {
 bool SDLAudioDriver::Initialize() {
   // Set audio category for proper OS audio handling
   SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "playback");
+
+#if REX_PLATFORM_ANDROID
+  // AAudio's low-latency mode can sound poor on some Android devices. The game
+  // mixes in 5.33 ms blocks and benefits more from clean, steady playback than
+  // the smallest possible output latency.
+  SDL_SetHint(SDL_HINT_ANDROID_LOW_LATENCY_AUDIO, "0");
+#endif
 
   // Set app name for audio device identification
   SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_NAME_STRING, "rexglue");

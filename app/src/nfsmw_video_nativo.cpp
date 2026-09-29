@@ -97,6 +97,7 @@ uint64_t FotogramasNativos() {
 namespace {
 
 using video_wmv3::DescodificadorWmv3;
+using video_wmv3::AudioWmaPro;
 using video_wmv3::Fotograma;
 using video_wmv3::InfoWmv;
 
@@ -363,6 +364,7 @@ struct Pelicula {
   uint32_t obj = 0;
   std::string ruta;
   DescodificadorWmv3 dec;
+  AudioWmaPro audio;
   bool preparada = false;      // FFmpeg open and the game's configuration known
   bool desincronizado = true;  // FFmpeg is waiting for an I frame
   // The game's videos are I and P frames without the loop filter, and its decoder works as a fallback. In the
@@ -441,6 +443,9 @@ Pelicula& PeliculaDe(const uint8_t* base, uint32_t obj) {
   // With the diagnostics, FFmpeg is opened even if the configuration is different: the shadow compares anyway.
   const bool comparar = REXCVAR_GET(nfsmw_video_wmv3_sombra) || REXCVAR_GET(nfsmw_video_wmv3_b_diag);
   p.preparada = info_ok && (config_ok || comparar) && p.dec.Abrir(info) && config_ok;
+  if (!p.ruta.empty()) {
+    p.audio.Abrir(p.ruta);
+  }
   const auto& s = info.secuencia;
   REXLOG_INFO("[video] WMV3: contexto {:08X} -> '{}' {}x{} secuencia {:02X}{:02X}{:02X}{:02X}; filtro de bloques {}, "
               "fotogramas B {}; configuracion {}; FFmpeg {}",
