@@ -757,7 +757,16 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
     }
     // Step C5a: the NFSSPV library sits next to the executable (it is built from the game
     // data, so it is not distributed). Without it the game still runs, without identification.
-    if (shaders_.Cargar(rex::filesystem::GetExecutableFolder() / "nfsmw_shaders.nfsp")) {
+    // Next to the executable (the app folder on Android) or, failing that, with the game files, where it
+    // is easier to copy on a phone.
+    std::filesystem::path biblioteca = rex::filesystem::GetExecutableFolder() / "nfsmw_shaders.nfsp";
+    if (std::error_code ec; !std::filesystem::is_regular_file(biblioteca, ec)) {
+      const std::string juego = rex::cvar::GetFlagByName("game_data_root");
+      if (!juego.empty() && std::filesystem::is_regular_file(std::filesystem::path(juego) / "nfsmw_shaders.nfsp", ec)) {
+        biblioteca = std::filesystem::path(juego) / "nfsmw_shaders.nfsp";
+      }
+    }
+    if (shaders_.Cargar(biblioteca)) {
       ActivarGanchos(&shaders_);  // step C5b: shader objects and Draw* records
     }
     ultimo_informe_ = Reloj::now();

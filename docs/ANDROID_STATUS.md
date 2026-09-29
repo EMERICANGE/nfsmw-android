@@ -34,3 +34,21 @@ The game code was generated locally: 265 generated C++ files and 79,237 transfor
 On first launch, select the extracted game folder. The importer copies it transactionally to app-private storage and checks for `default.xex`, `NFS/`, and `Movies/`. The game directory copied to the device during earlier setup is expected to remain in the same app storage when the package is updated, but this new launcher has not yet been run against it.
 
 The user plans to reconnect the phone later. The current work stops at a built APK; the phone has not been installed or launched during this build session.
+
+## Performance work (2026-09-29)
+
+The first builds lagged badly in races. There were two causes, and either one alone is enough to make the game slow:
+
+1. **Debug build.** `assembleDebug` compiled the recompiled game code with `-O0 -g` (checked in `compile_commands.json`). The scripts now build `assembleRelease` with `CMAKE_BUILD_TYPE=Release` (`-O3`), ThinLTO over `nfsmw_recomp` and `nfsmw`, and `-march=armv8.2-a` (LSE atomics).
+2. **Emulated GPU.** `nfsmw_renderizador` defaulted to `xenos`, the path that gave 1-3 FPS on the Switch, and no `nfsmw.toml` was read on Android. The APK now ships `assets/nfsmw.toml`, built from the Switch release settings with the native renderer on. `GameActivity` copies it to `files/nfsmw/user/`.
+
+Other changes:
+
+- The SDK's `-ffp-model=strict` became `-ffp-contract=off` on Android. This matches the GCC Switch build: there is still no FMA drift, but FP code can be optimized again.
+- `GetExecutableFolder()` returns `REX_APP_FOLDER` (set by `GameActivity` to `files/nfsmw/user`) on Android. Before this, the pipeline cache, the settings, and the shader library pointed at `/system/bin`.
+- `nfsmw_shaders.nfsp` is also looked up in the game folder. `tools/biblioteca_shaders.mjs` builds it with the installer's WASM tools. For PAL-ES it matches the official SHA-256 `a27aea23…`.
+- The Switch-only defaults are turned on in the toml: `nfsmw_render_sin_mosaico` (one pass without tiling or MSAA) and `nfsmw_cubemap_caras_siempre`.
+- On SoCs with a slow cluster, game threads are kept off it (`nfsmw_android_nucleos_grandes`). The app is declared as a game for the OEM game modes.
+- The touch overlay no longer uses a software layer, and it redraws only when a button changes.
+
+First run on a Galaxy S25 Ultra (SM8750 / Adreno 830) with the native renderer at 1280x720: the image is correct (sky, lighting, smoke, reflections, HUD and menus). SurfaceFlinger timestats over 20 s of the attract race: 62.4 FPS on average, 1,203 frames, 0 dropped, none over 33 ms. The frame limit (`nfsmw_limite_fps = "60"`) sets the pace. A full player-driven race and 1920x1080 are still to be measured.

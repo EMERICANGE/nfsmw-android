@@ -32,6 +32,11 @@
 #include "nfsmw_prueba_entrada.h"
 #include "nfsmw_video_nativo.h"  // HANG WATCHDOG - cutscene frames with FFmpeg
 
+#if REX_PLATFORM_ANDROID
+// android/app/src/main/cpp/android_rendimiento.cpp
+extern "C" void nfsmw_android_nucleos_grandes_aplicar();
+#endif
+
 class NfsmwApp : public rex::ReXApp {
  public:
   using rex::ReXApp::ReXApp;
@@ -136,6 +141,13 @@ class NfsmwApp : public rex::ReXApp {
 
   void OnConfigurePaths(rex::PathConfig& paths) override {
     ElegirCarpetaDeGuardados(paths.user_data_root);
+#if REX_PLATFORM_ANDROID
+    // The "executable" is app_process under /system/bin: nfsmw.toml lives in the user data folder, where
+    // GameActivity copies the Android settings from the APK.
+    if (!paths.user_data_root.empty()) {
+      paths.config_path = paths.user_data_root / "nfsmw.toml";
+    }
+#endif
     if (!paths.game_data_root.empty()) {
       return;  // given on the command line; it takes precedence.
     }
@@ -220,6 +232,10 @@ class NfsmwApp : public rex::ReXApp {
   //                          before a single frame has been drawn.
   // ==========================================================================
   void OnPostInitLogging() override {
+#if REX_PLATFORM_ANDROID
+    // Before any game thread exists: they inherit the mask (nfsmw_android_nucleos_grandes).
+    nfsmw_android_nucleos_grandes_aplicar();
+#endif
     // Mesa/NVK environment variables (nfsmw_mesa_entorno): the toml has already been read and Vulkan is
     // created later, in SetupPresentation.
     nfsmw::entorno::AplicarEntornoMesa();

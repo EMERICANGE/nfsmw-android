@@ -20,9 +20,10 @@
 
 #include <SDL3/SDL.h>
 
-// Updated by the Android touch overlay; ignored on other platforms.
-extern "C" void rex_sdl_set_touch_gamepad_state(uint16_t buttons, int16_t steering,
-                                                 uint8_t brake, uint8_t throttle);
+// Updated by the Android touch overlay; ignored on other platforms. Buttons use the XInput bits.
+extern "C" void rex_sdl_set_touch_gamepad_state(uint16_t buttons, int16_t left_x, int16_t left_y,
+                                                 int16_t right_x, int16_t right_y,
+                                                 uint8_t left_trigger, uint8_t right_trigger);
 
 #define HID_SDL_THUMB_THRES 0x4E00
 #define HID_SDL_TRIGG_THRES 0x1F

@@ -143,7 +143,9 @@ add_compile_options(
     -fno-strict-aliasing
     # GCC has no -ffp-model. What matters is no FP contraction: with it, GCC
     # fuses multiply-add into FMA on aarch64 and results drift from the PPC.
-    $<IF:$<CXX_COMPILER_ID:GNU>,-ffp-contract=off,-ffp-model=strict>
+    # Android (clang) gets the same as the Switch build: no contraction, but not -ffp-model=strict, whose
+    # constrained FP (strict exception semantics) blocks vectorization, hoisting and CSE of FP code.
+    $<IF:$<OR:$<CXX_COMPILER_ID:GNU>,$<BOOL:${ANDROID}>>,-ffp-contract=off,-ffp-model=strict>
     $<$<CONFIG:DEBUG>:-g>
     $<$<CONFIG:DEBUG>:-O0>
     $<$<CONFIG:RELEASE>:-O3>

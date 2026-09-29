@@ -6,6 +6,8 @@
     <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00400000" android:required="false" />
     <application
         android:allowBackup="false"
+        android:appCategory="game"
+        android:isGame="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Need for Speed Most Wanted"
         android:roundIcon="@mipmap/ic_launcher"
@@ -14,6 +16,7 @@
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="sensorLandscape"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,6 +27,6 @@
             android:name=".GameActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:exported="false"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
     </application>
 </manifest>

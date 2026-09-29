@@ -24,9 +24,11 @@ if ($env:ANDROID_HOME) {
 
 Push-Location (Join-Path $repoRoot 'android')
 try {
-    & $wrapper assembleDebug
+    # Gradle and javac print warnings on stderr; with 'Stop' PowerShell would abort on the first one.
+    $ErrorActionPreference = 'Continue'
+    & $wrapper assembleRelease
     if ($LASTEXITCODE -ne 0) { throw "Gradle build failed with exit code $LASTEXITCODE" }
-    $apk = Join-Path $repoRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
+    $apk = Join-Path $repoRoot 'android\app\build\outputs\apk\release\app-release.apk'
     Write-Host "APK: $apk"
 } finally {
     Pop-Location

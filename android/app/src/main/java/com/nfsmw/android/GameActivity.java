@@ -1,181 +1,476 @@
 package com.nfsmw.android;
 
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.hardware.input.InputManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.content.pm.ActivityInfo;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Typeface;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.Display;
 import android.view.Gravity;
+import android.view.InputDevice;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.SeekBar;
+import android.widget.Switch;
+import android.widget.TextView;
 
 import org.libsdl.app.SDLActivity;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 
-public final class GameActivity extends SDLActivity {
+public final class GameActivity extends SDLActivity
+        implements TouchControlsView.Host, InputManager.InputDeviceListener, SensorEventListener {
+    private static final String TAG = "NFSMW";
+    private static final String SETTINGS = "nfsmw.toml";
+
     private String gameRoot;
     private String userRoot;
     private String cacheRoot;
+    private TouchControlsView controls;
+    private LinearLayout toolbar;
+    private InputManager inputManager;
+    private SensorManager sensorManager;
+    private Sensor gravity;
+
+    private static native void nativeSetStretch(boolean stretch);
 
     @Override
     protected void onCreate(Bundle state) {
         File appRoot = new File(getFilesDir(), "nfsmw");
-        gameRoot = new File(Environment.getExternalStorageDirectory(), "nsfmw-androidevolved").getAbsolutePath();
+        gameRoot = new File(Environment.getExternalStorageDirectory(), MainActivity.GAME_FOLDER_NAME).getAbsolutePath();
         userRoot = new File(appRoot, "user").getAbsolutePath();
         cacheRoot = new File(appRoot, "cache").getAbsolutePath();
         new File(userRoot).mkdirs();
         new File(cacheRoot).mkdirs();
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        // The native side keeps nfsmw.toml, the pipeline cache and its logs in the "executable folder", which
+        // for app_process would be /system/bin (see GetExecutableFolder in filesystem_posix.cpp).
+        try {
+            Os.setenv("REX_APP_FOLDER", userRoot, true);
+        } catch (ErrnoException e) {
+            Log.w(TAG, "REX_APP_FOLDER", e);
+        }
+        installSettings();
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         super.onCreate(state);
-        FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT,
-                Gravity.FILL);
+        useWholeScreen();
+
         ViewGroup root = findViewById(android.R.id.content);
-        root.addView(new TouchControls(this), overlayParams);
+        controls = new TouchControlsView(this);
+        controls.setHost(this);
+        root.addView(controls, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.FILL));
+        toolbar = buildToolbar();
+        toolbar.setVisibility(View.GONE);
+        // In the middle of the screen, the one area the default layout leaves free, so no control hides under it.
+        FrameLayout.LayoutParams barParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        root.addView(toolbar, barParams);
+
+        inputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager != null) {
+            gravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+            if (gravity == null) {
+                gravity = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            }
+        }
     }
 
-    private static native void nativeSetTouchState(int buttons, int steering,
-                                                   int brake, int throttle);
+    // SDL picks an orientation from the window size when it creates its window; the game is landscape only.
+    @Override
+    public void setOrientationBis(int w, int h, boolean resizable, String hint) {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    }
 
-    private static final class TouchControls extends View {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private float steering;
-        private boolean up, down, left, right;
-        private boolean gas, brake, nitro, handbrake, start;
-        private boolean camera, lookBack;
-        private float width, height;
-
-        TouchControls(GameActivity activity) {
-            super(activity);
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            setClickable(true);
+    // The image and the controls use all of the panel, camera cutout included, at its highest refresh rate
+    // when the FPS limit asks for more than 60.
+    private void useWholeScreen() {
+        WindowManager.LayoutParams attrs = getWindow().getAttributes();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            attrs.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            width = getWidth();
-            height = getHeight();
-            float scale = Math.min(width / 900f, height / 440f);
-            float radius = 35f * scale;
-
-            drawButton(canvas, width * .105f, height * .76f, radius, "<\nIZQ", left, scale, false);
-            drawButton(canvas, width * .255f, height * .76f, radius, ">\nDER", right, scale, false);
-            drawButton(canvas, width * .18f, height * .56f, radius, "^\nARRIBA", up, scale, false);
-            drawButton(canvas, width * .18f, height * .91f, radius, "v\nABAJO", down, scale, false);
-            drawButton(canvas, width * .87f, height * .76f, radius * 1.75f, "GAS", gas, scale, true);
-            drawButton(canvas, width * .73f, height * .84f, radius * 1.38f, "FRENO", brake, scale, true);
-            drawButton(canvas, width * .84f, height * .49f, radius * 1.22f, "B\nATRAS / N2O", nitro, scale, true);
-            drawButton(canvas, width * .75f, height * .49f, radius * 1.05f, "A\nACEPTAR / MANO", handbrake, scale, true);
-            drawButton(canvas, width * .95f, height * .18f, radius * .88f, "START", start, scale, true);
-            drawButton(canvas, width * .75f, height * .24f, radius * .86f, "X\nCAMARA", camera, scale, true);
-            drawButton(canvas, width * .88f, height * .24f, radius * .86f, "Y\nATRAS", lookBack, scale, true);
-
-            paint.setColor(0xD9FFFFFF);
-            paint.setTypeface(Typeface.DEFAULT_BOLD);
-            paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTextSize(10f * scale);
-            canvas.drawText("DIRECCION", width * .18f, height * .39f, paint);
-            canvas.drawText("CONDUCCION", width * .80f, height * .13f, paint);
-        }
-
-        private void drawButton(Canvas canvas, float x, float y, float radius,
-                                String label, boolean pressed, float scale, boolean action) {
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(0x55000000);
-            canvas.drawCircle(x, y + 3f * scale, radius + 2f * scale, paint);
-            paint.setColor(pressed ? 0xE6FF9A32 : (action ? 0xA9202B38 : 0x9E18232E));
-            canvas.drawCircle(x, y, radius, paint);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(Math.max(1.5f, 1.3f * scale));
-            paint.setColor(pressed ? 0xFFFFD18A : 0xBFEAF2FA);
-            canvas.drawCircle(x, y, radius, paint);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setTypeface(Typeface.DEFAULT_BOLD);
-            paint.setTextAlign(Paint.Align.CENTER);
-            String[] lines = label.split("\n");
-            float lineHeight = 14f * scale;
-            float y0 = y - (lines.length - 1) * lineHeight * .5f;
-            for (int i = 0; i < lines.length; i++) {
-                paint.setTextSize((i == 0 && lines.length > 1 ? 12f : 8f) * scale);
-                canvas.drawText(lines[i], x, y0 + i * lineHeight + paint.getTextSize() * .34f, paint);
+        int fps = Integer.parseInt(GameOptions.get(this, GameOptions.FPS));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Display display = getWindowManager().getDefaultDisplay();
+            Display.Mode best = null;
+            for (Display.Mode mode : display.getSupportedModes()) {
+                if (mode.getPhysicalWidth() != display.getMode().getPhysicalWidth()) {
+                    continue;
+                }
+                // The lowest mode that still shows every frame the game makes.
+                if (mode.getRefreshRate() + 0.5f >= fps &&
+                        (best == null || mode.getRefreshRate() < best.getRefreshRate())) {
+                    best = mode;
+                }
+            }
+            if (best != null) {
+                attrs.preferredDisplayModeId = best.getModeId();
             }
         }
+        getWindow().setAttributes(attrs);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
 
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            if (width <= 0 || height <= 0) {
-                width = getWidth();
-                height = getHeight();
-            }
-            if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                clearState();
-                return true;
-            }
-            steering = 0f;
-            up = down = left = right = false;
-            gas = brake = nitro = handbrake = start = camera = lookBack = false;
-            for (int i = 0; i < event.getPointerCount(); i++) {
-                if ((event.getActionMasked() == MotionEvent.ACTION_UP ||
-                        event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) &&
-                        i == event.getActionIndex()) continue;
-                float x = event.getX(i) / width;
-                float y = event.getY(i) / height;
-                float radius = 37f * Math.min(width / 900f, height / 440f);
-                if (inside(x, y, .105f, .76f, radius)) left = true;
-                else if (inside(x, y, .255f, .76f, radius)) right = true;
-                else if (inside(x, y, .18f, .56f, radius)) up = true;
-                else if (inside(x, y, .18f, .91f, radius)) down = true;
-                else if (x > .79f && y > .56f) gas = true;
-                else if (x > .64f && x < .80f && y > .66f) brake = true;
-                else if (x > .77f && x < .92f && y > .34f && y < .62f) nitro = true;
-                else if (x > .67f && x < .82f && y > .36f && y < .62f) handbrake = true;
-                else if (x > .68f && x < .82f && y > .13f && y < .35f) camera = true;
-                else if (x > .82f && x < .94f && y > .13f && y < .35f) lookBack = true;
-                else if (x > .90f && y < .34f) start = true;
-            }
-            steering = left ? -1f : (right ? 1f : 0f);
-            updateNativeState();
-            invalidate();
-            return true;
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (inputManager != null) {
+            inputManager.registerInputDeviceListener(this, null);
+            refreshGamepads();
         }
+        updateTiltListener();
+        applyStretch(controls.stretch);
+    }
 
-        private void clearState() {
-            steering = 0f;
-            up = down = left = right = false;
-            gas = brake = nitro = handbrake = start = camera = lookBack = false;
-            updateNativeState();
-            invalidate();
-        }
-
-        private void updateNativeState() {
-            int buttons = (up ? 0x0001 : 0) | (down ? 0x0002 : 0) |
-                    (left ? 0x0004 : 0) | (right ? 0x0008 : 0) |
-                    (start ? 0x0010 : 0) | (handbrake ? 0x1000 : 0) |
-                    (nitro ? 0x2000 : 0) | (camera ? 0x4000 : 0) |
-                    (lookBack ? 0x8000 : 0);
-            nativeSetTouchState(buttons, Math.round(steering * 32767f),
-                    brake ? 255 : 0, gas ? 255 : 0);
-        }
-
-        private boolean inside(float x, float y, float centerX, float centerY, float radius) {
-            float dx = (x - centerX) * width;
-            float dy = (y - centerY) * height;
-            return dx * dx + dy * dy <= radius * radius;
+    private static void applyStretch(boolean stretch) {
+        try {
+            nativeSetStretch(stretch);
+        } catch (UnsatisfiedLinkError e) {
+            Log.w(TAG, "libmain no cargada", e);
         }
     }
 
     @Override
+    protected void onPause() {
+        if (inputManager != null) {
+            inputManager.unregisterInputDeviceListener(this);
+        }
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(this);
+        }
+        if (controls.isEditing()) {
+            controls.setEditing(false);
+        }
+        super.onPause();
+    }
+
+    @Override
     protected String[] getArguments() {
-        return new String[] {
-                "--game_data_root=" + gameRoot,
-                "--user_data_root=" + userRoot,
-                "--cache_root=" + cacheRoot
-        };
+        List<String> args = new ArrayList<>();
+        args.add("--game_data_root=" + gameRoot);
+        args.add("--user_data_root=" + userRoot);
+        args.add("--cache_root=" + cacheRoot);
+        // The launcher's graphics options win over nfsmw.toml.
+        args.addAll(GameOptions.arguments(this));
+        if (getSharedPreferences("nfsmw_controls", MODE_PRIVATE).getBoolean("stretch", true)) {
+            args.add("--present_letterbox=false");
+            args.add("--present_safe_area_x=100");
+            args.add("--present_safe_area_y=100");
+        }
+        return args.toArray(new String[0]);
+    }
+
+    // ---- Physical gamepads ---------------------------------------------------------------------------------
+
+    private static boolean isGamepad(InputDevice device) {
+        if (device == null || device.isVirtual()) {
+            return false;
+        }
+        int sources = device.getSources();
+        return (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+                (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+    }
+
+    private void refreshGamepads() {
+        boolean any = false;
+        for (int id : inputManager.getInputDeviceIds()) {
+            any |= isGamepad(inputManager.getInputDevice(id));
+        }
+        if (any) {
+            controls.onGamepadActive();
+        } else {
+            controls.onGamepadGone();
+        }
+    }
+
+    @Override
+    public void onInputDeviceAdded(int deviceId) {
+        refreshGamepads();
+    }
+
+    @Override
+    public void onInputDeviceRemoved(int deviceId) {
+        refreshGamepads();
+    }
+
+    @Override
+    public void onInputDeviceChanged(int deviceId) {
+        refreshGamepads();
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (isGamepad(event.getDevice())) {
+            controls.onGamepadActive();
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (isGamepad(event.getDevice())) {
+            controls.onGamepadActive();
+        }
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    // ---- Tilt steering -------------------------------------------------------------------------------------
+
+    private void updateTiltListener() {
+        if (sensorManager == null || gravity == null) {
+            return;
+        }
+        sensorManager.unregisterListener(this);
+        if (controls.tiltSteering) {
+            sensorManager.registerListener(this, gravity, SensorManager.SENSOR_DELAY_GAME);
+        }
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        // The "up" of the world in screen coordinates; turning the phone like a wheel rotates it.
+        float gx = event.values[0], gy = event.values[1];
+        int rotation = getWindowManager().getDefaultDisplay().getRotation();
+        float ux, uy;
+        if (rotation == Surface.ROTATION_270) {
+            ux = -gx;
+            uy = -gy;
+        } else {
+            ux = gx;
+            uy = gy;
+        }
+        double degrees = Math.toDegrees(Math.atan2(uy, ux));
+        controls.setTilt((float) (degrees / 30.0));
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    }
+
+    // ---- Layout editor -------------------------------------------------------------------------------------
+
+    @Override
+    public void onEditModeChanged(boolean editing) {
+        toolbar.setVisibility(editing ? View.VISIBLE : View.GONE);
+    }
+
+    private LinearLayout buildToolbar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.VERTICAL);
+        bar.setGravity(Gravity.CENTER_HORIZONTAL);
+        bar.setPadding(dp(10), dp(6), dp(10), dp(8));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xE6121A22);
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(dp(1), 0x55FFFFFF);
+        bar.setBackground(bg);
+
+        TextView hint = new TextView(this);
+        hint.setText("Toca un control para elegirlo · arrástralo para moverlo · pellizca para cambiar su tamaño");
+        hint.setTextColor(0xCCFFFFFF);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        hint.setGravity(Gravity.CENTER);
+        bar.addView(hint);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.addView(toolButton("Tamaño −", v -> controls.resizeSelected(1f / 1.12f)));
+        row.addView(toolButton("Tamaño +", v -> controls.resizeSelected(1.12f)));
+        row.addView(toolButton("Mostrar / ocultar", v -> controls.toggleSelectedVisible()));
+        row.addView(toolButton("Ajustes", v -> showSettings()));
+        row.addView(toolButton("Restablecer", v -> confirmReset()));
+        Button done = toolButton("Listo", v -> controls.setEditing(false));
+        ((GradientDrawable) done.getBackground()).setColor(0xFFE07B00);
+        row.addView(done);
+        bar.addView(row);
+        return bar;
+    }
+
+    private Button toolButton(String label, View.OnClickListener onClick) {
+        Button b = new Button(this);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        b.setPadding(dp(12), dp(6), dp(12), dp(6));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xFF2A3440);
+        bg.setCornerRadius(dp(10));
+        b.setBackground(bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(4), dp(6), dp(4), 0);
+        b.setLayoutParams(lp);
+        b.setOnClickListener(onClick);
+        return b;
+    }
+
+    private void confirmReset() {
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Restablecer controles")
+                .setMessage("¿Volver a la posición y el tamaño originales de todos los controles?")
+                .setPositiveButton("Restablecer", (d, w) -> controls.resetLayout())
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void showSettings() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(8), dp(20), dp(8));
+
+        panel.addView(toggle("Imagen estirada a toda la pantalla", controls.stretch, on -> {
+            controls.stretch = on;
+            applyStretch(on);
+        }));
+        panel.addView(toggle("Vibrar al pulsar", controls.haptics, on -> controls.haptics = on));
+        panel.addView(toggle("Ocultar los controles al usar un mando", controls.hideWithGamepad,
+                on -> controls.hideWithGamepad = on));
+        panel.addView(toggle("Dirección inclinando el teléfono", controls.tiltSteering, on -> {
+            controls.tiltSteering = on;
+            updateTiltListener();
+        }));
+        panel.addView(slider("Sensibilidad de la inclinación", 50, 250,
+                Math.round(controls.tiltSensitivity * 100), v -> controls.tiltSensitivity = v / 100f));
+        panel.addView(slider("Opacidad de los controles", 15, 100,
+                Math.round(controls.opacity * 100), v -> {
+                    controls.opacity = v / 100f;
+                    controls.invalidate();
+                }));
+
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Ajustes de los controles")
+                .setView(panel)
+                .setPositiveButton("Cerrar", (d, w) -> controls.save())
+                .setOnDismissListener(d -> controls.save())
+                .show();
+    }
+
+    private interface OnToggle {
+        void set(boolean on);
+    }
+
+    private interface OnValue {
+        void set(int value);
+    }
+
+    private View toggle(String label, boolean value, OnToggle onToggle) {
+        Switch s = new Switch(this);
+        s.setText(label);
+        s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        s.setChecked(value);
+        s.setPadding(0, dp(8), 0, dp(8));
+        s.setOnCheckedChangeListener((v, on) -> onToggle.set(on));
+        return s;
+    }
+
+    private View slider(String label, int min, int max, int value, OnValue onValue) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(0, dp(8), 0, dp(4));
+        TextView title = new TextView(this);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        box.addView(title);
+        SeekBar bar = new SeekBar(this);
+        bar.setMax(max - min);
+        bar.setProgress(Math.max(0, Math.min(max - min, value - min)));
+        title.setText(label + ": " + value + " %");
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                title.setText(label + ": " + (progress + min) + " %");
+                onValue.set(progress + min);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar s) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar s) {
+            }
+        });
+        box.addView(bar);
+        return box;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    // ---- Settings file -------------------------------------------------------------------------------------
+
+    // Copies the Android settings from the APK. A copy the player edited is kept: it is only replaced while
+    // it is still the one a previous APK installed.
+    private void installSettings() {
+        File target = new File(userRoot, SETTINGS);
+        SharedPreferences prefs = getSharedPreferences("nfsmw", MODE_PRIVATE);
+        try {
+            byte[] bundled = readAll(getAssets().open(SETTINGS));
+            String bundledHash = sha256(bundled);
+            String installedHash = prefs.getString("settings_sha256", "");
+            if (target.isFile()) {
+                String currentHash = sha256(readAll(new FileInputStream(target)));
+                if (currentHash.equals(bundledHash) || !currentHash.equals(installedHash)) {
+                    return;
+                }
+            }
+            try (OutputStream out = new FileOutputStream(target)) {
+                out.write(bundled);
+            }
+            prefs.edit().putString("settings_sha256", bundledHash).apply();
+        } catch (IOException | NoSuchAlgorithmException e) {
+            Log.w(TAG, "No se pudo instalar " + SETTINGS, e);
+        }
+    }
+
+    private static byte[] readAll(InputStream in) throws IOException {
+        try (InputStream stream = in; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[16384];
+            for (int n; (n = stream.read(buffer)) > 0; ) {
+                out.write(buffer, 0, n);
+            }
+            return out.toByteArray();
+        }
+    }
+
+    private static String sha256(byte[] data) throws NoSuchAlgorithmException {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(data)) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
     }
 }

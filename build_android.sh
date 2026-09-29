@@ -9,5 +9,5 @@ fi
 wrapper="$repo_root/android/gradlew"
 [ -x "$wrapper" ] || { echo 'Gradle wrapper is missing or not executable.' >&2; exit 1; }
 cd "$repo_root/android"
-"$wrapper" assembleDebug
-printf 'APK: %s\n' "$repo_root/android/app/build/outputs/apk/debug/app-debug.apk"
+"$wrapper" assembleRelease
+printf 'APK: %s\n' "$repo_root/android/app/build/outputs/apk/release/app-release.apk"

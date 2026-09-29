@@ -14,7 +14,8 @@ set(SDL_SHARED ON CACHE BOOL "SDL shared library loaded by SDLActivity" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "Use SDL's shared Android library" FORCE)
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../../../../app" "nfsmw-app")
-target_sources(nfsmw PRIVATE "${CMAKE_CURRENT_LIST_DIR}/android_touch.cpp")
+target_sources(nfsmw PRIVATE "${CMAKE_CURRENT_LIST_DIR}/android_touch.cpp"
+                             "${CMAKE_CURRENT_LIST_DIR}/android_rendimiento.cpp")
 
 if(TARGET SDL3-shared)
     # SDLActivity calls System.loadLibrary("SDL3") in every build variant.
@@ -32,3 +33,21 @@ endif()
 # The game never needs to access the extracted disc through a SAF URI. Java
 # imports it into app-private POSIX storage before GameActivity starts.
 target_link_options(nfsmw PRIVATE "-Wl,-z,max-page-size=16384")
+
+# ThinLTO over the translated game and the app, as the Switch build does with GCC's LTO. The generated code
+# already calls __imp__sub_X directly (tools/llamadas_directas.py), so clang can inline game functions across
+# the 265 files. Release only: in Debug it would just slow the link down.
+option(NFSMW_ANDROID_LTO "ThinLTO en el codigo del juego y de la app (Android, Release)" ON)
+if(NFSMW_ANDROID_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    foreach(objetivo nfsmw_recomp nfsmw)
+        if(TARGET ${objetivo})
+            target_compile_options(${objetivo} PRIVATE -flto=thin)
+        endif()
+    endforeach()
+    cmake_host_system_information(RESULT NFSMW_NUCLEOS QUERY NUMBER_OF_LOGICAL_CORES)
+    target_link_options(nfsmw PRIVATE -flto=thin "-Wl,--thinlto-jobs=${NFSMW_NUCLEOS}"
+                        "-Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/thinlto-cache")
+    # Hot code together, as orden_funciones.ld does on the Switch; lld has no section ordering file for GCC,
+    # but it can keep the text of each function in its own section and drop the unused ones.
+    target_link_options(nfsmw PRIVATE -Wl,--gc-sections -Wl,--icf=safe)
+endif()

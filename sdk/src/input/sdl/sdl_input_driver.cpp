@@ -30,19 +30,32 @@ namespace {
 
 // SDL clamps to SDL_MAX_RUMBLE_DURATION_MS, which is not a public constant.
 constexpr uint32_t kRumbleDurationMs = 0xFFFF;
-std::atomic<uint16_t> g_touch_buttons{0};
-std::atomic<int16_t> g_touch_steering{0};
-std::atomic<uint8_t> g_touch_brake{0};
-std::atomic<uint8_t> g_touch_throttle{0};
+// The touch pad packed in two atomic words (sticks; buttons and triggers): no lock with the UI thread.
+struct TouchPad {
+  uint16_t buttons;
+  int16_t lx, ly, rx, ry;
+  uint8_t lt, rt;
+};
+std::atomic<uint64_t> g_touch_sticks{0};  // lx, ly, rx, ry
+std::atomic<uint32_t> g_touch_rest{0};    // buttons | lt << 16 | rt << 24
+
+TouchPad LeerTouch() {
+  const uint64_t s = g_touch_sticks.load(std::memory_order_acquire);
+  const uint32_t r = g_touch_rest.load(std::memory_order_acquire);
+  return {uint16_t(r), int16_t(s), int16_t(s >> 16), int16_t(s >> 32), int16_t(s >> 48),
+          uint8_t(r >> 16), uint8_t(r >> 24)};
+}
 
 }  // namespace
 
-extern "C" void rex_sdl_set_touch_gamepad_state(uint16_t buttons, int16_t steering,
-                                                 uint8_t brake, uint8_t throttle) {
-  g_touch_buttons.store(buttons, std::memory_order_relaxed);
-  g_touch_steering.store(steering, std::memory_order_relaxed);
-  g_touch_brake.store(brake, std::memory_order_relaxed);
-  g_touch_throttle.store(throttle, std::memory_order_relaxed);
+extern "C" void rex_sdl_set_touch_gamepad_state(uint16_t buttons, int16_t left_x, int16_t left_y,
+                                                 int16_t right_x, int16_t right_y,
+                                                 uint8_t left_trigger, uint8_t right_trigger) {
+  g_touch_sticks.store(uint64_t(uint16_t(left_x)) | uint64_t(uint16_t(left_y)) << 16 |
+                           uint64_t(uint16_t(right_x)) << 32 | uint64_t(uint16_t(right_y)) << 48,
+                       std::memory_order_release);
+  g_touch_rest.store(uint32_t(buttons) | uint32_t(left_trigger) << 16 | uint32_t(right_trigger) << 24,
+                     std::memory_order_release);
 }
 
 SDLInputDriver::SDLInputDriver(rex::ui::Window* window, size_t window_z_order)
@@ -244,11 +257,14 @@ X_RESULT SDLInputDriver::GetDeviceState(DeviceId id, X_INPUT_STATE* out_state) {
 
   if (controller->is_touch) {
     const auto old_gamepad = controller->state.gamepad;
-    controller->state.gamepad.buttons = g_touch_buttons.load(std::memory_order_relaxed);
-    controller->state.gamepad.thumb_lx = g_touch_steering.load(std::memory_order_relaxed);
-    controller->state.gamepad.thumb_ly = 0;
-    controller->state.gamepad.left_trigger = g_touch_brake.load(std::memory_order_relaxed);
-    controller->state.gamepad.right_trigger = g_touch_throttle.load(std::memory_order_relaxed);
+    const TouchPad pad = LeerTouch();
+    controller->state.gamepad.buttons = pad.buttons;
+    controller->state.gamepad.thumb_lx = pad.lx;
+    controller->state.gamepad.thumb_ly = pad.ly;
+    controller->state.gamepad.thumb_rx = pad.rx;
+    controller->state.gamepad.thumb_ry = pad.ry;
+    controller->state.gamepad.left_trigger = pad.lt;
+    controller->state.gamepad.right_trigger = pad.rt;
     if (std::memcmp(&old_gamepad, &controller->state.gamepad, sizeof(old_gamepad)) != 0) {
       controller->state_changed = true;
     }

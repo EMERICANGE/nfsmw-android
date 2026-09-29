@@ -1,6 +1,15 @@
 package com.nfsmw.android;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.util.TypedValue;
+import android.widget.ImageView;
+import android.widget.ScrollView;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -34,7 +43,7 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_STORAGE_ACCESS = 42;
     private static final int REQUEST_LEGACY_STORAGE = 43;
     private static final String TREE_URI = "tree_uri";
-    private static final String GAME_FOLDER_NAME = "nsfmw-androidevolved";
+    static final String GAME_FOLDER_NAME = "nsfmw-androidevolved";
 
     private TextView importStatus;
     private Button selectFolder;
@@ -45,42 +54,228 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        FrameLayout content = new FrameLayout(this);
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setGravity(Gravity.CENTER);
-        panel.setPadding(28, 24, 28, 24);
-        panel.setBackgroundColor(0xEE101820);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        setContentView(buildScreen());
+        prepareSharedGameFolder();
+    }
 
-        TextView title = new TextView(this);
-        title.setGravity(Gravity.CENTER);
-        title.setTextSize(22);
-        title.setText("Need for Speed: Most Wanted (2005)");
-        importStatus = new TextView(this);
-        importStatus.setGravity(Gravity.CENTER);
-        importStatus.setTextSize(15);
-        importStatus.setPadding(0, 20, 0, 20);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (optionsList != null) {
+            refreshOptions();
+        }
+        if (checksList != null && hasStorageAccess()) {
+            showChecks(sharedGameRoot());
+        }
+    }
 
-        selectFolder = new Button(this);
-        selectFolder.setText("Seleccionar carpeta del juego");
-        selectFolder.setOnClickListener(view -> selectGameFolder());
-        launchGame = new Button(this);
-        launchGame.setText("Jugar");
+    // ---- Screen --------------------------------------------------------------------------------------------
+
+    private static final int ACCENT = 0xFFFF8A00;
+    private LinearLayout checksList;
+    private LinearLayout optionsList;
+
+    private View buildScreen() {
+        FrameLayout screen = new FrameLayout(this);
+        screen.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[] {0xFF0B0F14, 0xFF1C1407, 0xFF0B0F14}));
+
+        LinearLayout columns = new LinearLayout(this);
+        columns.setOrientation(LinearLayout.HORIZONTAL);
+        columns.setPadding(dp(28), dp(16), dp(28), dp(16));
+        screen.addView(columns, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        // Left: logo, game files and the two actions.
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+        left.setGravity(Gravity.CENTER_HORIZONTAL);
+        ScrollView leftScroll = new ScrollView(this);
+        leftScroll.setFillViewport(true);
+        leftScroll.addView(left);
+        columns.addView(leftScroll, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.1f));
+
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.banner);
+        logo.setAdjustViewBounds(true);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        left.addView(logo, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(92)));
+
+        TextView subtitle = label("Xbox 360 · recompilado para Android", 13, 0x99FFFFFF, false);
+        subtitle.setGravity(Gravity.CENTER);
+        left.addView(subtitle, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout card = card();
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardParams.topMargin = dp(12);
+        left.addView(card, cardParams);
+        card.addView(label("ARCHIVOS DEL JUEGO", 12, ACCENT, true));
+        importStatus = label("", 13, 0xDDFFFFFF, false);
+        importStatus.setPadding(0, dp(4), 0, dp(6));
+        card.addView(importStatus);
+        checksList = new LinearLayout(this);
+        checksList.setOrientation(LinearLayout.VERTICAL);
+        card.addView(checksList);
+
+        launchGame = actionButton("JUGAR", true);
         launchGame.setVisibility(View.GONE);
         launchGame.setOnClickListener(view -> startActivity(new Intent(this, GameActivity.class)));
+        LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(62));
+        playParams.topMargin = dp(12);
+        left.addView(launchGame, playParams);
 
-        panel.addView(title, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        panel.addView(importStatus, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        panel.addView(selectFolder, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        panel.addView(launchGame, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        content.addView(panel, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
-        setContentView(content);
-        prepareSharedGameFolder();
+        selectFolder = actionButton("Elegir carpeta del juego", false);
+        selectFolder.setOnClickListener(view -> selectGameFolder());
+        LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46));
+        folderParams.topMargin = dp(10);
+        left.addView(selectFolder, folderParams);
+
+        // Right: graphics options.
+        LinearLayout right = card();
+        LinearLayout.LayoutParams rightParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        rightParams.leftMargin = dp(24);
+        columns.addView(right, rightParams);
+        right.addView(label("OPCIONES GRÁFICAS", 12, ACCENT, true));
+        TextView note = label("Se aplican al iniciar el juego.", 12, 0x88FFFFFF, false);
+        note.setPadding(0, dp(2), 0, dp(4));
+        right.addView(note);
+        ScrollView scroll = new ScrollView(this);
+        optionsList = new LinearLayout(this);
+        optionsList.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(optionsList);
+        right.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        refreshOptions();
+        return screen;
+    }
+
+    private void refreshOptions() {
+        optionsList.removeAllViews();
+        for (GameOptions.Option option : GameOptions.ALL) {
+            String value = GameOptions.get(this, option.key);
+            optionsList.addView(optionRow(option.title, option.label(value), () -> chooseOption(option)));
+        }
+        SharedPreferences controls = getSharedPreferences("nfsmw_controls", MODE_PRIVATE);
+        boolean stretch = controls.getBoolean("stretch", true);
+        optionsList.addView(optionRow("Formato de imagen",
+                stretch ? "Estirada a toda la pantalla" : "Original 16:9", () -> {
+                    controls.edit().putBoolean("stretch", !stretch).apply();
+                    refreshOptions();
+                }));
+    }
+
+    private void chooseOption(GameOptions.Option option) {
+        String current = GameOptions.get(this, option.key);
+        int checked = 0;
+        for (int i = 0; i < option.values.length; i++) {
+            if (option.values[i].equals(current)) checked = i;
+        }
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(option.title)
+                .setSingleChoiceItems(option.labels, checked, (dialog, which) -> {
+                    GameOptions.set(this, option.key, option.values[which]);
+                    dialog.dismiss();
+                    refreshOptions();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private View optionRow(String title, String value, Runnable onClick) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0x14FFFFFF);
+        bg.setCornerRadius(dp(10));
+        row.setBackground(bg);
+        row.setClickable(true);
+        row.setOnClickListener(v -> onClick.run());
+        row.addView(label(title, 14, 0xFFFFFFFF, false),
+                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView current = label(value + "  ›", 13, ACCENT, true);
+        current.setGravity(Gravity.END);
+        row.addView(current);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(6);
+        row.setLayoutParams(lp);
+        return row;
+    }
+
+    private void showChecks(File folder) {
+        checksList.removeAllViews();
+        addCheck("default.xex", new File(folder, "default.xex").isFile(), true);
+        addCheck("Carpeta NFS", new File(folder, "NFS").isDirectory(), true);
+        addCheck("Carpeta Movies", new File(folder, "Movies").isDirectory(), true);
+        addCheck("nfsmw_shaders.nfsp (renderizador nativo)", new File(folder, "nfsmw_shaders.nfsp").isFile(), false);
+    }
+
+    private void addCheck(String name, boolean ok, boolean required) {
+        String mark = ok ? "✓  " : (required ? "✗  " : "!  ");
+        String warning = ok || required ? "" : " · falta: el juego irá muy lento";
+        TextView row = label(mark + name + warning, 13,
+                ok ? 0xFF7CD992 : (required ? 0xFFFF6B6B : 0xFFFFC857), false);
+        row.setPadding(0, dp(2), 0, dp(2));
+        checksList.addView(row);
+    }
+
+    private LinearLayout card() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(12), dp(16), dp(12));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0xCC121A22);
+        bg.setCornerRadius(dp(16));
+        bg.setStroke(dp(1), 0x33FFFFFF);
+        card.setBackground(bg);
+        return card;
+    }
+
+    private Button actionButton(String text, boolean primary) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setTextColor(primary ? 0xFF1A1000 : Color.WHITE);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, primary ? 22 : 15);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setLetterSpacing(primary ? .12f : 0f);
+        GradientDrawable bg = primary
+                ? new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[] {0xFFFFB300, ACCENT})
+                : new GradientDrawable();
+        if (!primary) {
+            bg.setColor(0x22FFFFFF);
+            bg.setStroke(dp(1), 0x55FFFFFF);
+        }
+        bg.setCornerRadius(dp(14));
+        b.setBackground(bg);
+        b.setStateListAnimator(null);
+        return b;
+    }
+
+    private TextView label(String text, int sp, int color, boolean bold) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        t.setTextColor(color);
+        if (bold) {
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+            t.setLetterSpacing(.06f);
+        }
+        return t;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void selectGameFolder() {
@@ -330,14 +525,16 @@ public final class MainActivity extends Activity {
     private void showSharedGameFolder(String notice) {
         File gameRoot = sharedGameRoot();
         selectFolder.setEnabled(true);
+        showChecks(gameRoot);
         if (isValidGameFolder(gameRoot)) {
-            setImportStatus((notice == null ? "" : notice + "\n") +
-                    "El juego está en Memoria interna/" + GAME_FOLDER_NAME + ":\n" + gameRoot.getAbsolutePath());
+            setImportStatus((notice == null ? "" : notice + "\n") + "Memoria interna/" + GAME_FOLDER_NAME);
             launchGame.setVisibility(View.VISIBLE);
+            selectFolder.setText("Cambiar carpeta del juego");
         } else {
-            setImportStatus("Selecciona la carpeta extraída del juego. Se copiará a Memoria interna/" +
-                    GAME_FOLDER_NAME + ":\n" + gameRoot.getAbsolutePath());
+            setImportStatus("Elige la carpeta extraída del juego (con default.xex, NFS y Movies). Se copiará a " +
+                    "Memoria interna/" + GAME_FOLDER_NAME + ".");
             launchGame.setVisibility(View.GONE);
+            selectFolder.setText("Elegir carpeta del juego");
         }
     }
 

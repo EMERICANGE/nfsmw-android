@@ -133,6 +133,13 @@ std::filesystem::path GetExecutablePath() {
 }
 
 std::filesystem::path GetExecutableFolder() {
+#if defined(__ANDROID__)
+  // The process is app_process under /system/bin, which the app can neither read files from nor write to.
+  // The Activity names the app's own folder (settings, shader library, caches, logs) before starting.
+  if (auto carpeta = rex::platform::env::get("REX_APP_FOLDER"); carpeta && !carpeta->empty()) {
+    return std::filesystem::path(*carpeta);
+  }
+#endif
   return GetExecutablePath().parent_path();
 }
 
