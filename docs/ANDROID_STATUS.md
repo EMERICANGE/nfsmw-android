@@ -26,7 +26,7 @@ The Android launcher and JNI library are a bootstrap only. JNI startup logs to L
 
 The bootstrap includes the SDK's `rex/platform.h` and has a compile-time assertion that the NDK build is simultaneously Android, POSIX/Linux-compatible, and ARM64. This validates the SDK's existing platform macro path without claiming that the full SDK runtime is linked.
 
-The launcher has an SAF folder picker and background importer that targets `files/nfsmw/game_root`, checks for `default.xex`, `NFS`, and `Movies`, and swaps a new copy into place only after validation. The provided extracted folder was copied from the workspace to the connected phone and then into the debug app's private data directory at `/data/user/0/com.nfsmw.android.debug/files/nfsmw/game_root`. The private copy is 6.5 GiB with 49 files; the three root markers were checked. The temporary `/sdcard/Download/NFSMW_Source` transfer copy was removed. The picker importer itself still needs a direct UI run; the phone's in-call UI covered the launcher during that check.
+The launcher has an SAF folder picker and background importer that targets `files/nfsmw/game_root`, checks for `default.xex`, `NFS`, and `Movies`, and swaps a new copy into place only after validation. Debug and Release share the application ID `com.nfsmw.android`, so the game directory remains in the same app-private storage across variants. The provided extracted folder was copied from the workspace to the connected phone and then into `/data/user/0/com.nfsmw.android/files/nfsmw/game_root`. The private copy is 6.5 GiB with 49 files; the three root markers were checked. The temporary `/sdcard/Download/NFSMW_Source` transfer copy was removed. The SAF picker/import path compiles but still needs a direct UI run; this initial copy was completed locally on-device after the phone's in-call screen covered the picker.
 
 Verified on 2026-09-29:
 
@@ -37,6 +37,7 @@ Verified on 2026-09-29:
 - Logcat confirmed JNI startup, private directory setup, Vulkan loader API 1.1, and physical device `Adreno (TM) 830`; no `AndroidRuntime` crash was reported.
 - Reinstalled and relaunched after adding `SurfaceView`; Logcat confirmed `Android surface presentation supported by Adreno (TM) 830`.
 - APK inspection confirmed `lib/arm64-v8a/libnfsmw_android.so`.
+- Installed the final package ID `com.nfsmw.android` and verified the copied game's root markers and 49-file count under its private `files/nfsmw/game_root` directory.
 - The initial NDK 27 APK triggered the device's 16 KiB page-size compatibility warning. The build now uses NDK 28.2.13676358 and links the native library with 16 KiB load alignment; `llvm-readelf` confirmed `p_align=0x4000` for its load segments.
 - Confirmed the internal game copy is 6.5 GiB and contains 49 files; no game data was added to the repository or uploaded.
 
