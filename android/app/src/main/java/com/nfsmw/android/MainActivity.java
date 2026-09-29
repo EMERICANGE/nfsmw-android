@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -78,6 +79,10 @@ public final class MainActivity extends Activity {
     private static final int ACCENT = 0xFFFF8A00;
     private LinearLayout checksList;
     private LinearLayout optionsList;
+    private LinearLayout shaderPanel;
+    private ProgressBar shaderProgress;
+    private TextView shaderText;
+    private ShaderBuilder shaderBuilder;
 
     private View buildScreen() {
         FrameLayout screen = new FrameLayout(this);
@@ -122,10 +127,22 @@ public final class MainActivity extends Activity {
         checksList = new LinearLayout(this);
         checksList.setOrientation(LinearLayout.VERTICAL);
         card.addView(checksList);
+        shaderPanel = new LinearLayout(this);
+        shaderPanel.setOrientation(LinearLayout.VERTICAL);
+        shaderPanel.setPadding(0, dp(8), 0, 0);
+        shaderPanel.setVisibility(View.GONE);
+        shaderText = label("", 13, 0xFFFFFFFF, false);
+        shaderPanel.addView(shaderText);
+        shaderProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        shaderProgress.setMax(1000);
+        shaderProgress.setProgressTintList(android.content.res.ColorStateList.valueOf(ACCENT));
+        shaderPanel.addView(shaderProgress, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(10)));
+        card.addView(shaderPanel);
 
         launchGame = actionButton("JUGAR", true);
         launchGame.setVisibility(View.GONE);
-        launchGame.setOnClickListener(view -> startActivity(new Intent(this, GameActivity.class)));
+        launchGame.setOnClickListener(view -> play());
         LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(62));
         playParams.topMargin = dp(12);
@@ -155,6 +172,63 @@ public final class MainActivity extends Activity {
         right.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         refreshOptions();
         return screen;
+    }
+
+    // ---- Shader library ------------------------------------------------------------------------------------
+
+    private void play() {
+        if (ShaderBuilder.hasLibrary(sharedGameRoot())) {
+            startActivity(new Intent(this, GameActivity.class));
+        } else {
+            buildShaders(true);
+        }
+    }
+
+    /** Builds nfsmw_shaders.nfsp from the game files (a minute or two, only once). */
+    private void buildShaders(boolean thenPlay) {
+        if (shaderBuilder != null) {
+            return;
+        }
+        launchGame.setEnabled(false);
+        launchGame.setAlpha(.5f);
+        selectFolder.setEnabled(false);
+        shaderPanel.setVisibility(View.VISIBLE);
+        shaderProgress.setProgress(0);
+        shaderText.setText("Generando los shaders del renderizador nativo (solo la primera vez)…");
+        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        shaderBuilder = new ShaderBuilder(this, sharedGameRoot(), new ShaderBuilder.Listener() {
+            @Override
+            public void onProgress(float fraction, String text) {
+                shaderProgress.setProgress(Math.round(fraction * 1000));
+                shaderText.setText(text);
+            }
+
+            @Override
+            public void onDone(File library) {
+                shadersFinished();
+                shaderPanel.setVisibility(View.GONE);
+                showChecks(sharedGameRoot());
+                if (thenPlay) {
+                    startActivity(new Intent(MainActivity.this, GameActivity.class));
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                shadersFinished();
+                shaderText.setText("No se pudieron generar los shaders: " + message);
+                shaderProgress.setProgress(0);
+            }
+        });
+        shaderBuilder.start();
+    }
+
+    private void shadersFinished() {
+        shaderBuilder = null;
+        getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        launchGame.setEnabled(true);
+        launchGame.setAlpha(1f);
+        selectFolder.setEnabled(true);
     }
 
     private void refreshOptions() {
@@ -217,12 +291,12 @@ public final class MainActivity extends Activity {
         addCheck("default.xex", new File(folder, "default.xex").isFile(), true);
         addCheck("Carpeta NFS", new File(folder, "NFS").isDirectory(), true);
         addCheck("Carpeta Movies", new File(folder, "Movies").isDirectory(), true);
-        addCheck("nfsmw_shaders.nfsp (renderizador nativo)", new File(folder, "nfsmw_shaders.nfsp").isFile(), false);
+        addCheck("Shaders del renderizador nativo", ShaderBuilder.hasLibrary(folder), false);
     }
 
     private void addCheck(String name, boolean ok, boolean required) {
         String mark = ok ? "✓  " : (required ? "✗  " : "!  ");
-        String warning = ok || required ? "" : " · falta: el juego irá muy lento";
+        String warning = ok || required ? "" : " · se generarán al pulsar JUGAR";
         TextView row = label(mark + name + warning, 13,
                 ok ? 0xFF7CD992 : (required ? 0xFFFF6B6B : 0xFFFFC857), false);
         row.setPadding(0, dp(2), 0, dp(2));
@@ -443,12 +517,15 @@ public final class MainActivity extends Activity {
                 File oldPrivateRoot = privateGameRoot();
                 if (oldPrivateRoot.exists()) deleteRecursively(oldPrivateRoot);
                 deleteRecursively(previous);
-                mainHandler.post(() -> showSharedGameFolder(null));
+                mainHandler.post(() -> {
+                    showSharedGameFolder(null);
+                    if (!ShaderBuilder.hasLibrary(sharedGameRoot())) buildShaders(false);
+                });
             } catch (Exception error) {
                 try { deleteRecursively(staging); } catch (IOException ignored) {}
                 mainHandler.post(() -> setImportStatus("Error al importar: " + error.getMessage()));
             } finally {
-                mainHandler.post(() -> selectFolder.setEnabled(true));
+                mainHandler.post(() -> selectFolder.setEnabled(shaderBuilder == null));
             }
         });
     }
@@ -551,6 +628,9 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (shaderBuilder != null) {
+            shaderBuilder.cancel();
+        }
         importer.shutdown();
         super.onDestroy();
     }
