@@ -151,6 +151,11 @@ add_compile_options(
     -fno-char8_t
 )
 
+if(ANDROID)
+    # Keep NDK-produced shared libraries loadable on 16 KiB page-size devices.
+    add_link_options("-Wl,-z,max-page-size=16384")
+endif()
+
 # Platform detection (supports AMD64 and ARM64)
 set(REX_TARGET_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}")
 if(APPLE AND CMAKE_OSX_ARCHITECTURES)
@@ -200,7 +205,7 @@ elseif(APPLE)
     endif()
     add_compile_definitions(REX_PLATFORM_MAC=1)
 else()
-    message(FATAL_ERROR "Unsupported platform. ReXGlue supports Windows, Linux, and macOS only.")
+    message(FATAL_ERROR "Unsupported platform. ReXGlue supports Windows, Linux, macOS, and Android.")
 endif()
 
 # Build config as compile definition (multi-config generators don't know config at configure time)
@@ -209,9 +214,14 @@ add_compile_definitions(REXGLUE_BUILD_CONFIG="$<CONFIG>")
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rex_pch.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rex_version.cmake)
-rex_resolve_version(REXGLUE_FULL_VERSION
-    FLOOR_MAJOR ${PROJECT_VERSION_MAJOR}
-    FLOOR_MINOR ${PROJECT_VERSION_MINOR})
+set(REXGLUE_VERSION_OVERRIDE "" CACHE STRING "Override the version string when embedding ReXGlue in another repository")
+if(REXGLUE_VERSION_OVERRIDE)
+    set(REXGLUE_FULL_VERSION "${REXGLUE_VERSION_OVERRIDE}")
+else()
+    rex_resolve_version(REXGLUE_FULL_VERSION
+        FLOOR_MAJOR ${PROJECT_VERSION_MAJOR}
+        FLOOR_MINOR ${PROJECT_VERSION_MINOR})
+endif()
 
 # Strip the -id trailer (if any) for the numeric-only version.
 string(REGEX REPLACE "-.*$" "" REXGLUE_NUMERIC_VERSION "${REXGLUE_FULL_VERSION}")
@@ -313,7 +323,9 @@ message(STATUS "  Perf Counters: ${REXGLUE_ENABLE_PERF_COUNTERS}")
 message(STATUS "===========================================")
 
 # SDK install/export rules (skipped when consumed as a subdirectory)
-if(PROJECT_IS_TOP_LEVEL)
+if(PROJECT_IS_TOP_LEVEL AND ANDROID)
+    message(STATUS "Skipping desktop SDK install/export rules for the Android cross-build")
+elseif(PROJECT_IS_TOP_LEVEL)
     include(cmake/rexglue_devenv.cmake)
     include(cmake/rexglue_install.cmake)
 else()

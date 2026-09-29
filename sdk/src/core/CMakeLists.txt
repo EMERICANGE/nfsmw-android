@@ -24,6 +24,12 @@ add_library(rexcore OBJECT
 )
 add_library(rex::core ALIAS rexcore)
 
+if(ANDROID)
+    # Bionic omits makecontext/swapcontext. The AAPCS64 backend is shared with
+    # Switch, but does not depend on libnx.
+    target_sources(rexcore PRIVATE fiber_switch.cpp)
+endif()
+
 if(APPLE)
     # Apple's libc++ still gates std::jthread/std::stop_token behind the
     # experimental-library feature flag. Only timer_queue.cpp uses them, and
@@ -125,7 +131,11 @@ target_include_directories(rexcore PRIVATE
     ${PROJECT_SOURCE_DIR}/thirdparty/cli11/include
 )
 
-if(APPLE)
+if(ANDROID)
+    # Bionic provides pthread and real-time APIs through libc; only dl is a
+    # separate NDK link target here.
+    target_link_libraries(rexcore PRIVATE dl)
+elseif(APPLE)
     target_link_libraries(rexcore PRIVATE pthread)
 elseif(UNIX)
     target_link_libraries(rexcore PRIVATE pthread rt dl)

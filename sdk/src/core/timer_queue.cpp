@@ -13,7 +13,7 @@
 #include <condition_variable>
 #include <forward_list>
 #include <mutex>
-#include <stop_token>
+#include <thread>
 
 #include <rex/assert.h>
 #include <rex/thread.h>
@@ -38,17 +38,22 @@ class TimerQueue {
 
  public:
   TimerQueue() {
-    dispatch_thread_ =
-        std::jthread([this](std::stop_token stop_token) { TimerThreadMain(stop_token); });
+    dispatch_thread_ = std::thread([this] { TimerThreadMain(); });
   }
 
   ~TimerQueue() {
-    // Wakes the dispatch thread out of its wait; std::jthread joins on
-    // destruction, before the members it uses are destroyed.
-    dispatch_thread_.request_stop();
+    // Stop and join before the state used by the dispatch thread is destroyed.
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      stopping_ = true;
+    }
+    cv_.notify_one();
+    if (dispatch_thread_.joinable()) {
+      dispatch_thread_.join();
+    }
   }
 
-  void TimerThreadMain(std::stop_token stop_token) {
+  void TimerThreadMain() {
     const auto comp = [](const std::shared_ptr<WaitItem>& left,
                          const std::shared_ptr<WaitItem>& right) {
       return left->due_ < right->due_;
@@ -61,7 +66,7 @@ class TimerQueue {
     // thread touches it, so it needs no lock.
     std::forward_list<std::shared_ptr<WaitItem>> wait_queue;
 
-    while (!stop_token.stop_requested()) {
+    while (true) {
       {
         // Wait for new wait items or for the earliest one to be due, then take
         // the new ones and add them to the sorted wait queue
@@ -70,14 +75,17 @@ class TimerQueue {
           std::unique_lock<std::mutex> lock(mutex_);
           if (pending_.empty()) {
             if (wait_queue.empty()) {
-              cv_.wait(lock, stop_token, has_pending);
+              cv_.wait(lock, [this, &has_pending] { return stopping_ || has_pending(); });
             } else {
               // Bounded so a far-future due time never reaches the clock
               // conversions inside the wait.
               const auto limit = clock::now() + std::chrono::hours(1);
-              cv_.wait_until(lock, stop_token, std::min(wait_queue.front()->due_, limit),
-                             has_pending);
+              cv_.wait_until(lock, std::min(wait_queue.front()->due_, limit),
+                             [this, &has_pending] { return stopping_ || has_pending(); });
             }
+          }
+          if (stopping_) {
+            break;
           }
           wait_items.swap(pending_);
         }
@@ -138,17 +146,18 @@ class TimerQueue {
     return wait_item_weak;
   }
 
-  std::jthread::id dispatch_thread_id() const { return dispatch_thread_.get_id(); }
+  std::thread::id dispatch_thread_id() const { return dispatch_thread_.get_id(); }
 
  private:
   // Wait items queued by the public API and not yet taken by the dispatch
   // thread. Guarded by mutex_.
   std::mutex mutex_;
-  std::condition_variable_any cv_;
+  std::condition_variable cv_;
   std::forward_list<std::shared_ptr<WaitItem>> pending_;
+  bool stopping_ = false;
 
   // Declared last: it is stopped and joined before the members above go away.
-  std::jthread dispatch_thread_;
+  std::thread dispatch_thread_;
 };
 
 rex::thread::TimerQueue timer_queue_;

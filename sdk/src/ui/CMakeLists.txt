@@ -180,6 +180,8 @@ if(UNIX AND NOT APPLE AND NOT ANDROID)
         ${X11_XCB_LIBRARIES}
         ${WAYLAND_LIBRARIES}
     )
+elseif(ANDROID)
+    target_link_libraries(rexui PRIVATE android)
 elseif(APPLE)
     target_link_libraries(rexui PRIVATE "-framework CoreFoundation")
 endif()

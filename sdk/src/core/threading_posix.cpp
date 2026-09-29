@@ -49,9 +49,9 @@ static_assert(REX_PLATFORM_LINUX || REX_PLATFORM_MAC, "This file is POSIX-only")
 #include <sched.h>
 
 #if REX_PLATFORM_ANDROID
+#include <android/api-level.h>
 #include <dlfcn.h>
 
-#include <rex/main_android.h>
 #include <rex/string.h>
 #endif
 
@@ -77,7 +77,7 @@ static void* android_libc_;
 static int (*android_pthread_getname_np_)(pthread_t pthread, char* buf, size_t n);
 
 void AndroidInitialize() {
-  if (rex::GetAndroidApiLevel() >= 26) {
+  if (android_get_device_api_level() >= 26) {
     android_libc_ = dlopen("libc.so", RTLD_NOW);
     assert_not_null(android_libc_);
     if (android_libc_) {
@@ -288,7 +288,7 @@ static sem_t* RexCreateAnonymousSemaphore() {
 class PosixConditionBase {
  public:
   PosixConditionBase() {
-#if REX_PLATFORM_LINUX
+#if REX_PLATFORM_LINUX && !REX_PLATFORM_ANDROID
     // Use robust mutexes so waits can recover if owner thread terminates.
     pthread_mutexattr_t attr;
     if (pthread_mutexattr_init(&attr) == 0) {
@@ -328,7 +328,7 @@ class PosixConditionBase {
         std::this_thread::sleep_for(std::min(remaining, std::chrono::microseconds(100)));
       }
     }
-#elif REX_PLATFORM_LINUX
+#elif REX_PLATFORM_LINUX && !REX_PLATFORM_ANDROID
     auto native_mutex = static_cast<pthread_mutex_t*>(mutex_.native_handle());
     int lock_result = pthread_mutex_lock(native_mutex);
     if (lock_result == EOWNERDEAD) {
@@ -387,7 +387,7 @@ class PosixConditionBase {
       bool all_locked = true;
 
       for (size_t i = 0; i < handles.size(); ++i) {
-#if REX_PLATFORM_LINUX
+#if REX_PLATFORM_LINUX && !REX_PLATFORM_ANDROID
         auto native_mutex = static_cast<pthread_mutex_t*>(handles[i]->mutex_.native_handle());
         int result = pthread_mutex_trylock(native_mutex);
         if (result == 0 || result == EOWNERDEAD) {

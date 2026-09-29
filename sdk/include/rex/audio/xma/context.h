@@ -120,7 +120,11 @@ struct XMA_CONTEXT_DATA {
   // announces. Keep 32-bit words in BE and publish with release/acquire.
   static uint32_t LoadWord(const void* ptr, size_t index) {
     auto* words = const_cast<uint32_t*>(static_cast<const uint32_t*>(ptr));
+#if REX_PLATFORM_ANDROID
+    return rex::byte_swap(__atomic_load_n(&words[index], __ATOMIC_ACQUIRE));
+#else
     return rex::byte_swap(std::atomic_ref<uint32_t>(words[index]).load(std::memory_order_acquire));
+#endif
   }
 
   explicit XMA_CONTEXT_DATA(const void* ptr) {
@@ -131,6 +135,15 @@ struct XMA_CONTEXT_DATA {
   }
 
   void Store(void* ptr) {
+#if REX_PLATFORM_ANDROID
+    auto* dest = static_cast<uint32_t*>(ptr);
+    const auto* words = reinterpret_cast<const uint32_t*>(this);
+    for (size_t i = 2; i < sizeof(XMA_CONTEXT_DATA) / 4; ++i) {
+      __atomic_store_n(&dest[i], rex::byte_swap(words[i]), __ATOMIC_RELAXED);
+    }
+    __atomic_store_n(&dest[1], rex::byte_swap(words[1]), __ATOMIC_RELEASE);
+    __atomic_store_n(&dest[0], rex::byte_swap(words[0]), __ATOMIC_RELEASE);
+#else
     static_assert(std::atomic_ref<uint32_t>::is_always_lock_free);
     static_assert(std::atomic_ref<uint32_t>::required_alignment <= alignof(uint32_t));
     auto* dest = static_cast<uint32_t*>(ptr);
@@ -143,6 +156,7 @@ struct XMA_CONTEXT_DATA {
     }
     std::atomic_ref<uint32_t>(dest[1]).store(rex::byte_swap(words[1]), std::memory_order_release);
     std::atomic_ref<uint32_t>(dest[0]).store(rex::byte_swap(words[0]), std::memory_order_release);
+#endif
   }
 
   bool IsInputBufferValid(uint8_t buffer_index) const {

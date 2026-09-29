@@ -1,9 +1,9 @@
 /**
  * @file        rex/core/fiber_switch.cpp
- * @brief       rex::thread::Fiber backend for Horizon (aarch64, no ucontext)
+ * @brief       AAPCS64 rex::thread::Fiber backend (no ucontext)
  *
- * devkitA64 has no <ucontext.h>: newlib does not implement makecontext/swapcontext.
- * So the context switch is done by hand, in assembly.
+ * Horizon and Android's supported NDK do not provide makecontext/swapcontext,
+ * so the context switch is done by hand in AArch64 assembly.
  *
  * It is less daunting than it sounds. A cooperative switch only has to preserve what
  * AAPCS64 requires the callee to preserve:
@@ -29,7 +29,7 @@
 
 #include <rex/platform.h>
 
-#if REX_PLATFORM_SWITCH
+#if REX_PLATFORM_SWITCH || (REX_PLATFORM_ANDROID && REX_ARCH_ARM64)
 
 #include <rex/thread/fiber.h>
 
@@ -174,4 +174,4 @@ extern "C" [[noreturn]] void rex_fiber_trampoline(void) {
   std::abort();
 }
 
-#endif  // REX_PLATFORM_SWITCH
+#endif  // REX_PLATFORM_SWITCH || Android ARM64

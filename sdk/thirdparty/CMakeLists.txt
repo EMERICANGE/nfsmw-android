@@ -68,7 +68,13 @@ if(REXGLUE_BUILD_TESTS)
 endif()
 
 foreach(submodule ${REQUIRED_SUBMODULES})
-    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${submodule}/.git")
+    # Some parent projects vendor source snapshots instead of Git submodules.
+    # Accept those too, while still detecting the empty directories left by an
+    # uninitialized submodule checkout.
+    file(GLOB submodule_contents LIST_DIRECTORIES true
+        "${CMAKE_CURRENT_SOURCE_DIR}/${submodule}/*")
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${submodule}/.git" AND
+       NOT submodule_contents)
         message(FATAL_ERROR
             "Git submodule '${submodule}' is not initialized.\n"
             "Please run: git submodule update --init --recursive\n"

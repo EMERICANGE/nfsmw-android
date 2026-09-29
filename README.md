@@ -36,7 +36,7 @@ No utiliza emulación de Xbox 360, Xenia, Wine, Winlator, Box64 ni traducción J
 | Detección de dispositivo/cola Vulkan y superficie de ventana | Verificado en dispositivo Adreno |
 | Importación de carpeta mediante selector SAF | Implementada; falta validar el selector en UI |
 | Copia local de carpeta extraída a almacenamiento privado | Hecha en el dispositivo conectado; no incluida en Git |
-| ReXGlue SDK Android | En adaptación; falta integrarlo al APK |
+| ReXGlue SDK Android | UI/Vulkan y `librexruntime.so` compilados en ARM64; falta integrarlo al APK |
 | Arranque del juego, primer frame, controles y audio | Pendiente |
 
 El registro de cambios técnicos está en [`docs/ANDROID_STATUS.md`](docs/ANDROID_STATUS.md) y el diseño del port en [`docs/ANDROID_PORT_PLAN.md`](docs/ANDROID_PORT_PLAN.md).

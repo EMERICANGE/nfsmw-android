@@ -14,9 +14,9 @@
 #include <rex/platform.h>
 #include <cstddef>
 
-// Switch goes before Linux on purpose: platform.h turns on both, and
-// Horizon has no <ucontext.h>.
-#if REX_PLATFORM_SWITCH
+// Switch and Android ARM64 use the AAPCS64 assembly backend. Switch goes
+// before Linux because platform.h also enables the Linux compatibility layer.
+#if REX_PLATFORM_SWITCH || (REX_PLATFORM_ANDROID && REX_ARCH_ARM64)
 #include <cstdint>
 #include <vector>
 #elif REX_PLATFORM_LINUX || REX_PLATFORM_MAC
@@ -30,8 +30,8 @@
 #include <vector>
 #endif
 
-#if REX_PLATFORM_SWITCH
-/// First C++ code that runs on a new Horizon fiber. It is called by the
+#if REX_PLATFORM_SWITCH || (REX_PLATFORM_ANDROID && REX_ARCH_ARM64)
+/// First C++ code that runs on a new AAPCS64 fiber. It is called by the
 /// assembly trampoline in fiber_switch.cpp, and never returns.
 extern "C" [[noreturn]] void rex_fiber_trampoline(void);
 #endif
@@ -67,7 +67,7 @@ struct Fiber {
 #if REX_PLATFORM_WIN32
   void* handle_ = nullptr;
   bool is_thread_fiber_ = false;
-#elif REX_PLATFORM_SWITCH
+#elif REX_PLATFORM_SWITCH || (REX_PLATFORM_ANDROID && REX_ARCH_ARM64)
  public:
   /// Registers AAPCS64 requires the callee to preserve. They are all that needs saving in a
   /// cooperative context switch: the compiler has already saved the volatile ones before calling

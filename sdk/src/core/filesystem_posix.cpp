@@ -309,6 +309,21 @@ bool GetInfo(const std::filesystem::path& path, FileInfo* out_info) {
   return false;
 }
 
+#if REX_PLATFORM_ANDROID
+bool IsAndroidContentUri(const std::string_view source) {
+  return source.starts_with("content://");
+}
+
+int OpenAndroidContentFileDescriptor(const std::string_view uri, const char* mode) {
+  // SAF access requires a Java ContentResolver and an app-owned JNI bridge.
+  // The Android app currently imports selected trees into private POSIX storage.
+  (void)uri;
+  (void)mode;
+  errno = ENOSYS;
+  return -1;
+}
+#endif
+
 std::vector<FileInfo> ListFiles(const std::filesystem::path& path) {
   std::vector<FileInfo> result;
 

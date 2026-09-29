@@ -143,14 +143,8 @@ bool WindowSDL::OpenImpl() {
   int initial_width = int(GetDesiredLogicalWidth());
   int initial_height = int(GetDesiredLogicalHeight());
 #elif REX_PLATFORM_ANDROID
-  SDL_PropertiesID props = SDL_GetWindowProperties(sdl_window_);
-  if (allowed_types & Surface::kTypeFlag_AndroidNativeWindow) {
-    auto* window = static_cast<ANativeWindow*>(
-        SDL_GetPointerProperty(props, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr));
-    if (window) {
-      return std::make_unique<AndroidNativeWindowSurface>(window, sdl_window_);
-    }
-  }
+  int initial_width = int(GetDesiredLogicalWidth());
+  int initial_height = int(GetDesiredLogicalHeight());
 #else
   int initial_width = int(SizeToPhysical(GetDesiredLogicalWidth()));
   int initial_height = int(SizeToPhysical(GetDesiredLogicalHeight()));
