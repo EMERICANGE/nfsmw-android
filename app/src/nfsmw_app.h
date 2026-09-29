@@ -111,14 +111,19 @@ class NfsmwApp : public rex::ReXApp {
   //  ORDER: this runs before nfsmw.toml is read, so the toml can
   //  change the folder or leave it empty to copy nothing.
   // ==========================================================================
-  void ElegirCarpetaDeGuardados() {
+  void ElegirCarpetaDeGuardados(const std::filesystem::path& user_data_root) {
     if (rex::cvar::GetFlagInfo("content_backup_root") == nullptr) {
       return;  // SDK without that option: nothing happens
     }
     if (!rex::cvar::GetFlagByName("content_backup_root").empty()) {
       return;  // given on the command line
     }
-    const auto carpeta = rex::filesystem::GetExecutableFolder();
+    std::filesystem::path carpeta;
+#if REX_PLATFORM_ANDROID
+    carpeta = user_data_root;
+#else
+    carpeta = rex::filesystem::GetExecutableFolder();
+#endif
     if (carpeta.empty()) {
       return;
     }
@@ -130,7 +135,7 @@ class NfsmwApp : public rex::ReXApp {
   }
 
   void OnConfigurePaths(rex::PathConfig& paths) override {
-    ElegirCarpetaDeGuardados();
+    ElegirCarpetaDeGuardados(paths.user_data_root);
     if (!paths.game_data_root.empty()) {
       return;  // given on the command line; it takes precedence.
     }

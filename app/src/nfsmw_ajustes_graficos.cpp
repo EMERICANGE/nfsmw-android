@@ -13,7 +13,13 @@
 #include <string>
 #include <vector>
 
-REXCVAR_DEFINE_STRING(nfsmw_resolucion_interna, "automatico", "Graficos",
+#if REX_PLATFORM_ANDROID
+constexpr char kResolucionInternaPredeterminada[] = "1024x576";
+#else
+constexpr char kResolucionInternaPredeterminada[] = "automatico";
+#endif
+
+REXCVAR_DEFINE_STRING(nfsmw_resolucion_interna, kResolucionInternaPredeterminada, "Graficos",
                       "Resolucion a la que dibuja el juego. automatico: 1920x1080 en sobremesa y 1280x720 en "
                       "portatil, cambiando en marcha al meter y sacar la consola de la base Y siguiendo tambien a "
                       "Reverse-NX. Ojo: con Reverse-NX los relojes no suben, asi que ahi el 1080p cuesta un tercio "

@@ -18,6 +18,7 @@
 #include <rex/input/flags.h>
 #include <rex/input/sdl/sdl_input_driver.h>
 #include <rex/logging.h>
+#include <rex/platform.h>
 #include <rex/ui/virtual_key.h>
 
 REXCVAR_DEFINE_STRING(hid_mappings_file, "gamecontrollerdb.txt", "Input",
@@ -29,8 +30,20 @@ namespace {
 
 // SDL clamps to SDL_MAX_RUMBLE_DURATION_MS, which is not a public constant.
 constexpr uint32_t kRumbleDurationMs = 0xFFFF;
+std::atomic<uint16_t> g_touch_buttons{0};
+std::atomic<int16_t> g_touch_steering{0};
+std::atomic<uint8_t> g_touch_brake{0};
+std::atomic<uint8_t> g_touch_throttle{0};
 
 }  // namespace
+
+extern "C" void rex_sdl_set_touch_gamepad_state(uint16_t buttons, int16_t steering,
+                                                 uint8_t brake, uint8_t throttle) {
+  g_touch_buttons.store(buttons, std::memory_order_relaxed);
+  g_touch_steering.store(steering, std::memory_order_relaxed);
+  g_touch_brake.store(brake, std::memory_order_relaxed);
+  g_touch_throttle.store(throttle, std::memory_order_relaxed);
+}
 
 SDLInputDriver::SDLInputDriver(rex::ui::Window* window, size_t window_z_order)
     : InputDriver(window, window_z_order),
@@ -95,6 +108,17 @@ void SDLInputDriver::OnWindowAvailable(rex::ui::Window* window) {
       }
       SDL_Gamepad_initialized_ = true;
 
+#if REX_PLATFORM_ANDROID
+      ControllerState touch = {};
+      touch.id = AllocateDeviceId();
+      touch.is_touch = true;
+      touch.state_changed = true;
+      touch_device_id_ = touch.id;
+      UpdateXCapabilities(touch);
+      controllers_.push_back(touch);
+      REXLOG_INFO("SDL input: Android touch gamepad is ready");
+#endif
+
       // Load custom controller mappings if available
       if (!REXCVAR_GET(hid_mappings_file).empty()) {
         std::filesystem::path mappings_path(REXCVAR_GET(hid_mappings_file));
@@ -125,7 +149,9 @@ void SDLInputDriver::OnClosing(rex::ui::UIEvent&) {
           [this]() { attached_window_->app_context().ExecutePendingFunctionsFromUIThread(); });
     }
     for (auto& controller : controllers_) {
-      SDL_CloseGamepad(controller.sdl);
+      if (controller.sdl) {
+        SDL_CloseGamepad(controller.sdl);
+      }
     }
     controllers_.clear();
     if (SDL_Gamepad_initialized_) {
@@ -155,6 +181,13 @@ void SDLInputDriver::EnumerateDevices(std::vector<DeviceInfo>& out) {
   for (const auto& controller : controllers_) {
     DeviceInfo info;
     info.id = controller.id;
+    if (controller.is_touch) {
+      info.name = "Touch controls";
+      info.guid = "rex-touch-gamepad";
+      info.synthetic = true;
+      out.push_back(std::move(info));
+      continue;
+    }
     const char* name = SDL_GetGamepadName(controller.sdl);
     info.name = name ? name : "";
     char guid_text[33] = {};
@@ -184,7 +217,9 @@ X_RESULT SDLInputDriver::GetDeviceCapabilities(DeviceId id, uint32_t flags,
 
   // Unfortunately drivers can't present all information immediately (e.g.
   // battery information) so this needs to be refreshed every time.
-  UpdateXCapabilities(*controller);
+  if (!controller->is_touch) {
+    UpdateXCapabilities(*controller);
+  }
 
   std::memcpy(out_caps, &controller->caps, sizeof(*out_caps));
 
@@ -205,6 +240,18 @@ X_RESULT SDLInputDriver::GetDeviceState(DeviceId id, X_INPUT_STATE* out_state) {
   auto controller = FindController(id);
   if (!controller) {
     return X_ERROR_DEVICE_NOT_CONNECTED;
+  }
+
+  if (controller->is_touch) {
+    const auto old_gamepad = controller->state.gamepad;
+    controller->state.gamepad.buttons = g_touch_buttons.load(std::memory_order_relaxed);
+    controller->state.gamepad.thumb_lx = g_touch_steering.load(std::memory_order_relaxed);
+    controller->state.gamepad.thumb_ly = 0;
+    controller->state.gamepad.left_trigger = g_touch_brake.load(std::memory_order_relaxed);
+    controller->state.gamepad.right_trigger = g_touch_throttle.load(std::memory_order_relaxed);
+    if (std::memcmp(&old_gamepad, &controller->state.gamepad, sizeof(old_gamepad)) != 0) {
+      controller->state_changed = true;
+    }
   }
 
   // Make sure packet_number is only incremented by 1, even if there have been
@@ -234,6 +281,10 @@ X_RESULT SDLInputDriver::SetDeviceVibration(DeviceId id, X_INPUT_VIBRATION* vibr
   auto controller = FindController(id);
   if (!controller) {
     return X_ERROR_DEVICE_NOT_CONNECTED;
+  }
+
+  if (controller->is_touch) {
+    return X_ERROR_SUCCESS;
   }
 
   // XInput vibration holds until the guest changes it, but SDL rumble expires,
@@ -592,6 +643,9 @@ std::optional<size_t> SDLInputDriver::GetControllerIndexFromInstanceID(SDL_Joyst
   // Loop through our controllers and try to match the given ID.
   for (size_t i = 0; i < controllers_.size(); i++) {
     auto controller = controllers_.at(i).sdl;
+    if (!controller) {
+      continue;
+    }
     auto joystick = SDL_GetGamepadJoystick(controller);
     assert(joystick);
     auto joy_instance_id = SDL_GetJoystickID(joystick);
@@ -626,6 +680,21 @@ bool SDLInputDriver::TestSDLVersion() const {
 }
 
 void SDLInputDriver::UpdateXCapabilities(ControllerState& state) {
+  if (state.is_touch) {
+    state.caps.type = 0x01;
+    state.caps.sub_type = 0x01;
+    state.caps.flags = 0;
+    state.caps.gamepad.buttons = 0xF3FF;
+    state.caps.gamepad.left_trigger = 0xFF;
+    state.caps.gamepad.right_trigger = 0xFF;
+    state.caps.gamepad.thumb_lx = static_cast<int16_t>(0xFFFFu);
+    state.caps.gamepad.thumb_ly = static_cast<int16_t>(0xFFFFu);
+    state.caps.gamepad.thumb_rx = static_cast<int16_t>(0xFFFFu);
+    state.caps.gamepad.thumb_ry = static_cast<int16_t>(0xFFFFu);
+    state.caps.vibration.left_motor_speed = 0;
+    state.caps.vibration.right_motor_speed = 0;
+    return;
+  }
   assert(state.sdl);
   uint16_t cap_flags = 0x0;
 

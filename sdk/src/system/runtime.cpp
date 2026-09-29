@@ -104,6 +104,13 @@ X_STATUS Runtime::Setup(RuntimeConfig config) {
   // Initialize SEH exception support for hardware exception handling
   rex::initialize_seh();
 
+#if REX_PLATFORM_ANDROID
+  // Resolve Android's native shared-memory and pthread helpers before either
+  // subsystem is used. Without this, API 29+ falls through to disabled ashmem.
+  memory::AndroidInitialize();
+  thread::AndroidInitialize();
+#endif
+
   // Initialize clock
   chrono::Clock::set_guest_tick_frequency(50000000);
   chrono::Clock::set_guest_system_time_base(chrono::Clock::QueryHostSystemTime());
@@ -282,6 +289,11 @@ void Runtime::Shutdown() {
   export_resolver_.reset();
   file_system_.reset();
   memory_.reset();
+
+#if REX_PLATFORM_ANDROID
+  thread::AndroidShutdown();
+  memory::AndroidShutdown();
+#endif
 
   rex::perf::Profiler::Shutdown();
   setup_complete_ = false;

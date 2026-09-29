@@ -14,10 +14,19 @@ set(SDL_SHARED ON CACHE BOOL "SDL shared library loaded by SDLActivity" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "Use SDL's shared Android library" FORCE)
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../../../../app" "nfsmw-app")
+target_sources(nfsmw PRIVATE "${CMAKE_CURRENT_LIST_DIR}/android_touch.cpp")
 
 if(TARGET SDL3-shared)
-    # SDLActivity calls System.loadLibrary("SDL3") even in debug builds.
-    set_target_properties(SDL3-shared PROPERTIES DEBUG_POSTFIX "")
+    # SDLActivity calls System.loadLibrary("SDL3") in every build variant.
+    # CMake otherwise gives RelWithDebInfo libraries an "rd" suffix, which
+    # SDLActivity cannot resolve from Java.
+    set_target_properties(SDL3-shared PROPERTIES
+        OUTPUT_NAME "SDL3"
+        DEBUG_POSTFIX ""
+        RELEASE_POSTFIX ""
+        RELWITHDEBINFO_POSTFIX ""
+        MINSIZEREL_POSTFIX ""
+    )
 endif()
 
 # The game never needs to access the extracted disc through a SAF URI. Java

@@ -20,6 +20,10 @@
 
 #include <SDL3/SDL.h>
 
+// Updated by the Android touch overlay; ignored on other platforms.
+extern "C" void rex_sdl_set_touch_gamepad_state(uint16_t buttons, int16_t steering,
+                                                 uint8_t brake, uint8_t throttle);
+
 #define HID_SDL_THUMB_THRES 0x4E00
 #define HID_SDL_TRIGG_THRES 0x1F
 #define HID_SDL_REPEAT_DELAY 400
@@ -65,6 +69,7 @@ class SDLInputDriver final : public InputDriver, public rex::ui::WindowListener 
     bool state_changed;
     bool is_active;
     DeviceId id;
+    bool is_touch;
     // Per pad rather than per guest user, so it survives reassignment.
     KeystrokeState keystroke;
   };
@@ -103,6 +108,7 @@ class SDLInputDriver final : public InputDriver, public rex::ui::WindowListener 
   std::vector<SDL_Event> pending_events_;
   // Never rewound, so a handle held past a disconnect resolves to nothing.
   uint64_t next_device_id_ = 1;
+  DeviceId touch_device_id_ = DeviceId::kInvalid;
 };
 
 }  // namespace rex::input::sdl

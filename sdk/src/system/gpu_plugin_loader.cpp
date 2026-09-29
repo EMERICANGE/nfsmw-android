@@ -93,7 +93,15 @@ std::unique_ptr<IGraphicsSystem> LoadGpuPlugin(std::string_view name, std::strin
 #else
 
 std::unique_ptr<IGraphicsSystem> LoadGpuPlugin(std::string_view name, std::string_view backend) {
+#if REX_PLATFORM_ANDROID
+  // Android installs native libraries in the app's linker namespace, while
+  // /proc/self/exe resolves to /system/bin/app_process64. Load by soname so
+  // bionic searches the app's nativeLibraryDir for the packaged plugin.
+  auto path = std::filesystem::path(PluginFileName(name));
+#else
   auto path = rex::filesystem::GetExecutableFolder() / PluginFileName(name);
+#endif
+#if !REX_PLATFORM_ANDROID
   if (!std::filesystem::exists(path)) {
     REXSYS_ERROR(
         "GPU plugin '{}' not found at {}. Stage it next to the executable "
@@ -101,6 +109,7 @@ std::unique_ptr<IGraphicsSystem> LoadGpuPlugin(std::string_view name, std::strin
         name, path.string(), name);
     return nullptr;
   }
+#endif
 
   platform::DynamicLibrary library;
   if (!library.Load(path, platform::SymbolResolution::kImmediate)) {
