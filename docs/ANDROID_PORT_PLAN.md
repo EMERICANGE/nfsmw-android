@@ -31,7 +31,7 @@ The first milestone is a Java Activity loading `libnfsmw_android.so` through JNI
 ## Dependencies and build strategy
 
 - Android Gradle Plugin and Gradle wrapper build the APK.
-- Android SDK platform 35 and NDK 27.2.12479018 target `arm64-v8a` only.
+- Android SDK platform 35 and NDK 28.2.13676358 target `arm64-v8a` only; ELF load segments use 16 KiB maximum page alignment for recent Android devices.
 - Android CMake builds the native bootstrap as C++23 and links Android's Vulkan loader and `liblog`.
 - ReXGlue host code generation remains a separate host build step and requires the user's own `default.xex`; generated code is ignored by git.
 - The current machine has Git, but no CMake, Gradle, Android SDK/NDK, or ADB command available on PATH. Local APK/device verification is therefore blocked until those tools are installed. CI is set up to provide an SDK/NDK build.
@@ -48,7 +48,7 @@ The first milestone is a Java Activity loading `libnfsmw_android.so` through JNI
 ## Roadmap
 
 1. Create and build an ARM64 APK shell with JNI startup, Logcat, app-private directories, and Vulkan device discovery. **In progress.**
-2. Add SAF selection/import for extracted game folders and persist the selected URI.
+2. Add SAF selection/import for extracted game folders and persist the selected URI. **Implemented; direct picker import on device still needs verification.**
 3. Add `REX_PLATFORM_ANDROID` to SDK CMake, omit desktop X11/Wayland requirements, and build the runtime as Android objects.
 4. Port window/surface lifecycle and Vulkan presentation, then connect NFSMW native renderer sources.
 5. Integrate generated ReXGlue code and validate guest memory mappings using a locally supplied game copy.
