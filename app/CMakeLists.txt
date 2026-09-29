@@ -124,7 +124,11 @@ set(NFSMW_SOURCES
     src/nfsmw_pgo.cpp
 )
 
-if(WIN32)
+if(ANDROID)
+    # SDLActivity resolves SDL_main from libmain.so.
+    add_library(nfsmw SHARED ${NFSMW_SOURCES})
+    set_target_properties(nfsmw PROPERTIES OUTPUT_NAME main)
+elseif(WIN32)
     add_executable(nfsmw WIN32 ${NFSMW_SOURCES})
     # PC build: masks again the floating-point exceptions that
     # rex::ppc::FPSCR can leave unmasked on x86 (see the file).

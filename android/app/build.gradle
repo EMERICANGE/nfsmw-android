@@ -6,6 +6,10 @@ android {
     namespace 'com.nfsmw.android'
     compileSdk 35
 
+    sourceSets {
+        main.java.srcDirs += ["$rootDir/../sdk/thirdparty/sdl3/android-project/app/src/main/java"]
+    }
+
     defaultConfig {
         applicationId 'com.nfsmw.android'
         minSdk 26
@@ -17,7 +21,7 @@ android {
         }
         externalNativeBuild {
             cmake {
-                cppFlags '-std=c++23 -fno-exceptions -fno-rtti'
+                cppFlags '-std=c++23'
                 arguments '-DANDROID_STL=c++_shared'
             }
         }
@@ -32,7 +36,7 @@ android {
     externalNativeBuild {
         cmake {
             path file('src/main/cpp/CMakeLists.txt')
-            version '3.22.1'
+            version '3.30.5'
         }
     }
 

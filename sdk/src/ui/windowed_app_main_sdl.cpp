@@ -19,6 +19,9 @@
 #include <rex/cvar.h>
 #include <rex/logging.h>
 #include <rex/platform.h>
+#if REX_PLATFORM_ANDROID
+#include <SDL3/SDL_main.h>
+#endif
 #include <rex/ui/windowed_app.h>
 #include <rex/ui/windowed_app_context_sdl.h>
 
@@ -55,7 +58,17 @@ int RunWindowedApp(int argc, char** argv) {
     }
 #endif
 
+#if REX_PLATFORM_ANDROID
+    // Android loads the app and its SDL entry point into the same shared
+    // library. App creators register themselves through REX_DEFINE_APP.
+    auto app_creator = rex::ui::WindowedApp::GetCreator("nfsmw");
+    if (!app_creator) {
+      return EXIT_FAILURE;
+    }
+    std::unique_ptr<rex::ui::WindowedApp> app = app_creator(app_context);
+#else
     std::unique_ptr<rex::ui::WindowedApp> app = rex::ui::GetWindowedAppCreator()(app_context);
+#endif
 
     // Match remaining positional args to the app's expected options.
     const auto& option_names = app->GetPositionalOptions();
