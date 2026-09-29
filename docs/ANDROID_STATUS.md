@@ -45,4 +45,5 @@ Verified on 2026-09-29:
 
 - JDK 21 from Android Studio was needed because the default Java 26 could not run Gradle 8.9. The build scripts now discover standard SDK/JDK locations.
 - The base SDK platform header already detects Android and reuses POSIX/Linux code, but SDK CMake still selects X11/Wayland and GNU/Linux surfaces for Android. This must be addressed before the SDK runtime can build as an Android app.
+- SDK CMake now gives Android its own `android-arm64` target branch, avoids desktop host code generators in the Android cross-build, and no longer requests X11/Wayland packages. The SDL window path now wraps its Android native window for Vulkan presentation. The SDK has not yet been configured or compiled with the NDK, so this adaptation still needs a build check.
 - The requested Dante repository could not be cloned or downloaded: GitHub Git/API/codeload requests returned 404. No source from it was copied.
