@@ -43,3 +43,6 @@ __pycache__/
 *.pyc
 .vs/
 .vscode/
+
+# The Android app's own assets (settings), not game data.
+!android/app/src/main/assets/
