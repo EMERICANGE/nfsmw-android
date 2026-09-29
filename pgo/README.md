@@ -11,6 +11,7 @@ Each folder has the GCC profile, as `.gcda` files (the files where GCC keeps its
 |---|---|
 | `pal_es` | PAL Spanish (the default tree `app/`) |
 | `pal_en` | PAL English |
+| `pal_fr` | PAL French |
 | `pal_de` | PAL German |
 | `pal_it` | PAL Italian |
 | `usa` | NTSC-U |
