@@ -3,6 +3,8 @@
 
 # --- Game files ---------------------------------------------------------------
 assets/
+game/
+game_root/
 *.xex
 *.xexp
 *.iso
@@ -22,6 +24,10 @@ app_*/
 # --- Build output -------------------------------------------------------------
 out/
 build/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/.cxx/
 *.nro
 *.nacp
 *.elf
