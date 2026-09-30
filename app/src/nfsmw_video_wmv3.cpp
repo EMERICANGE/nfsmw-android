@@ -26,6 +26,8 @@
 #include <span>
 
 #include <rex/filesystem.h>
+#include <rex/audio/downmix.h>
+#include <rex/audio/output_limiter.h>
 #include <rex/filesystem/entry.h>
 #include <rex/filesystem/file.h>
 #include <rex/filesystem/vfs.h>
@@ -120,8 +122,10 @@ struct Contenedor {
   int canales_audio = 0;
   int frecuencia_audio = 0;
   int bloque_audio = 0;
+  int64_t bitrate_audio = 0;
+  int bits_audio = 0;
   std::vector<uint8_t> extra_audio;
-  bool wma_pro = false;
+  AVCodecID codec_audio = AV_CODEC_ID_NONE;
 };
 
 bool LeerCabecera(FicheroVfs& fichero, const std::string& ruta, Contenedor& c) {
@@ -162,13 +166,18 @@ bool LeerCabecera(FicheroVfs& fichero, const std::string& ruta, Contenedor& c) {
                  78 + uint64_t(tam_especifico) <= tam) {
         const uint8_t* wave = especifico;
         const uint32_t cb_extra = Le16(wave + 16);
-        if (Le16(wave) == 0x0162 && 18 + cb_extra <= tam_especifico) {
+        const uint16_t formato_audio = Le16(wave);
+        if ((formato_audio == 0x0162 || formato_audio == 0x0161) && 18 + cb_extra <= tam_especifico) {
           c.flujo_audio = flujo;
           c.canales_audio = Le16(wave + 2);
           c.frecuencia_audio = int(Le32(wave + 4));
           c.bloque_audio = Le16(wave + 12);
+          c.bitrate_audio = int64_t(Le32(wave + 8)) * 8;
+          c.bits_audio = Le16(wave + 14);
           c.extra_audio.assign(wave + 18, wave + 18 + cb_extra);
-          c.wma_pro = c.canales_audio > 0 && c.frecuencia_audio > 0;
+          if (c.canales_audio > 0 && c.frecuencia_audio > 0) {
+            c.codec_audio = formato_audio == 0x0162 ? AV_CODEC_ID_WMAPRO : AV_CODEC_ID_WMAV2;
+          }
         }
       }
     }
@@ -225,6 +234,16 @@ struct AudioWmaPro::Estado {
   // Steady-clock time of the last frame the game decoded (Latido).
   std::atomic<int64_t> latido_us{0};
   bool callado = false;
+  bool sustituye_salida = false;  // owned by the decoder thread; released after joining it
+  static constexpr int64_t kSilencioUs = 800'000;
+
+  void SustituirSalidaJuego(bool activa) {
+    if (sustituye_salida == activa) return;
+    sustituye_salida = activa;
+    rex::audio::SetGameOutputSuppressed(activa);
+    REXLOG_INFO("[video] salida del juego {} durante la pista nativa de la pelicula",
+                activa ? "silenciada" : "restaurada");
+  }
 
   static int64_t AhoraUs() {
     return std::chrono::duration_cast<std::chrono::microseconds>(
@@ -239,8 +258,7 @@ struct AudioWmaPro::Estado {
   // player skips a cutscene the frames stop for good; after kSilencioUs the queued audio is dropped and nothing
   // more is sent. If frames come back, the audio carries on from where it was.
   bool EsperarTurno() {
-    constexpr int64_t kSilencioUs = 800'000;
-    constexpr int kMaxColaBytes = 44100 * 2 * int(sizeof(float)) / 4;
+    const int kMaxColaBytes = c.frecuencia_audio * 2 * int(sizeof(float)) / 4;
     for (;;) {
       if (detener.load(std::memory_order_relaxed)) {
         return false;
@@ -250,6 +268,7 @@ struct AudioWmaPro::Estado {
         if (!callado) {
           callado = true;
           SDL_ClearAudioStream(salida);
+          SustituirSalidaJuego(false);
           REXLOG_INFO("[video] audio WMA Pro: el juego dejo de pedir fotogramas; audio en silencio");
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -269,6 +288,7 @@ struct AudioWmaPro::Estado {
     if (hilo.joinable()) {
       hilo.join();
     }
+    SustituirSalidaJuego(false);
     if (salida) {
       SDL_DestroyAudioStream(salida);
     }
@@ -312,8 +332,7 @@ struct AudioWmaPro::Estado {
   }
 
   // 5.1 to stereo, at the movie's own rate (SDL resamples to the device). Same weights as the game's fold on
-  // Android (front 1, centre and surround 0.707, LFE 0.5), mixed 6 dB down and brought back by the limiter:
-  // summed at full scale, the loud parts of the intro movies clipped and sounded distorted.
+  // Android (front 1, centre and surround 0.707, LFE 0.5). Limit the unclipped stereo sum at the source rate.
   float limitador = 1.0f;
 
   void ConvertirYEnviar(const AVFrame* f) {
@@ -349,14 +368,11 @@ struct AudioWmaPro::Estado {
           else if (ch == 1) der = 1.0f;
           break;
       }
-      peso_izq[size_t(ch)] = izq * 0.5f;
-      peso_der[size_t(ch)] = der * 0.5f;
+      peso_izq[size_t(ch)] = izq;
+      peso_der[size_t(ch)] = der;
     }
 
     std::vector<float> pcm(size_t(cantidad) * 2);
-    constexpr float kTecho = 0.97f;
-    constexpr float kRecuperacion = 1.0f / (0.080f * 44100.0f);
-    float g = limitador;
     for (int i = 0; i < cantidad; ++i) {
       float izq = 0.0f, der = 0.0f;
       for (int ch = 0; ch < canales && ch < 8; ++ch) {
@@ -364,18 +380,17 @@ struct AudioWmaPro::Estado {
         izq += m * peso_izq[size_t(ch)];
         der += m * peso_der[size_t(ch)];
       }
-      // Stereo-linked peak limiter with 6 dB of make-up, as the game's output on Android.
-      const float pico = std::max(std::fabs(izq), std::fabs(der)) * 2.0f;
-      const float objetivo = pico > kTecho ? kTecho / pico : 1.0f;
-      g = objetivo < g ? objetivo : g + (objetivo - g) * kRecuperacion;
-      pcm[size_t(i) * 2] = std::clamp(izq * 2.0f * g, -1.0f, 1.0f);
-      pcm[size_t(i) * 2 + 1] = std::clamp(der * 2.0f * g, -1.0f, 1.0f);
+      pcm[size_t(i) * 2] = izq;
+      pcm[size_t(i) * 2 + 1] = der;
     }
-    limitador = g;
-
+    rex::audio::LimitOutput(pcm.data(), size_t(cantidad), 2,
+                           f->sample_rate > 0 ? f->sample_rate : c.frecuencia_audio, limitador);
     // Keep a short lead-in (250 ms) so decoding runs ahead without buffering the whole movie, and only while the
     // game is still showing it.
     if (EsperarTurno() && SDL_PutAudioStreamData(salida, pcm.data(), int(pcm.size() * sizeof(float)))) {
+      // The movie has its own SDL stream. Keep the guest mixer draining but
+      // inaudible here, so it cannot double the dialogue or add decoding noise.
+      SustituirSalidaJuego(true);
       muestras_salida.fetch_add(uint64_t(cantidad), std::memory_order_relaxed);
     }
   }
@@ -446,6 +461,17 @@ struct AudioWmaPro::Estado {
   void Ejecutar() {
     while (!detener.load(std::memory_order_relaxed) && LeerPaquete()) {}
 
+    // Keep ownership through the final queued samples. Restore gameplay on EOF,
+    // a skipped movie, or shutdown, even if the movie object survives in memory.
+    while (!detener.load(std::memory_order_relaxed) && SDL_GetAudioStreamQueued(salida) > 0) {
+      if (AhoraUs() - latido_us.load(std::memory_order_relaxed) > kSilencioUs) {
+        SDL_ClearAudioStream(salida);
+        break;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    SustituirSalidaJuego(false);
+
     REXLOG_INFO("[video] audio WMA Pro: {} paquetes ASF, {} bloques decodificados, {} muestras estéreo", c.paquetes,
                 paquetes_decodificados.load(), muestras_salida.load());
   }
@@ -464,19 +490,21 @@ void AudioWmaPro::Latido() {
 
 bool AudioWmaPro::Abrir(const std::string& ruta) {
   auto& e = *e_;
-  if (!e.fichero.Abrir(ruta) || !LeerCabecera(e.fichero, ruta, e.c) || !e.c.wma_pro) {
-    REXLOG_WARN("[video] audio WMA Pro no disponible para '{}'", ruta);
+  if (!e.fichero.Abrir(ruta) || !LeerCabecera(e.fichero, ruta, e.c) || e.c.codec_audio == AV_CODEC_ID_NONE) {
+    REXLOG_WARN("[video] audio WMA nativo no disponible para '{}'", ruta);
     return false;
   }
-  const AVCodec* decoder = avcodec_find_decoder(AV_CODEC_ID_WMAPRO);
+  const AVCodec* decoder = avcodec_find_decoder(e.c.codec_audio);
   if (!decoder) {
-    REXLOG_ERROR("[video] FFmpeg no tiene descodificador WMA Pro");
+    REXLOG_ERROR("[video] FFmpeg no tiene el descodificador WMA {}", int(e.c.codec_audio));
     return false;
   }
   e.codec = avcodec_alloc_context3(decoder);
   e.codec->sample_rate = e.c.frecuencia_audio;
   e.codec->channels = e.c.canales_audio;
   e.codec->block_align = e.c.bloque_audio;
+  e.codec->bit_rate = e.c.bitrate_audio;
+  e.codec->bits_per_coded_sample = e.c.bits_audio;
   e.codec->channel_layout = uint64_t(av_get_default_channel_layout(e.c.canales_audio));
   if (!e.c.extra_audio.empty()) {
     e.codec->extradata = static_cast<uint8_t*>(av_mallocz(e.c.extra_audio.size() + AV_INPUT_BUFFER_PADDING_SIZE));
@@ -498,8 +526,9 @@ bool AudioWmaPro::Abrir(const std::string& ruta) {
     REXLOG_ERROR("[video] no se pudo abrir la salida de audio de la cinematica: {}", SDL_GetError());
     return false;
   }
-  REXLOG_INFO("[video] audio WMA Pro '{}' flujo {}: {} canales a {} Hz, bloque {}, extradata {} bytes",
-              ruta, e.c.flujo_audio, e.c.canales_audio, e.c.frecuencia_audio, e.c.bloque_audio, e.c.extra_audio.size());
+  REXLOG_INFO("[video] audio nativo {} '{}' flujo {}: {} canales a {} Hz, bloque {}, extradata {} bytes",
+              decoder->name, ruta, e.c.flujo_audio, e.c.canales_audio, e.c.frecuencia_audio,
+              e.c.bloque_audio, e.c.extra_audio.size());
   e.latido_us.store(Estado::AhoraUs(), std::memory_order_relaxed);
   e.hilo = std::thread([estado = e_.get()] { estado->Ejecutar(); });
   return true;

@@ -70,7 +70,7 @@ inline void sequential_6_BE_to_interleaved_6_LE(float* output, const float* inpu
 
 inline void sequential_6_BE_to_interleaved_2_LE(float* output, const float* input,
                                                 size_t ch_sample_count, const StereoFold& fold,
-                                                float gain) {
+                                                float gain, bool clamp_output = true) {
   assert_true(ch_sample_count % 4 == 0);
 
   const __m128i byte_swap_shuffle =
@@ -102,8 +102,10 @@ inline void sequential_6_BE_to_interleaved_2_LE(float* output, const float* inpu
     const __m128 mid = _mm_add_ps(_mm_mul_ps(fc, center), _mm_mul_ps(lf, lfe));
     __m128 left = _mm_mul_ps(_mm_add_ps(_mm_add_ps(fl, mid), _mm_mul_ps(bl, surround)), scale);
     __m128 right = _mm_mul_ps(_mm_add_ps(_mm_add_ps(fr, mid), _mm_mul_ps(br, surround)), scale);
-    left = _mm_min_ps(_mm_max_ps(left, lo), hi);
-    right = _mm_min_ps(_mm_max_ps(right, lo), hi);
+    if (clamp_output) {
+      left = _mm_min_ps(_mm_max_ps(left, lo), hi);
+      right = _mm_min_ps(_mm_max_ps(right, lo), hi);
+    }
 
     _mm_storeu_ps(&output[sample * 2], _mm_unpacklo_ps(left, right));
     _mm_storeu_ps(&output[(sample + 2) * 2], _mm_unpackhi_ps(left, right));
@@ -125,7 +127,7 @@ inline void sequential_6_BE_to_interleaved_6_LE(float* output, const float* inpu
 
 inline void sequential_6_BE_to_interleaved_2_LE(float* output, const float* input,
                                                 size_t ch_sample_count, const StereoFold& fold,
-                                                float gain) {
+                                                float gain, bool clamp_output = true) {
   // Default 5.1 channel mapping is fl, fr, fc, lf, bl, br
   // https://docs.microsoft.com/en-us/windows/win32/xaudio2/xaudio2-default-channel-mapping
   const float scale = fold.scale * gain;
@@ -138,8 +140,11 @@ inline void sequential_6_BE_to_interleaved_2_LE(float* output, const float* inpu
     const float br = rex::byte_swap(input[5 * ch_sample_count + sample]);
     // Center and LFE land on both sides.
     const float mid = fc * fold.center + lf * fold.lfe;
-    output[sample * 2] = std::clamp((fl + mid + bl * fold.surround) * scale, -1.0f, 1.0f);
-    output[sample * 2 + 1] = std::clamp((fr + mid + br * fold.surround) * scale, -1.0f, 1.0f);
+    const float left = (fl + mid + bl * fold.surround) * scale;
+    const float right = (fr + mid + br * fold.surround) * scale;
+    // A downstream limiter needs the original peaks, even beyond full scale.
+    output[sample * 2] = clamp_output ? std::clamp(left, -1.0f, 1.0f) : left;
+    output[sample * 2 + 1] = clamp_output ? std::clamp(right, -1.0f, 1.0f) : right;
   }
 }
 #endif

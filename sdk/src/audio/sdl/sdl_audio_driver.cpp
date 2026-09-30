@@ -22,6 +22,7 @@
 #include <rex/audio/conversion.h>
 #include <rex/audio/downmix.h>
 #include <rex/audio/flags.h>
+#include <rex/audio/output_limiter.h>
 #include <rex/audio/sdl/sdl_audio_driver.h>
 #include <rex/cvar.h>
 #include <rex/dbg.h>
@@ -40,9 +41,12 @@ REXCVAR_DEFINE_INT32(audio_sdl_rafaga_tramas, 0, "Audio",
                      "Diagnostico: el driver SDL saca las tramas del juego de N en N, con N "
                      "liberaciones seguidas, como el driver de la Switch con buferes de 4 tramas; "
                      "0 o 1 = una a una, como siempre");
-REXCVAR_DEFINE_BOOL(audio_sdl_bomba, false, "Audio",
-                    "Diagnostico: un hilo pide una trama del juego cada 5,333 ms (como la bomba del "
-                    "driver de la Switch) y SDL deja de liberar el semaforo al consumir");
+REXCVAR_DEFINE_BOOL(audio_sdl_bomba, REX_PLATFORM_ANDROID != 0, "Audio",
+                    "Pedir audio a ritmo constante cada 5,333 ms, independiente de las rafagas del "
+                    "dispositivo (por defecto en Android)");
+REXCVAR_DEFINE_INT32(audio_sdl_bomba_cola, REX_PLATFORM_ANDROID ? 12 : 6, "Audio",
+                     "Tramas de reserva de la bomba SDL (12 = 64 ms; necesita audio_sdl_bomba)")
+    .range(2, 32);
 REXCVAR_DEFINE_INT32(audio_volcado_salida_s, 0, "Audio",
                      "Diagnostico: segundos de lo que el driver SDL entrega al dispositivo (con los "
                      "silencios por falta de tramas) que se guardan en audio_salida.wav; 0 = nada");
@@ -50,39 +54,6 @@ REXCVAR_DEFINE_INT32(audio_volcado_salida_desde_s, 0, "Audio",
                      "Diagnostico: segundos de salida SDL que se saltan antes del volcado");
 
 namespace rex::audio::sdl {
-
-namespace {
-#if REX_PLATFORM_ANDROID
-// Headroom of the fold on Android: the game is mixed 6 dB down and the limiter brings it back up. Loud moments
-// (the EA logo, crashes) then get their gain lowered smoothly instead of being clipped, which is what sounded
-// distorted with the louder phone fold.
-constexpr float kMargen = 0.5f;
-
-// Stereo-linked peak limiter: never above kTecho, gain drops at once on a peak and recovers over ~80 ms.
-void Limitar(float* datos, int muestras, int canales, float& ganancia) {
-  constexpr float kTecho = 0.97f;
-  constexpr float kRecuperacion = 1.0f / (0.080f * 48000.0f);
-  constexpr float kSubida = 1.0f / kMargen;
-  const int tramas = muestras / std::max(canales, 1);
-  float g = ganancia;
-  for (int i = 0; i < tramas; ++i) {
-    float* t = datos + size_t(i) * canales;
-    float pico = 0.0f;
-    for (int c = 0; c < canales; ++c) {
-      pico = std::max(pico, std::fabs(t[c]));
-    }
-    pico *= kSubida;
-    const float objetivo = pico > kTecho ? kTecho / pico : 1.0f;
-    g = objetivo < g ? objetivo : g + (objetivo - g) * kRecuperacion;
-    const float factor = kSubida * g;
-    for (int c = 0; c < canales; ++c) {
-      t[c] = std::clamp(t[c] * factor, -1.0f, 1.0f);
-    }
-  }
-  ganancia = g;
-}
-#endif
-}  // namespace
 
 namespace {
 
@@ -222,7 +193,7 @@ bool SDLAudioDriver::Initialize() {
   plegar = true;
   {
     // Small speakers: the LFE goes into the fold too (it carries the engines' low end), with the usual
-    // -3 dB normalisation instead of the worst-case one. Peaks beyond full scale are clamped.
+    // -3 dB normalisation instead of the worst-case one. The limiter handles peaks after the fold.
     StereoFold fold;
     fold.lfe = 0.5f;
     fold.scale = 0.70710678f;
@@ -256,15 +227,16 @@ bool SDLAudioDriver::Initialize() {
               device_name ? device_name : "?", obtained_spec.channels, obtained_spec.freq,
               static_cast<uint32_t>(obtained_spec.format), static_cast<int>(sdl_device_channels_));
 
-  if (!SDL_ResumeAudioDevice(sdl_device)) {
-    REXAPU_ERROR("SDL_ResumeAudioDevice() failed: {}", SDL_GetError());
-    return false;
-  }
-
   if (REXCVAR_GET(audio_sdl_bomba)) {
     bomba_activa_ = true;
     bomba_ = std::thread([this]() { Bomba(); });
-    REXAPU_INFO("audio: bomba de diagnostico a 187,5 Hz activa");
+    REXAPU_INFO("audio: bomba a 187,5 Hz activa, reserva de {} tramas",
+                REXCVAR_GET(audio_sdl_bomba_cola));
+  }
+
+  if (!SDL_ResumeAudioDevice(sdl_device)) {
+    REXAPU_ERROR("SDL_ResumeAudioDevice() failed: {}", SDL_GetError());
+    return false;
   }
 
   return true;
@@ -278,7 +250,12 @@ void SDLAudioDriver::Bomba() {
   while (bomba_activa_.load(std::memory_order_relaxed)) {
     const auto ahora = Reloj::now();
     if (ahora < plazo) {
+#if REX_PLATFORM_ANDROID
+      // Busy-yielding here competes with the audio server on mobile CPUs.
+      std::this_thread::sleep_until(plazo);
+#else
       std::this_thread::yield();  // no sleep: on Windows it can overshoot by several ms
+#endif
       continue;
     }
     size_t en_cola;
@@ -286,7 +263,7 @@ void SDLAudioDriver::Bomba() {
       std::unique_lock<std::mutex> guard(frames_mutex_);
       en_cola = frames_queued_.size();
     }
-    if (en_cola <= 6) {
+    if (en_cola < size_t(REXCVAR_GET(audio_sdl_bomba_cola))) {
       semaphore_->Release(1, nullptr);
     }
     if (en_cola < 2) {
@@ -314,16 +291,15 @@ void SDLAudioDriver::SubmitFrame(uint32_t frame_ptr) {
 
   std::memcpy(output_frame, input_frame, frame_samples_ * sizeof(float));
 
-  static uint32_t sdl_submit_count = 0;
-  if (sdl_submit_count < 10) {
-    REXAPU_DEBUG("SDLAudioDriver::SubmitFrame: frame_ptr={:08X} queued_count={}", frame_ptr,
-                 frames_queued_.size() + 1);
-    sdl_submit_count++;
-  }
-
   {
     std::unique_lock<std::mutex> guard(frames_mutex_);
     frames_queued_.push(output_frame);
+    static uint32_t sdl_submit_count = 0;
+    if (sdl_submit_count < 10) {
+      REXAPU_DEBUG("SDLAudioDriver::SubmitFrame: frame_ptr={:08X} queued_count={}", frame_ptr,
+                   frames_queued_.size());
+      sdl_submit_count++;
+    }
     PROFILE_BUFFER_QUEUE_DEPTH(static_cast<int64_t>(frames_queued_.size()));
   }
 }
@@ -371,11 +347,10 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
   // Snapshot once. A change mid-callback would split the frame across two mixes.
   const StereoFold fold = GetStereoFold();
   const SurroundMix mix = GetSurroundMix();
-#if REX_PLATFORM_ANDROID
-  const float gain = GetOutputGain() * kMargen;
-#else
   const float gain = GetOutputGain();
-#endif
+  const bool mute = REXCVAR_GET(audio_mute) || IsGameOutputSuppressed();
+  // Android limits after folding, before any hard clipping. Other outputs retain their clamp.
+  constexpr bool clamp_fold = REX_PLATFORM_ANDROID == 0;
   const int32_t rafaga = REXCVAR_GET(audio_sdl_rafaga_tramas);
   if (rafaga > 1) {
     // Diagnostic: up to N frames at once, each with its release, into a private buffer SDL feeds from.
@@ -390,15 +365,19 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
           driver->frames_queued_.pop();
           const size_t inicio = driver->rafaga_.size();
           driver->rafaga_.resize(inicio + size_t(sample_count));
-          if (REXCVAR_GET(audio_mute)) {
+          if (mute) {
             std::fill(driver->rafaga_.begin() + inicio, driver->rafaga_.end(), 0.0f);
           } else if (driver->sdl_device_channels_ == 2) {
             conversion::sequential_6_BE_to_interleaved_2_LE(driver->rafaga_.data() + inicio, buffer,
-                                                            channel_samples_, fold, gain);
+                                                            channel_samples_, fold, gain, clamp_fold);
           } else {
             conversion::sequential_6_BE_to_interleaved_6_LE(driver->rafaga_.data() + inicio, buffer,
                                                             channel_samples_, mix, gain);
           }
+#if REX_PLATFORM_ANDROID
+          LimitOutput(driver->rafaga_.data() + inicio, channel_samples_, driver->sdl_device_channels_,
+                      frame_frequency_, driver->limitador_ganancia_);
+#endif
           driver->frames_unused_.push(buffer);
           if (!driver->bomba_activa_.load(std::memory_order_relaxed)) {
             auto ret = driver->semaphore_->Release(1, nullptr);
@@ -417,10 +396,12 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
         additional_amount -= len;
         continue;
       }
-      if (!SDL_PutAudioStreamData(stream, driver->rafaga_.data() + driver->rafaga_leido_, len)) {
+      if (mute) std::memset(data, 0, len);
+      const float* burst_data = mute ? data : driver->rafaga_.data() + driver->rafaga_leido_;
+      if (!SDL_PutAudioStreamData(stream, burst_data, len)) {
         break;
       }
-      GrabarSalida(driver->rafaga_.data() + driver->rafaga_leido_, len, driver->sdl_device_channels_);
+      GrabarSalida(burst_data, len, driver->sdl_device_channels_);
       ContarTrama(false);
       driver->rafaga_leido_ += size_t(sample_count);
       additional_amount -= len;
@@ -430,8 +411,16 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
   }
   while (additional_amount > 0) {
     static uint32_t sdl_callback_count = 0;
-    std::unique_lock<std::mutex> guard(driver->frames_mutex_);
-    if (driver->frames_queued_.empty()) {
+    float* buffer = nullptr;
+    {
+      std::unique_lock<std::mutex> guard(driver->frames_mutex_);
+      if (!driver->frames_queued_.empty()) {
+        buffer = driver->frames_queued_.front();
+        driver->frames_queued_.pop();
+      }
+    }
+    // Conversion, SDL submission and diagnostics must leave the producer free to refill the queue.
+    if (!buffer) {
       if (sdl_callback_count < 10) {
         REXAPU_DEBUG("SDLCallback: no frames queued (silence)");
         sdl_callback_count++;
@@ -445,15 +434,13 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
       ContarTrama(true);
       additional_amount -= len;
     } else {
-      auto buffer = driver->frames_queued_.front();
-      driver->frames_queued_.pop();
-      if (REXCVAR_GET(audio_mute)) {
+      if (mute) {
         std::memset(data, 0, len);
       } else {
         switch (driver->sdl_device_channels_) {
           case 2:
             conversion::sequential_6_BE_to_interleaved_2_LE(data, buffer, channel_samples_, fold,
-                                                            gain);
+                                                            gain, clamp_fold);
             break;
           case 6:
             conversion::sequential_6_BE_to_interleaved_6_LE(data, buffer, channel_samples_, mix,
@@ -464,17 +451,22 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
             break;
         }
 #if REX_PLATFORM_ANDROID
-        Limitar(data, sample_count, driver->sdl_device_channels_, driver->limitador_ganancia_);
+        LimitOutput(data, channel_samples_, driver->sdl_device_channels_, frame_frequency_,
+                    driver->limitador_ganancia_);
 #endif
       }
       if (!SDL_PutAudioStreamData(stream, data, len)) {
         REXAPU_ERROR("SDL_PutAudioStreamData() failed: {}", SDL_GetError());
+        std::unique_lock<std::mutex> guard(driver->frames_mutex_);
         driver->frames_unused_.push(buffer);
         break;
       }
       GrabarSalida(data, len, driver->sdl_device_channels_);
       ContarTrama(false);
-      driver->frames_unused_.push(buffer);
+      {
+        std::unique_lock<std::mutex> guard(driver->frames_mutex_);
+        driver->frames_unused_.push(buffer);
+      }
 
       if (!driver->bomba_activa_.load(std::memory_order_relaxed)) {
         auto ret = driver->semaphore_->Release(1, nullptr);

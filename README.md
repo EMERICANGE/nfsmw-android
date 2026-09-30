@@ -14,17 +14,18 @@ Este proyecto adapta a Android el trabajo de recompilación de [nfsmw-nx](https:
 
 ## Requisitos
 
-- Android 8 o posterior, dispositivo ARM64 con Vulkan.
-- Una copia propia del juego extraída, con `default.xex`, `NFS/` y `Movies/`.
-- Espacio libre suficiente para guardar la copia del juego en la memoria interna.
+- Android 8 o posterior y procesador ARM64 compatible con ARMv8.2-A.
+- GPU con Vulkan y un controlador compatible con el renderizador del port. La versión se ha probado en un **Samsung Galaxy S25 Ultra**; la compatibilidad y el rendimiento en otros teléfonos pueden variar.
+- Una copia propia de **Need for Speed: Most Wanted (2005), Xbox 360, edición PAL España**, extraída y con `default.xex`, `NFS/` y `Movies/`. Este APK se compila para esa edición. Los archivos de la versión de PC, PS2 o una ISO sin extraer no sirven para estos pasos.
+- Espacio en la memoria interna para el APK, la carpeta completa del juego y los archivos generados. Si importas una carpeta que ya está en el teléfono, necesitas espacio para una copia adicional durante la importación.
 
 ## Instalación y primer inicio
 
-1. Descarga e instala el APK desde [Releases](https://github.com/codepdbh/nfsmw-android/releases/latest).
-2. Abre la app y permite el acceso a archivos que solicita Android para guardar el juego en la memoria compartida.
-3. Copia la carpeta extraída del juego a `Memoria interna/nsfmw-androidevolved/`, o usa **Seleccionar carpeta** en la app para importarla.
-4. Pulsa **Jugar**. En el primer inicio, la app genera `nfsmw_shaders.nfsp` localmente a partir de tu copia del juego y muestra el avance. La generación puede tardar varios minutos y solo hace falta una vez.
-5. Al terminar, se abre el juego. Los siguientes inicios usan la biblioteca generada.
+1. Descarga `NFSMW-Android-Evolved-v0.3.3.apk` desde [Releases](https://github.com/codepdbh/nfsmw-android/releases/latest) y ábrelo en el teléfono. Si Android lo solicita, permite **Instalar aplicaciones desconocidas** al navegador o gestor de archivos que estés usando.
+2. Instala el APK y abre **Need for Speed Most Wanted**. Autoriza el acceso a archivos que solicita la app; en Android 11 o posterior aparece el ajuste de **acceso a todos los archivos**. Después vuelve al launcher.
+3. Copia `default.xex`, `NFS/` y `Movies/` directamente dentro de `Memoria interna/nsfmw-androidevolved/`. También puedes pulsar **Elegir carpeta del juego** y seleccionar la carpeta extraída que contiene esos tres elementos; la app la copia a ese destino.
+4. Comprueba que el launcher marque los archivos como disponibles y pulsa **Jugar**. La primera vez genera `nfsmw_shaders.nfsp` a partir de tu copia y muestra el avance. Espera a que termine; puede tardar varios minutos según el dispositivo.
+5. Al terminar, se abre el juego. Los siguientes inicios usan la biblioteca generada. Para empezar, puedes seleccionar 1280×720 y 60 FPS en el launcher y ajustar después según el rendimiento del teléfono.
 
 La carpeta debe quedar así:
 
@@ -38,15 +39,26 @@ Memoria interna/nsfmw-androidevolved/
 
 No descargues ni compartas archivos del juego. La biblioteca de shaders se genera en el dispositivo desde los archivos locales de tu copia.
 
+### Actualizar desde una versión anterior
+
+Instala el nuevo APK encima del anterior, **sin desinstalar ni borrar los datos de la app**. Las versiones publicadas en este repositorio usan la misma firma y la actualización conserva las partidas y los ajustes. Si ya tienes los archivos del juego y los shaders, no hace falta importarlos ni generarlos otra vez.
+
+### Si no aparece Jugar
+
+- Revisa el permiso de archivos y vuelve a abrir la app.
+- Comprueba que `default.xex` esté directamente en `nsfmw-androidevolved/`, junto a `NFS/` y `Movies/`. Evita una carpeta adicional como `nsfmw-androidevolved/Need for Speed Most Wanted/default.xex`.
+- Si la importación falla, revisa el espacio libre y selecciona la carpeta que contiene los tres elementos, no la carpeta `NFS` por separado.
+- Si Android rechaza la actualización por una firma diferente, la instalación anterior procede de otra compilación. Conserva tus partidas antes de cambiar de instalación.
+
 ## Launcher, ajustes y controles
 
 En el launcher puedes cambiar resolución interna, límite de FPS, antialiasing, sombras, reflejos del coche y del asfalto, resplandor del cielo y filtro de imagen. La app también guarda ajustes de controles y formato de pantalla.
 
 El juego se abre en horizontal. La superposición táctil incluye dirección, botones de acción, START, freno y acelerador. Desde el editor de controles puedes mover y redimensionar botones, ocultarlos y ajustar su opacidad. También se admiten mandos Bluetooth y USB.
 
-## Voces de cinemáticas
+## Audio en v0.3.3
 
-Las voces de las cinemáticas siguen en desarrollo. En esta versión pueden faltar o escucharse como ruido; estamos trabajando en corregir su reproducción. El audio de gameplay se ha ajustado por separado.
+Se corrigió el ruido de los logos y los videos iniciales, incluida la voz de la chica, y el audio doble de las cinemáticas de historia. También se ajustó la salida del juego para reducir cortes y distorsión. La reproducción de intros, cinemáticas de historia y gameplay se comprobó en un Galaxy S25 Ultra con la edición PAL española. Las pruebas técnicas están descritas en [Audio en Android](docs/android-audio.md).
 
 ## Compilar
 

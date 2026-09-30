@@ -8,6 +8,7 @@
  * @license     BSD 3-Clause License
  *              See LICENSE file in the project root for full license text.
  */
+#include <atomic>
 #include <mutex>
 
 #include <rex/audio/downmix.h>
@@ -22,6 +23,7 @@ std::mutex g_mutex;
 StereoFold g_fold = {};
 SurroundMix g_mix = {};
 float g_gain = 1.0f;
+std::atomic<bool> g_game_output_suppressed{false};
 
 }  // namespace
 
@@ -53,6 +55,14 @@ void SetOutputGain(float linear) {
 float GetOutputGain() {
   std::lock_guard<std::mutex> lock(g_mutex);
   return g_gain;
+}
+
+void SetGameOutputSuppressed(bool suppressed) {
+  g_game_output_suppressed.store(suppressed, std::memory_order_relaxed);
+}
+
+bool IsGameOutputSuppressed() {
+  return g_game_output_suppressed.load(std::memory_order_relaxed);
 }
 
 }  // namespace rex::audio

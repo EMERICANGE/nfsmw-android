@@ -62,8 +62,9 @@ class DescodificadorWmv3 {
   int64_t fotogramas_ = 0;
 };
 
-// Decodes and plays the WMA Pro audio track carried alongside the WMV3 picture.
-// The game does not route the movie audio through its XMA mixer.
+// Decodes and plays WMA Pro or WMA v2 audio carried alongside the WMV3 picture.
+// Owns the audible output while its native SDL track plays, to avoid overlapping
+// guest sound. The guest mixer keeps running and is restored on end/skip.
 class AudioWmaPro {
  public:
   AudioWmaPro();

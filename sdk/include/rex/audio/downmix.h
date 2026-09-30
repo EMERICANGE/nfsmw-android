@@ -62,4 +62,9 @@ SurroundMix GetSurroundMix();
 void SetOutputGain(float linear);
 float GetOutputGain();
 
+// A native movie player can own the audible output while the guest mixer keeps
+// running. Suppression affects guest SDL drivers only, preserving packet callbacks.
+void SetGameOutputSuppressed(bool suppressed);
+bool IsGameOutputSuppressed();
+
 }  // namespace rex::audio

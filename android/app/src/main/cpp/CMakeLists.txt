@@ -34,6 +34,15 @@ endif()
 # imports it into app-private POSIX storage before GameActivity starts.
 target_link_options(nfsmw PRIVATE "-Wl,-z,max-page-size=16384")
 
+# Both libmain and rexruntime contain FFmpeg. Its C symbols are hidden, but
+# assembly DSP symbols are not covered by C_VISIBILITY_PRESET. Bind those too:
+# otherwise libmain initializes its FFT tables and calls rexruntime's NEON FFT,
+# whose larger tables are still empty during the startup movies.
+foreach(objetivo nfsmw rexruntime)
+    target_link_options(${objetivo} PRIVATE
+        "LINKER:--exclude-libs,liblibavcodec.a:liblibavutil.a")
+endforeach()
+
 # ThinLTO over the translated game and the app, as the Switch build does with GCC's LTO. The generated code
 # already calls __imp__sub_X directly (tools/llamadas_directas.py), so clang can inline game functions across
 # the 265 files. Release only: in Debug it would just slow the link down.
