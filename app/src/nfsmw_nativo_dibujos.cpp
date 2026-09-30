@@ -34,6 +34,7 @@
 
 #include "nfsmw_nativo_vertices_dedupe.h"
 #include "nfsmw_nativo_texturas_pool.h"
+#include "nfsmw_nativo_sincronizacion.h"
 
 #include "nfsmw_ajustes_graficos.h"
 #if __has_include("nfsmw_nativo_resplandor_energia_spirv.h") && __has_include("nfsmw_nativo_resplandor_suave_spirv.h")
@@ -10323,6 +10324,12 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     info.pAttachments = adjuntos.data();
     info.subpassCount = 1;
     info.pSubpasses = &subpase;
+    VkSubpassDependency dependencias[2]{};
+    if (REXCVAR_GET(nfsmw_nativo_sincronizacion_gpu)) {
+      DependenciasImagenes(dependencias);
+      info.dependencyCount = 2;
+      info.pDependencies = dependencias;
+    }
     VkRenderPass pase;
     if (dfn_.vkCreateRenderPass(device_, &info, nullptr, &pase) != VK_SUCCESS) {
       return VK_NULL_HANDLE;

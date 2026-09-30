@@ -28,6 +28,7 @@
 #include "nfsmw_nativo_destinos.h"
 #include "nfsmw_esperas_tiron.h"
 #include "nfsmw_nativo_shaders.h"  // Samplers of the PS (nfsmw_nativo_diag_lectores_s)
+#include "nfsmw_nativo_sincronizacion.h"
 #include "nfsmw_reflejo_demanda.h"  // road reflection only when it is read
 
 #include "nfsmw_ajustes_graficos.h"
@@ -57,6 +58,10 @@ extern "C" void RexSwitchPerfTiron(uint64_t inicio, uint64_t fin);
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+REXCVAR_DEFINE_BOOL(nfsmw_nativo_sincronizacion_gpu, true, "NFSMW",
+                    "Sincroniza subidas, reflejos y lecturas de imagenes entre pases Vulkan")
+    .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_INT32(nfsmw_nativo_resolver_sin_copia_alternar_s, 0, "NFSMW",
                      "Renderizador nativo (prueba, build 154): con N > 0 alterna copiar e intercambiar cada N "
@@ -909,6 +914,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   }
 
   bool Inicializar() {
+    REXLOG_INFO("[nativo] sincronizacion de imagenes Vulkan = {} ({})",
+                REXCVAR_GET(nfsmw_nativo_sincronizacion_gpu) ? "SI" : "no",
+                dispositivo_->properties().deviceName);
     // vkCmdCopyImage is not in the SDK's function table: it is requested from the driver.
     copiar_imagen_ = reinterpret_cast<FnCopiarImagen>(
         dispositivo_->vulkan_instance()->functions().vkGetDeviceProcAddr(device_,
@@ -2831,6 +2839,16 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         return VK_NULL_HANDLE;
       }
       grabando_subida_ = true;
+      if (REXCVAR_GET(nfsmw_nativo_sincronizacion_gpu)) {
+        // Previous submissions may still sample these textures or draw the
+        // reflection faces. Submission order alone does not make writes visible.
+        VkMemoryBarrier barrera{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        barrera.srcAccessMask = kAccesosImagenes;
+        barrera.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+        dfn_.vkCmdPipelineBarrier(comandos_subida_, kEtapasImagenes,
+                                  VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &barrera,
+                                  0, nullptr, 0, nullptr);
+      }
     }
     return comandos_subida_;
   }
@@ -5105,6 +5123,15 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       uint32_t n = 0;
       if (grabando_subida_) {
         grabando_subida_ = false;
+        if (REXCVAR_GET(nfsmw_nativo_sincronizacion_gpu)) {
+          // The following work buffer samples the newly uploaded textures and
+          // cubemap layers. Keep the dependency even when their layout is GENERAL.
+          VkMemoryBarrier barrera{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+          barrera.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+          barrera.dstAccessMask = kAccesosImagenes;
+          dfn_.vkCmdPipelineBarrier(comandos_subida_, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                    kEtapasImagenes, 0, 1, &barrera, 0, nullptr, 0, nullptr);
+        }
         if (dfn_.vkEndCommandBuffer(comandos_subida_) != VK_SUCCESS) {
           return false;
         }
