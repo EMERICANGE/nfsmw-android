@@ -56,6 +56,8 @@ class SDLAudioDriver : public AudioDriver {
   // delivered to SDL. Only SDL's audio thread uses them.
   std::vector<float> rafaga_ = {};
   size_t rafaga_leido_ = 0;
+  // Android: gain of the output limiter (see Limitar in sdl_audio_driver.cpp). Only the device callback uses it.
+  float limitador_ganancia_ = 1.0f;
   // Diagnostic audio_sdl_bomba: a thread that requests a frame every 5.333 ms while the queue holds at
   // most 6, like the Switch driver's pump; with it, SDL does not release the semaphore when consuming.
   void Bomba();

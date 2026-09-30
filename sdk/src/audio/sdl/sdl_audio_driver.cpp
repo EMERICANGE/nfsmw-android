@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <thread>
@@ -31,6 +32,10 @@
 #include <SDL3/SDL.h>
 
 REXCVAR_DEFINE_BOOL(audio_mute, false, "Audio", "Mute audio output");
+REXCVAR_DEFINE_INT32(audio_ganancia_pct, 100, "Audio",
+                     "Volumen general de la salida en porcentaje (100 = sin cambio). Por encima de 100 puede "
+                     "saturar en los momentos mas fuertes")
+    .range(25, 300);
 REXCVAR_DEFINE_INT32(audio_sdl_rafaga_tramas, 0, "Audio",
                      "Diagnostico: el driver SDL saca las tramas del juego de N en N, con N "
                      "liberaciones seguidas, como el driver de la Switch con buferes de 4 tramas; "
@@ -45,6 +50,39 @@ REXCVAR_DEFINE_INT32(audio_volcado_salida_desde_s, 0, "Audio",
                      "Diagnostico: segundos de salida SDL que se saltan antes del volcado");
 
 namespace rex::audio::sdl {
+
+namespace {
+#if REX_PLATFORM_ANDROID
+// Headroom of the fold on Android: the game is mixed 6 dB down and the limiter brings it back up. Loud moments
+// (the EA logo, crashes) then get their gain lowered smoothly instead of being clipped, which is what sounded
+// distorted with the louder phone fold.
+constexpr float kMargen = 0.5f;
+
+// Stereo-linked peak limiter: never above kTecho, gain drops at once on a peak and recovers over ~80 ms.
+void Limitar(float* datos, int muestras, int canales, float& ganancia) {
+  constexpr float kTecho = 0.97f;
+  constexpr float kRecuperacion = 1.0f / (0.080f * 48000.0f);
+  constexpr float kSubida = 1.0f / kMargen;
+  const int tramas = muestras / std::max(canales, 1);
+  float g = ganancia;
+  for (int i = 0; i < tramas; ++i) {
+    float* t = datos + size_t(i) * canales;
+    float pico = 0.0f;
+    for (int c = 0; c < canales; ++c) {
+      pico = std::max(pico, std::fabs(t[c]));
+    }
+    pico *= kSubida;
+    const float objetivo = pico > kTecho ? kTecho / pico : 1.0f;
+    g = objetivo < g ? objetivo : g + (objetivo - g) * kRecuperacion;
+    const float factor = kSubida * g;
+    for (int c = 0; c < canales; ++c) {
+      t[c] = std::clamp(t[c] * factor, -1.0f, 1.0f);
+    }
+  }
+  ganancia = g;
+}
+#endif
+}  // namespace
 
 namespace {
 
@@ -175,7 +213,24 @@ bool SDLAudioDriver::Initialize() {
 
   // A 1-channel device gets the stereo fold too, then SDL collapses to mono.
   // Handing it a 6ch stream instead would use SDL's own downmix.
-  if (obtained_spec.channels <= 2) {
+  //
+  // Android always gets the stereo fold. AAudio accepts a 6ch stream even on a phone with two speakers, and
+  // then SDL's 5.1 to stereo matrix does the fold with very low weights (front 0.29, centre 0.21, LFE 0.09):
+  // the whole game comes out about 10 dB down and the engines, which live in the centre and the LFE, far more.
+  bool plegar = obtained_spec.channels <= 2;
+#if REX_PLATFORM_ANDROID
+  plegar = true;
+  {
+    // Small speakers: the LFE goes into the fold too (it carries the engines' low end), with the usual
+    // -3 dB normalisation instead of the worst-case one. Peaks beyond full scale are clamped.
+    StereoFold fold;
+    fold.lfe = 0.5f;
+    fold.scale = 0.70710678f;
+    SetStereoFold(fold);
+  }
+#endif
+  SetOutputGain(float(REXCVAR_GET(audio_ganancia_pct)) / 100.0f);
+  if (plegar) {
     SDL_DestroyAudioStream(sdl_stream_);
     sdl_stream_ = nullptr;
     desired_spec.channels = 2;
@@ -316,7 +371,11 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
   // Snapshot once. A change mid-callback would split the frame across two mixes.
   const StereoFold fold = GetStereoFold();
   const SurroundMix mix = GetSurroundMix();
+#if REX_PLATFORM_ANDROID
+  const float gain = GetOutputGain() * kMargen;
+#else
   const float gain = GetOutputGain();
+#endif
   const int32_t rafaga = REXCVAR_GET(audio_sdl_rafaga_tramas);
   if (rafaga > 1) {
     // Diagnostic: up to N frames at once, each with its release, into a private buffer SDL feeds from.
@@ -404,6 +463,9 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream, int ad
             assert_unhandled_case(driver->sdl_device_channels_);
             break;
         }
+#if REX_PLATFORM_ANDROID
+        Limitar(data, sample_count, driver->sdl_device_channels_, driver->limitador_ganancia_);
+#endif
       }
       if (!SDL_PutAudioStreamData(stream, data, len)) {
         REXAPU_ERROR("SDL_PutAudioStreamData() failed: {}", SDL_GetError());

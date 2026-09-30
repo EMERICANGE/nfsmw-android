@@ -14,8 +14,10 @@
 #include "nfsmw_video_wmv3.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <deque>
 #include <limits>
@@ -220,6 +222,47 @@ struct AudioWmaPro::Estado {
   std::thread hilo;
   std::atomic<uint64_t> paquetes_decodificados{0};
   std::atomic<uint64_t> muestras_salida{0};
+  // Steady-clock time of the last frame the game decoded (Latido).
+  std::atomic<int64_t> latido_us{0};
+  bool callado = false;
+
+  static int64_t AhoraUs() {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::steady_clock::now().time_since_epoch()).count();
+  }
+
+  // Waits for room in the output queue, and for the game to keep showing the movie. Returns false when the
+  // audio has to stop (the movie object is going away).
+  //
+  // Frames come every 33-40 ms, but while the game loads behind a movie (the attract movie under the title
+  // screen) it stalls for a few hundred ms and then goes on: the audio keeps playing through that. When the
+  // player skips a cutscene the frames stop for good; after kSilencioUs the queued audio is dropped and nothing
+  // more is sent. If frames come back, the audio carries on from where it was.
+  bool EsperarTurno() {
+    constexpr int64_t kSilencioUs = 800'000;
+    constexpr int kMaxColaBytes = 44100 * 2 * int(sizeof(float)) / 4;
+    for (;;) {
+      if (detener.load(std::memory_order_relaxed)) {
+        return false;
+      }
+      const int64_t sin_video = AhoraUs() - latido_us.load(std::memory_order_relaxed);
+      if (sin_video > kSilencioUs) {
+        if (!callado) {
+          callado = true;
+          SDL_ClearAudioStream(salida);
+          REXLOG_INFO("[video] audio WMA Pro: el juego dejo de pedir fotogramas; audio en silencio");
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        continue;
+      }
+      callado = false;
+      if (SDL_GetAudioStreamQueued(salida) > kMaxColaBytes) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        continue;
+      }
+      return true;
+    }
+  }
 
   ~Estado() {
     detener.store(true, std::memory_order_relaxed);
@@ -268,6 +311,11 @@ struct AudioWmaPro::Estado {
     }
   }
 
+  // 5.1 to stereo, at the movie's own rate (SDL resamples to the device). Same weights as the game's fold on
+  // Android (front 1, centre and surround 0.707, LFE 0.5), mixed 6 dB down and brought back by the limiter:
+  // summed at full scale, the loud parts of the intro movies clipped and sounded distorted.
+  float limitador = 1.0f;
+
   void ConvertirYEnviar(const AVFrame* f) {
     if (f->nb_samples <= 0 || !f->extended_data || !f->extended_data[0]) return;
     const AVSampleFormat formato = static_cast<AVSampleFormat>(f->format);
@@ -276,56 +324,58 @@ struct AudioWmaPro::Estado {
     frame = const_cast<AVFrame*>(f);
     const bool planar = av_sample_fmt_is_planar(formato) != 0;
     const int canales = std::max(f->channels, 1);
-    const int frecuencia = f->sample_rate > 0 ? f->sample_rate : c.frecuencia_audio;
-    if (frecuencia <= 0) return;
-    const int cantidad = int((int64_t(f->nb_samples) * 48000 + frecuencia / 2) / frecuencia);
-    if (cantidad <= 0) return;
+    const int cantidad = f->nb_samples;
+    const uint64_t layout =
+        f->channel_layout ? f->channel_layout : uint64_t(av_get_default_channel_layout(canales));
 
-    auto posicion_canal = [&](int i) {
-      const uint64_t layout = f->channel_layout ? f->channel_layout : uint64_t(av_get_default_channel_layout(canales));
-      return layout ? av_channel_layout_extract_channel(layout, i) : 0;
-    };
-    std::vector<float> pcm(size_t(cantidad) * 2);
-    for (int i = 0; i < cantidad; ++i) {
-      const double origen = double(i) * frecuencia / 48000.0;
-      const int a = std::min(int(origen), f->nb_samples - 1);
-      const int b = std::min(a + 1, f->nb_samples - 1);
-      const float t = float(origen - a);
+    // Weight of each input channel on the left and the right.
+    std::array<float, 8> peso_izq{}, peso_der{};
+    for (int ch = 0; ch < canales && ch < 8; ++ch) {
+      const uint64_t destino = layout ? av_channel_layout_extract_channel(layout, ch) : 0;
       float izq = 0.0f, der = 0.0f;
-      for (int ch = 0; ch < canales; ++ch) {
-        const float sa = Muestra(ch, a, planar, compacto);
-        const float sb = Muestra(ch, b, planar, compacto);
-        const float s = sa + (sb - sa) * t;
-        const uint64_t destino = posicion_canal(ch);
-        switch (destino) {
-          case AV_CH_FRONT_LEFT: case AV_CH_FRONT_LEFT_OF_CENTER: case AV_CH_BACK_LEFT:
-          case AV_CH_SIDE_LEFT: case AV_CH_TOP_FRONT_LEFT: case AV_CH_TOP_BACK_LEFT:
-            izq += s * (destino == AV_CH_FRONT_LEFT ? 1.0f : 0.70710678f); break;
-          case AV_CH_FRONT_RIGHT: case AV_CH_FRONT_RIGHT_OF_CENTER: case AV_CH_BACK_RIGHT:
-          case AV_CH_SIDE_RIGHT: case AV_CH_TOP_FRONT_RIGHT: case AV_CH_TOP_BACK_RIGHT:
-            der += s * (destino == AV_CH_FRONT_RIGHT ? 1.0f : 0.70710678f); break;
-          case AV_CH_FRONT_CENTER: case AV_CH_TOP_CENTER: case AV_CH_TOP_FRONT_CENTER:
-            izq += s * 0.70710678f; der += s * 0.70710678f; break;
-          case AV_CH_LOW_FREQUENCY:
-            izq += s * 0.25f; der += s * 0.25f; break;
-          default:
-            if (canales == 1) { izq += s; der += s; }
-            else if (ch == 0) izq += s;
-            else if (ch == 1) der += s;
-            break;
-        }
+      switch (destino) {
+        case AV_CH_FRONT_LEFT: izq = 1.0f; break;
+        case AV_CH_FRONT_RIGHT: der = 1.0f; break;
+        case AV_CH_FRONT_LEFT_OF_CENTER: case AV_CH_BACK_LEFT: case AV_CH_SIDE_LEFT:
+        case AV_CH_TOP_FRONT_LEFT: case AV_CH_TOP_BACK_LEFT: izq = 0.70710678f; break;
+        case AV_CH_FRONT_RIGHT_OF_CENTER: case AV_CH_BACK_RIGHT: case AV_CH_SIDE_RIGHT:
+        case AV_CH_TOP_FRONT_RIGHT: case AV_CH_TOP_BACK_RIGHT: der = 0.70710678f; break;
+        case AV_CH_FRONT_CENTER: case AV_CH_TOP_CENTER: case AV_CH_TOP_FRONT_CENTER:
+          izq = der = 0.70710678f; break;
+        case AV_CH_LOW_FREQUENCY: izq = der = 0.5f; break;
+        default:
+          if (canales == 1) izq = der = 1.0f;
+          else if (ch == 0) izq = 1.0f;
+          else if (ch == 1) der = 1.0f;
+          break;
       }
-      pcm[size_t(i) * 2] = std::clamp(izq, -1.0f, 1.0f);
-      pcm[size_t(i) * 2 + 1] = std::clamp(der, -1.0f, 1.0f);
+      peso_izq[size_t(ch)] = izq * 0.5f;
+      peso_der[size_t(ch)] = der * 0.5f;
     }
 
-    // Keep a short lead-in so decoding can run independently without buffering the whole movie.
-    constexpr int kMaxColaBytes = 48000 * 2 * int(sizeof(float)) / 4;
-    while (!detener.load(std::memory_order_relaxed) && SDL_GetAudioStreamQueued(salida) > kMaxColaBytes) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::vector<float> pcm(size_t(cantidad) * 2);
+    constexpr float kTecho = 0.97f;
+    constexpr float kRecuperacion = 1.0f / (0.080f * 44100.0f);
+    float g = limitador;
+    for (int i = 0; i < cantidad; ++i) {
+      float izq = 0.0f, der = 0.0f;
+      for (int ch = 0; ch < canales && ch < 8; ++ch) {
+        const float m = Muestra(ch, i, planar, compacto);
+        izq += m * peso_izq[size_t(ch)];
+        der += m * peso_der[size_t(ch)];
+      }
+      // Stereo-linked peak limiter with 6 dB of make-up, as the game's output on Android.
+      const float pico = std::max(std::fabs(izq), std::fabs(der)) * 2.0f;
+      const float objetivo = pico > kTecho ? kTecho / pico : 1.0f;
+      g = objetivo < g ? objetivo : g + (objetivo - g) * kRecuperacion;
+      pcm[size_t(i) * 2] = std::clamp(izq * 2.0f * g, -1.0f, 1.0f);
+      pcm[size_t(i) * 2 + 1] = std::clamp(der * 2.0f * g, -1.0f, 1.0f);
     }
-    if (!detener.load(std::memory_order_relaxed) &&
-        SDL_PutAudioStreamData(salida, pcm.data(), int(pcm.size() * sizeof(float)))) {
+    limitador = g;
+
+    // Keep a short lead-in (250 ms) so decoding runs ahead without buffering the whole movie, and only while the
+    // game is still showing it.
+    if (EsperarTurno() && SDL_PutAudioStreamData(salida, pcm.data(), int(pcm.size() * sizeof(float)))) {
       muestras_salida.fetch_add(uint64_t(cantidad), std::memory_order_relaxed);
     }
   }
@@ -395,6 +445,7 @@ struct AudioWmaPro::Estado {
 
   void Ejecutar() {
     while (!detener.load(std::memory_order_relaxed) && LeerPaquete()) {}
+
     REXLOG_INFO("[video] audio WMA Pro: {} paquetes ASF, {} bloques decodificados, {} muestras estéreo", c.paquetes,
                 paquetes_decodificados.load(), muestras_salida.load());
   }
@@ -402,6 +453,14 @@ struct AudioWmaPro::Estado {
 
 AudioWmaPro::AudioWmaPro() : e_(std::make_unique<Estado>()) {}
 AudioWmaPro::~AudioWmaPro() = default;
+
+void AudioWmaPro::Latido() {
+  const int64_t ahora = Estado::AhoraUs();
+  const int64_t antes = e_->latido_us.exchange(ahora, std::memory_order_relaxed);
+  if (antes && ahora - antes > 250'000) {
+    REXLOG_INFO("[video] audio WMA Pro: fotogramas de nuevo tras {} ms", (ahora - antes) / 1000);
+  }
+}
 
 bool AudioWmaPro::Abrir(const std::string& ruta) {
   auto& e = *e_;
@@ -431,7 +490,7 @@ bool AudioWmaPro::Abrir(const std::string& ruta) {
   e.pkt = av_packet_alloc();
   e.frame = av_frame_alloc();
   SDL_AudioSpec spec{};
-  spec.freq = 48000;
+  spec.freq = e.c.frecuencia_audio > 0 ? e.c.frecuencia_audio : 48000;  // SDL resamples to the device
   spec.format = SDL_AUDIO_F32LE;
   spec.channels = 2;
   e.salida = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
@@ -441,6 +500,7 @@ bool AudioWmaPro::Abrir(const std::string& ruta) {
   }
   REXLOG_INFO("[video] audio WMA Pro '{}' flujo {}: {} canales a {} Hz, bloque {}, extradata {} bytes",
               ruta, e.c.flujo_audio, e.c.canales_audio, e.c.frecuencia_audio, e.c.bloque_audio, e.c.extra_audio.size());
+  e.latido_us.store(Estado::AhoraUs(), std::memory_order_relaxed);
   e.hilo = std::thread([estado = e_.get()] { estado->Ejecutar(); });
   return true;
 }

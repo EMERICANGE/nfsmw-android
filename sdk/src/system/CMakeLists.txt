@@ -97,6 +97,10 @@ target_link_libraries(rexruntime
 if(NOT REXGLUE_PLATFORM_SWITCH)
     target_link_libraries(rexruntime PUBLIC SDL3::SDL3)
 endif()
+if(ANDROID)
+    # The logcat sink of core/logging.cpp.
+    target_link_libraries(rexruntime PRIVATE log)
+endif()
 
 if(REXGLUE_ENABLE_TRACY)
     # TARGET_NAME is what tells install(EXPORT) this text is a target to

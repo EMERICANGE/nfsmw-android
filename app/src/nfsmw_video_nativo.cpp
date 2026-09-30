@@ -693,6 +693,7 @@ void Descodificar(PPCContext& ctx, uint8_t* base, int tipo) {
   const uint32_t obj = ctx.r3.u32;
   std::lock_guard<std::mutex> lock(g_peli_m);
   Pelicula& p = PeliculaDe(base, obj);
+  p.audio.Latido();
   Captura* c = t_captura && t_captura->ctx == obj ? t_captura : nullptr;
   if (nativo && p.preparada) {
     if (c && SustituirFotograma(ctx, base, p, *c, tipo)) {

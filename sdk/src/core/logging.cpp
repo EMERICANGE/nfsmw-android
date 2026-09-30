@@ -20,6 +20,9 @@
 #include <spdlog/async.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#if defined(__ANDROID__)
+#include <spdlog/sinks/android_sink.h>
+#endif
 
 #include <toml++/toml.hpp>
 
@@ -300,6 +303,16 @@ void InitLogging(const LogConfig& config) {
   }
 
   g_extra_sinks = config.extra_sinks;
+#if REX_PLATFORM_ANDROID
+  // The log file lives in the app's private folder, out of reach of adb on a release build: logcat gets a copy
+  // (tag NFSMW-rex), at info and above so the verbose categories stay in the file.
+  {
+    auto sink = std::make_shared<spdlog::sinks::android_sink_mt>("NFSMW-rex");
+    sink->set_level(spdlog::level::info);
+    sink->set_pattern("%v");
+    g_extra_sinks.push_back(sink);
+  }
+#endif
 
   // The spdlog pool, before the loggers are rebuilt (see log_async). A single thread: log lines have to
   // keep their usual order.

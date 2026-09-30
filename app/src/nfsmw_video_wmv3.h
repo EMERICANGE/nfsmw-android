@@ -73,6 +73,10 @@ class AudioWmaPro {
 
   bool Abrir(const std::string& ruta);
 
+  // The game decoded a frame of this movie. Without frames for a while (the player skipped the cutscene, or it
+  // ended), the audio goes silent instead of playing the rest of the track on its own.
+  void Latido();
+
  private:
   struct Estado;
   std::unique_ptr<Estado> e_;
