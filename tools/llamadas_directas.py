@@ -73,8 +73,8 @@ def main():
             open(ruta, 'w', encoding='utf-8', newline='\n').write(nuevo)
             ficheros += 1
         cambiadas += n
-    print('%s: %d llamadas en %d ficheros; %d direcciones con gancho respetadas' %
-          ('deshecho' if deshacer else 'directas', cambiadas, ficheros, len(con_gancho)))
+    print('%s: %d calls in %d files; %d hooked addresses left alone' %
+          ('undone' if deshacer else 'direct', cambiadas, ficheros, len(con_gancho)))
 
 
 if __name__ == '__main__':

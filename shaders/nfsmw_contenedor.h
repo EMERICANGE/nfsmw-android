@@ -14,7 +14,7 @@ struct Lector {
   const std::vector<uint8_t>& datos;
   void rango(size_t o, size_t n) const {
     if (o > datos.size() || n > datos.size() - o)
-      throw std::runtime_error("contenedor truncado o desplazamiento fuera del archivo");
+      throw std::runtime_error("truncated container or offset outside the file");
   }
   uint32_t u32(size_t o) const {
     rango(o, 4);
@@ -32,7 +32,7 @@ struct Flujo {
 // is also checked before the translator accesses its operands.
 inline Flujo ValidarMicrocodigo(const Lector& l, uint32_t inicio, uint32_t longitud) {
   l.rango(inicio, longitud);
-  if (!longitud || longitud % 12) throw std::runtime_error("longitud de microcodigo invalida");
+  if (!longitud || longitud % 12) throw std::runtime_error("invalid microcode length");
   const uint32_t bloques = longitud / 12;
   uint32_t limite = bloques, ejecutadas = 0;
   bool termina = false;
@@ -45,7 +45,7 @@ inline Flujo ValidarMicrocodigo(const Lector& l, uint32_t inicio, uint32_t longi
       if ((op >= 1 && op <= 6) || op == 13 || op == 14) {
         const uint32_t direccion = palabra & 4095, cantidad = (palabra >> 12) & 7;
         if (!direccion || cantidad > 6 || direccion >= bloques || cantidad > bloques - direccion || direccion <= i)
-          throw std::runtime_error("EXEC fuera del microcodigo; posible volcado de memoria contigua incorrecto");
+          throw std::runtime_error("EXEC outside the microcode; possibly a bad dump of contiguous memory");
         limite = std::min(limite, direccion);
         ejecutadas += cantidad;
         termina |= op == 2 || op == 4 || op == 6 || op == 14;
@@ -53,7 +53,7 @@ inline Flujo ValidarMicrocodigo(const Lector& l, uint32_t inicio, uint32_t longi
     }
   }
   if (!ejecutadas || !termina)
-    throw std::runtime_error("sin EXEC util y terminacion; no se acepta un HLSL vacio como traduccion");
+    throw std::runtime_error("no useful EXEC and termination; an empty HLSL is not accepted as a translation");
   return {limite * 12, ejecutadas};
 }
 
@@ -62,11 +62,11 @@ inline std::vector<uint8_t> Convertir2005(const std::vector<uint8_t>& entrada, F
   l.rango(0, 24);
   const uint32_t firma = l.u32(0), vs = l.u32(4), ps = l.u32(8);
   if ((firma & 0xFFFFFFFEu) != 0x102A0E00u || vs < 24 || uint64_t(vs) + ps != entrada.size())
-    throw std::runtime_error("cabecera de 2005 invalida");
+    throw std::runtime_error("invalid 2005 header");
   const bool pixel = !(firma & 1);
   const uint32_t def = l.u32(12), ct = l.u32(16), sh = l.u32(20);
   const auto virtualRango = [&](size_t o, size_t n) {
-    if (o > vs || n > vs - o) throw std::runtime_error("tabla fuera de la parte virtual");
+    if (o > vs || n > vs - o) throw std::runtime_error("table outside the virtual part");
   };
   virtualRango(sh, pixel ? 32 : 40);
   virtualRango(ct, 32);
@@ -77,7 +77,7 @@ inline std::vector<uint8_t> Convertir2005(const std::vector<uint8_t>& entrada, F
     const size_t info = size_t(baseCt) + l.u32(baseCt + 16) + i*20;
     const size_t nombre = size_t(baseCt) + l.u32(info);
     virtualRango(nombre, 1);
-    if (!std::memchr(entrada.data() + nombre, 0, vs - nombre)) throw std::runtime_error("nombre sin terminador");
+    if (!std::memchr(entrada.data() + nombre, 0, vs - nombre)) throw std::runtime_error("name without a terminator");
     virtualRango(size_t(baseCt) + l.u32(info + 12), 16);
   }
   flujo = ValidarMicrocodigo(l, vs, ps);
@@ -104,7 +104,7 @@ inline std::vector<uint8_t> Convertir2005(const std::vector<uint8_t>& entrada, F
   if (pixel) {
     virtualRango(sh + 32, size_t(interpoladores)*4);
     const uint32_t salidas = l.u32(sh + 28);
-    if (salidas & ~0x2Fu) throw std::runtime_error("mascara de salidas de 2005 desconocida");
+    if (salidas & ~0x2Fu) throw std::runtime_error("unknown 2005 output mask");
     anexar(0);
     // In this corpus bit 5 matches KILL, not a depth output.
     // The test checks the outputs against the microcode exports.
@@ -129,7 +129,7 @@ inline std::vector<uint8_t> Convertir2005(const std::vector<uint8_t>& entrada, F
       const uint32_t palabra = l.u32(o), registro = palabra >> 16, cantidad = palabra & 65535;
       o += 4;
       if (registro < 0x300 || registro % 16 || !cantidad || cantidad % 4 || size_t(cantidad)*4 > fin - o)
-        throw std::runtime_error("definicion inmediata de 2005 no admitida");
+        throw std::runtime_error("unsupported 2005 immediate definition");
       // The driver copies to device+0x480+register; c0 starts at +0x780.
       anexar(((registro - 0x300) / 16) << 16 | cantidad);
       anexar(fisica.size());
@@ -137,7 +137,7 @@ inline std::vector<uint8_t> Convertir2005(const std::vector<uint8_t>& entrada, F
       o += cantidad*4;
     }
     if (o + 8 > fin || l.u32(o) || l.u32(o+4))
-      throw std::runtime_error("definiciones enmascaradas pendientes de implementar");
+      throw std::runtime_error("masked definitions not implemented yet");
     anexar(0); anexar(0); anexar(0);
   }
   poner(4, s.size());

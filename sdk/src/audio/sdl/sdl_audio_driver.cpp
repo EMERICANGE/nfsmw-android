@@ -34,24 +34,24 @@
 
 REXCVAR_DEFINE_BOOL(audio_mute, false, "Audio", "Mute audio output");
 REXCVAR_DEFINE_INT32(audio_ganancia_pct, 100, "Audio",
-                     "Volumen general de la salida en porcentaje (100 = sin cambio). Por encima de 100 puede "
-                     "saturar en los momentos mas fuertes")
+                     "Overall output volume in percent (100 = unchanged). Above 100 it may "
+                     "clip in the loudest moments")
     .range(25, 300);
 REXCVAR_DEFINE_INT32(audio_sdl_rafaga_tramas, 0, "Audio",
-                     "Diagnostico: el driver SDL saca las tramas del juego de N en N, con N "
-                     "liberaciones seguidas, como el driver de la Switch con buferes de 4 tramas; "
-                     "0 o 1 = una a una, como siempre");
+                     "Diagnostic: the SDL driver takes the game's blocks N at a time, with N "
+                     "releases in a row, like the Switch driver with 4-block buffers; "
+                     "0 or 1 = one at a time, as always");
 REXCVAR_DEFINE_BOOL(audio_sdl_bomba, REX_PLATFORM_ANDROID != 0, "Audio",
-                    "Pedir audio a ritmo constante cada 5,333 ms, independiente de las rafagas del "
-                    "dispositivo (por defecto en Android)");
+                    "Request audio at a steady pace every 5.333 ms, independent of the device's "
+                    "bursts (default on Android)");
 REXCVAR_DEFINE_INT32(audio_sdl_bomba_cola, REX_PLATFORM_ANDROID ? 12 : 6, "Audio",
-                     "Tramas de reserva de la bomba SDL (12 = 64 ms; necesita audio_sdl_bomba)")
+                     "Reserve blocks of the SDL pump (12 = 64 ms; needs audio_sdl_bomba)")
     .range(2, 32);
 REXCVAR_DEFINE_INT32(audio_volcado_salida_s, 0, "Audio",
-                     "Diagnostico: segundos de lo que el driver SDL entrega al dispositivo (con los "
-                     "silencios por falta de tramas) que se guardan en audio_salida.wav; 0 = nada");
+                     "Diagnostic: seconds of what the SDL driver delivers to the device (including the "
+                     "silences caused by missing blocks) saved to audio_salida.wav; 0 = none");
 REXCVAR_DEFINE_INT32(audio_volcado_salida_desde_s, 0, "Audio",
-                     "Diagnostico: segundos de salida SDL que se saltan antes del volcado");
+                     "Diagnostic: seconds of SDL output skipped before the dump");
 
 namespace rex::audio::sdl {
 
@@ -103,7 +103,7 @@ void GrabarSalida(const float* datos, int bytes, uint32_t canales) {
     fichero.write("data", 4);
     u32(bytes_datos);
     fichero.write(reinterpret_cast<const char*>(volcado_salida.muestras.data()), bytes_datos);
-    REXAPU_INFO("[audio] volcado de la salida SDL: {} muestras por canal, {} canales, en {}",
+    REXAPU_INFO("[audio] SDL output dump: {} samples per channel, {} channels, in {}",
                 volcado_salida.muestras.size() / canales, canales, ruta.string());
   }
   volcado_salida.muestras = std::vector<float>();
@@ -116,7 +116,7 @@ void ContarTrama(bool silencio) {
     return;
   }
   if (ultimo_informe_salida.time_since_epoch().count() != 0) {
-    REXAPU_INFO("[audio] SDL en 10 s: {} tramas con datos y {} de silencio por falta de tramas",
+    REXAPU_INFO("[audio] SDL in 10 s: {} frames with data and {} of silence for lack of frames",
                 tramas_con_datos, tramas_de_silencio);
   }
   tramas_con_datos = 0;
@@ -230,7 +230,7 @@ bool SDLAudioDriver::Initialize() {
   if (REXCVAR_GET(audio_sdl_bomba)) {
     bomba_activa_ = true;
     bomba_ = std::thread([this]() { Bomba(); });
-    REXAPU_INFO("audio: bomba a 187,5 Hz activa, reserva de {} tramas",
+    REXAPU_INFO("audio: pump at 187.5 Hz active, reserve of {} blocks",
                 REXCVAR_GET(audio_sdl_bomba_cola));
   }
 

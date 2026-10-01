@@ -20,7 +20,7 @@ enum Tipo : uint32_t {
   kJuegoMedio,        // the game inside sub_826E8EE8
   kAnilloSinTrabajo,  // the ring thread with no packets to read
   kAnilloRegMem,      // the ring thread in a WAIT_REG_MEM (waiting for the game to write)
-  // The game's side in the stutter frame ("[tiron] juego" line).
+  // The game's side in the stutter frame ("[tiron] game" line).
   kEjecutorSinOrdenes,   // Main XThread with the list open and no new commands (sub_823C83F8)
   kPreparadorLista,      // the preparer filling the command list (all of sub_82445660: culling and eView)
   kPreparadorFuera,      // the preparer between two fills: its simulation plus its handoff wait
@@ -60,7 +60,7 @@ inline std::atomic<uint64_t> g_esperas_copias{0};
 // copies (nfsmw_nativo_subidas_ayuda). g_ns_esperando_copias is therefore only the wait. Ring thread only.
 inline std::atomic<uint64_t> g_ns_ayudando_copias{0};
 inline std::atomic<uint64_t> g_copias_ayudadas{0};
-// What the ring spends creating textures (image, pool memory and view; "texturas X ms" starts after they
+// What the ring spends creating textures (image, pool memory and view; "textures X ms" starts after they
 // are created and did not include it), how long it waits for the binding thread and how many textures that
 // thread bound (nfsmw_nativo_texturas_enlace_hilo in nfsmw_nativo_dibujos.cpp). Only the ring thread writes it.
 inline std::atomic<uint64_t> g_ns_crear_texturas{0};
@@ -68,7 +68,7 @@ inline std::atomic<uint64_t> g_ns_esperando_enlaces{0};
 inline std::atomic<uint64_t> g_texturas_enlazadas_hilo{0};
 // New textures with the fingerprint, the detiling and the byte order done on the fingerprint thread
 // (nfsmw_nativo_texturas_huella_hilo in nfsmw_nativo_dibujos.cpp): what the ring spends copying guest memory
-// (snapshots; counted inside "texturas"), how many the thread prepares and in how long, how many the ring
+// (snapshots; counted inside "textures"), how many the thread prepares and in how long, how many the ring
 // keeps for itself at submit time and in how long, and how long the ring waits for the thread. Only the ring
 // thread writes it (when planning and when collecting).
 inline std::atomic<uint64_t> g_ns_huella_instantanea{0};

@@ -176,7 +176,7 @@ struct PeticionDibujo {
   uint64_t generacion_constantes_vs = 0;     // changes when 0x4000-0x43FF are written
   uint64_t generacion_constantes_ps = 0;     // changes when 0x4400-0x47FF are written
   /*
-   * The two most expensive stages of recording a draw on the console are "texturas" (4.1 ms per frame) and
+   * The two most expensive stages of recording a draw on the console are "textures" (4.1 ms per frame) and
    * the viewport/scissor that the C6 report includes in "pipeline". Both are pure functions of registers
    * that almost never change between consecutive draws, so the ring sink tracks when they really change
    * (it compares the value before writing it, as with the constants) and the count arrives here.
@@ -202,7 +202,7 @@ struct EstadisticasDibujos {
   uint64_t megas_subidos = 0;  // vertices, indices, constants and textures
   uint64_t megas_texturas = 0;  // texture images created (base level, no eviction)
   uint64_t ms_pipelines = 0;  // creating pipelines, accumulated
-  // Accumulated for "C6 contadores" (the system prints the differences per report).
+  // Accumulated for "C6 counters" (the system prints the differences per report).
   uint64_t pases = 0;             // render passes started
   uint64_t envios_llenos = 0;     // submissions due to a full upload buffer
   uint64_t ns_envios_llenos = 0;  // inside those submissions, including the wait for the GPU
@@ -339,7 +339,7 @@ extern std::atomic<uint32_t> g_sincronizaciones_anillo;
  * The ring's periodic dump (the system report, every 20 s) took 29-32 ms, and not because of formatting:
  * the log is synchronous (log_async = false) and every 2-4 lines the SD FILE is flushed to the card. In
  * one race there were 6 stutters of 60 ms or more: 3 ended 40-70 ms after a dump started, and 1 within
- * 0.12 s of the C6 subetapas line (0.5 would be expected by chance).
+ * 0.12 s of the C6 substages line (0.5 would be expected by chance).
  * The line is formatted on the calling thread (it reads the ring's state, which is only consistent on its
  * own thread) and queued; the "NFSMW informes" thread (priority 0x3B) writes it. The queue never blocks
  * the producer: if it fills up, the line is dropped and counted. Defined in nfsmw_nativo_sistema.cpp.

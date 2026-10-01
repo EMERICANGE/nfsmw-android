@@ -46,8 +46,8 @@
  *     version to recover a profile that got corrupted.
  */
 REXCVAR_DEFINE_STRING(content_backup_root, "", "Kernel",
-                      "Carpeta donde dejar una copia de cada guardado, con una subcarpeta por perfil. "
-                      "Vacia = no se copia nada");
+                      "Folder where a copy of every save is left, with one subfolder per profile. "
+                      "Empty = nothing is copied");
 
 namespace rex {
 namespace system {
@@ -101,9 +101,9 @@ std::string QueHayDentro(const std::filesystem::path& carpeta) {
     ++cuantos;
   }
   if (cuantos == 0) {
-    return "VACIO";
+    return "EMPTY";
   }
-  return fmt::format("{} fichero(s), {} B: {}", cuantos, total, texto);
+  return fmt::format("{} file(s), {} B: {}", cuantos, total, texto);
 }
 
 bool CopiarFichero(const std::filesystem::path& origen, const std::filesystem::path& destino) {
@@ -186,10 +186,10 @@ void CopiaParaElUsuario(const std::string_view nombre, const std::filesystem::pa
   uint32_t ficheros = 0;
   const bool bien = CopiarCarpeta(origen, actual, ficheros);
   if (bien) {
-    REXSYS_INFO("[guardado] copia de «{}»: {} fichero(s) en {}", perfil, ficheros,
+    REXSYS_INFO("[guardado] copy of «{}»: {} file(s) in {}", perfil, ficheros,
                 rex::path_to_utf8(actual));
   } else {
-    REXSYS_WARN("[guardado] la copia de «{}» ha fallado a medias ({} fichero(s) en {})", perfil,
+    REXSYS_WARN("[guardado] the copy of «{}» failed partway ({} file(s) in {})", perfil,
                 ficheros, rex::path_to_utf8(actual));
   }
 }
@@ -331,10 +331,10 @@ std::vector<XCONTENT_AGGREGATE_DATA> ContentManager::ListContent(uint32_t device
   // What the game sees when it asks for the list of saves. If a profile that exists on disk does not show
   // up here, the problem is the enumeration; if it shows up and is then reported as damaged, the problem
   // is its contents.
-  REXSYS_INFO("[guardado] listar tipo {:08X} en {}: {} entrada(s)", uint32_t(content_type),
+  REXSYS_INFO("[guardado] list type {:08X} in {}: {} entries", uint32_t(content_type),
               rex::path_to_utf8(package_root), result.size());
   for (const auto& entrada : result) {
-    REXSYS_INFO("[guardado]   «{}» (mostrado como «{}»)", entrada.file_name(),
+    REXSYS_INFO("[guardado]   «{}» (shown as «{}»)", entrada.file_name(),
                 rex::string::to_utf8(entrada.display_name()));
   }
 
@@ -387,8 +387,8 @@ X_RESULT ContentManager::WriteContentHeaderFile(uint64_t xuid, XCONTENT_AGGREGAT
     fwrite(&license_mask, 1, sizeof(license_mask), file);
   }
   const bool bien = fclose(file) == 0;
-  REXSYS_INFO("[guardado] cabecera de «{}» {} en {}", data.file_name(),
-              bien ? "escrita" : "FALLO al cerrarse", rex::path_to_utf8(header_path));
+  REXSYS_INFO("[guardado] header of «{}» {} at {}", data.file_name(),
+              bien ? "written" : "FAILED on close", rex::path_to_utf8(header_path));
   return X_ERROR_SUCCESS;
 }
 
@@ -435,14 +435,14 @@ X_RESULT ContentManager::CreateContent(const std::string_view root_name, uint64_
   }
 
   auto package_path = ResolvePackagePath(xuid, data);
-  REXSYS_INFO("[guardado] crear «{}» (raiz {}) en {}", data.file_name(), root_name,
+  REXSYS_INFO("[guardado] create «{}» (root {}) at {}", data.file_name(), root_name,
               rex::path_to_utf8(package_path));
   if (std::filesystem::exists(package_path)) {
-    REXSYS_WARN("[guardado] crear «{}»: ya existia, se devuelve ALREADY_EXISTS", data.file_name());
+    REXSYS_WARN("[guardado] create «{}»: already existed, returning ALREADY_EXISTS", data.file_name());
     return X_ERROR_ALREADY_EXISTS;
   }
   if (!std::filesystem::create_directories(package_path)) {
-    REXSYS_ERROR("[guardado] crear «{}»: NO se ha podido crear {}", data.file_name(),
+    REXSYS_ERROR("[guardado] create «{}»: could NOT create {}", data.file_name(),
                  rex::path_to_utf8(package_path));
     return X_ERROR_ACCESS_DENIED;
   }
@@ -471,14 +471,14 @@ X_RESULT ContentManager::OpenContent(const std::string_view root_name, uint64_t 
 
   auto package_path = ResolvePackagePath(xuid, data);
   if (!std::filesystem::exists(package_path)) {
-    REXSYS_WARN("[guardado] abrir «{}»: no existe {}", data.file_name(),
+    REXSYS_WARN("[guardado] open «{}»: {} does not exist", data.file_name(),
                 rex::path_to_utf8(package_path));
     return X_ERROR_FILE_NOT_FOUND;
   }
-  // What the game will find inside. If this says VACIO and the profile is then reported as damaged, the
+  // What the game will find inside. If this says EMPTY and the profile is then reported as damaged, the
   // failure was in saving; if it lists the files with their sizes, the failure is in reading them or in
   // the contents themselves.
-  REXSYS_INFO("[guardado] abrir «{}» (raiz {}) en {} -> {}", data.file_name(), root_name,
+  REXSYS_INFO("[guardado] open «{}» (root {}) at {} -> {}", data.file_name(), root_name,
               rex::path_to_utf8(package_path), QueHayDentro(package_path));
   auto package = ResolvePackage(root_name, xuid, data);
   assert_not_null(package);
@@ -512,7 +512,7 @@ X_RESULT ContentManager::CloseContent(const std::string_view root_name) {
   const std::string nombre = package->GetPackageContentData().file_name();
   delete package;  // unmounts the guest drive: from here on the files are in place
 
-  REXSYS_INFO("[guardado] cerrar «{}» (raiz {}) en {} -> {}", nombre, root_name,
+  REXSYS_INFO("[guardado] close «{}» (root {}) at {} -> {}", nombre, root_name,
               rex::path_to_utf8(ruta), QueHayDentro(ruta));
   CopiaParaElUsuario(nombre, ruta);
   return X_ERROR_SUCCESS;

@@ -16,14 +16,14 @@ static void Exigir(bool valor, const char* mensaje) {
 static void Rechazar(const std::vector<uint8_t>& datos) {
   try { nfsmw::Flujo f; nfsmw::Convertir2005(datos, f); }
   catch (const std::runtime_error&) { return; }
-  throw std::runtime_error("se acepto una entrada invalida");
+  throw std::runtime_error("an invalid input was accepted");
 }
 static void Poner(std::vector<uint8_t>& d, size_t o, uint32_t v) {
   d[o] = v >> 24; d[o+1] = v >> 16; d[o+2] = v >> 8; d[o+3] = v;
 }
 
 int main(int argc, char** argv) try {
-  if (argc != 3) throw std::runtime_error("uso: nfsmw_probar_contenedor <disco> <volcados anteriores>");
+  if (argc != 3) throw std::runtime_error("usage: nfsmw_probar_contenedor <disc> <old dumps>");
   std::vector<std::vector<uint8_t>> corpus;
   std::set<uint32_t> operaciones;
   size_t pixeles = 0, vertices = 0, descarte = 0;
@@ -34,7 +34,7 @@ int main(int argc, char** argv) try {
     nfsmw::Flujo flujo;
     auto salida = nfsmw::Convertir2005(datos, flujo);
     const nfsmw::Lector normal{salida};
-    Exigir(std::equal(datos.begin()+l.u32(4), datos.end(), salida.begin()+normal.u32(4)), "microcodigo alterado al normalizar");
+    Exigir(std::equal(datos.begin()+l.u32(4), datos.end(), salida.begin()+normal.u32(4)), "microcode altered by normalization");
     uint32_t exportaciones = 0;
     bool mata = false;
     for (uint32_t i = 0; i < flujo.bytes; i += 12) {
@@ -65,9 +65,9 @@ int main(int argc, char** argv) try {
     if (!(l.u32(0) & 1)) {
       ++pixeles;
       const uint32_t mascara = l.u32(l.u32(20) + 28);
-      Exigir((mascara & 15) == (exportaciones & 15), "salidas de color distintas del microcodigo");
-      Exigir(!(exportaciones & 16), "el corpus ahora contiene profundidad: revisar su formato");
-      Exigir(bool(mascara & 32) == mata, "el bit 5 no coincide con instrucciones de descarte");
+      Exigir((mascara & 15) == (exportaciones & 15), "color outputs differ from the microcode");
+      Exigir(!(exportaciones & 16), "the corpus now contains depth: review its format");
+      Exigir(bool(mascara & 32) == mata, "bit 5 does not match the kill instructions");
       descarte += mata;
     } else ++vertices;
     // Truncated headers, overflowing limits and nonexistent CF.
@@ -93,13 +93,13 @@ int main(int argc, char** argv) try {
       // CTAB is immutable; the live object also contains working fields.
       existe |= std::equal(datos.begin()+ct, datos.begin()+sh, original.begin()+ct);
     }
-    if (!existe) std::cout << "Sin CTAB equivalente en disco: " << e.path().filename().string() << '\n';
+    if (!existe) std::cout << "No equivalent CTAB on disc: " << e.path().filename().string() << '\n';
     correspondencias += existe;
   }
-  Exigir(!corpus.empty() && rechazados != 0, "corpus vacio");
-  std::cout << corpus.size() << " contenedores: " << vertices << " vertices, " << pixeles << " pixeles; "
-            << descarte << " con descarte; " << rechazados << " volcados incorrectos rechazados; "
-            << correspondencias << " CTAB recuperadas.\nCF presentes:";
+  Exigir(!corpus.empty() && rechazados != 0, "empty corpus");
+  std::cout << corpus.size() << " containers: " << vertices << " vertex, " << pixeles << " pixel; "
+            << descarte << " using kill; " << rechazados << " bad dumps rejected; "
+            << correspondencias << " CTABs recovered.\nCF present:";
   for (auto op : operaciones) std::cout << ' ' << op;
   std::cout << '\n';
   return 0;

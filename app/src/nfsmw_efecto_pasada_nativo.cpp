@@ -57,7 +57,7 @@
 //   dry run what it leaves is saved and undone; the calls, the exit state and the memory are compared byte
 //   by byte; and then the original runs for real. The original's state is always kept. When: the first
 //   kComprobaciones calls, the first kMinimoRaro of each rare path (second mask buffer, render states, OR
-//   masks) and then 1 of every kPeriodo. A difference writes "[efecto_pasada] DIFERENCIA" (REXLOG_ERROR)
+//   masks) and then 1 of every kPeriodo. A difference writes "[efecto_pasada] DIFFERENCE" (REXLOG_ERROR)
 //   and turns the native version off for the session.
 //   Measured in the same session: 1 in 16 native calls is timed and 1 in 512 goes through the timed
 //   original; the "[efecto_pasada]" line every 10 s gives the us per call of both and the saving in ms/s.
@@ -80,10 +80,10 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_efecto_pasada_nativo, true, "NFSMW",
-                    "Inicio de pasada de un efecto (sub_82448E80: mascaras de sucio, sombreadores y estados de render y "
-                    "de muestreo) en nativo (build 185), identico. Se comprueba en seco contra una copia literal de la "
-                    "original (las primeras 20.000 llamadas, las primeras 2.000 de cada camino raro y despues 1 de cada "
-                    "4096) y se apaga sola si difiere; false = la original")
+                    "Start of an effect pass (sub_82448E80: dirty masks, shaders, and render and sampler "
+                    "states) in native code (build 185), identical. Checked in dry runs against a literal copy of the "
+                    "original (the first 20,000 calls, the first 2,000 of each rare path and then 1 of every "
+                    "4096) and turns itself off if it differs; false = the original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_82448E80);  // the original
@@ -162,8 +162,8 @@ enum Camino : uint32_t {
   kCaminos = 6,
   kCombinaciones = 1u << kCaminos
 };
-constexpr const char* kNombresCamino[kCaminos] = {"reinicio",         "segundo bufer", "soltar sombreador",
-                                                  "estados de render", "muestreo",      "mascaras OR"};
+constexpr const char* kNombresCamino[kCaminos] = {"reset",         "second buffer", "release shader",
+                                                  "render states", "sampler states",      "OR masks"};
 constexpr uint32_t kCaminosRaros = kCaminoSegundo | kCaminoEstados | kCaminoMascaras;
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -479,9 +479,9 @@ constexpr uint32_t kMaxZonas = 10;
 constexpr uint32_t kMaxBytesZonas = 4096;
 
 static_assert(offsetof(PPCContext, r13) == offsetof(PPCContext, r3) + 13 * sizeof(PPCRegister),
-              "r3, r0, r1, r2, r4..r13 seguidos");
-static_assert(offsetof(PPCContext, f13) == offsetof(PPCContext, f0) + 13 * sizeof(PPCRegister), "f0..f13 seguidos");
-static_assert(offsetof(PPCContext, v13) == offsetof(PPCContext, v0) + 13 * sizeof(PPCVRegister), "v0..v13 seguidos");
+              "r3, r0, r1, r2, r4..r13 consecutive");
+static_assert(offsetof(PPCContext, f13) == offsetof(PPCContext, f0) + 13 * sizeof(PPCRegister), "f0..f13 consecutive");
+static_assert(offsetof(PPCContext, v13) == offsetof(PPCContext, v0) + 13 * sizeof(PPCVRegister), "v0..v13 consecutive");
 
 // What a call (or the exit) sees: all the volatiles, the FPCR, the last indirect call and the written memory.
 struct Foto {
@@ -495,7 +495,7 @@ struct Foto {
   uint32_t csr;
   uint32_t ultimo_indirecto;
 };
-static_assert(sizeof(Foto) == 8 + 8 + 14 * 8 + 8 + 14 * 8 + 14 * 16 + 8, "Foto sin relleno");
+static_assert(sizeof(Foto) == 8 + 8 + 14 * 8 + 8 + 14 * 8 + 14 * 16 + 8, "Foto without padding");
 constexpr const char* kNombresR[14] = {"r3", "r0", "r1", "r2", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12",
                                        "r13"};
 
@@ -770,9 +770,9 @@ void Informe() {
   }
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[efecto_pasada] inicio de pasada de efecto (sub_82448E80) {}",
-                Activo() ? "en nativo (build 185): empieza comprobando contra la copia literal de la original"
-                         : "por la original (nfsmw_efecto_pasada_nativo = false)");
+    REXLOG_INFO("[efecto_pasada] effect pass start (sub_82448E80) {}",
+                Activo() ? "in native code (build 185): starts by checking against the literal copy of the original"
+                         : "through the original (nfsmw_efecto_pasada_nativo = false)");
     return;
   }
   uint64_t por_camino[kCaminos] = {};
@@ -801,10 +801,10 @@ void Informe() {
   const double llamadas_s = double(nativas + total_originales) / 10.0;
   const double ahorro_ms_s = (k_n && k_o) ? (us_o - us_n) * double(nativas) / 10.0 / 1000.0 : 0.0;
   NFSMW_INFORME_DIFERIDO(
-      "[efecto_pasada] ultimos 10 s: {:.0f} llamadas/s; {} en nativo ({} {}, {} {}, {} {}, {} {}, {} {}, {} {}), {} por "
-      "la original (apagada {}, comprobacion {}, medida {}); nativa {:.3f} us/llamada ({} cronometradas), original "
-      "{:.3f} us/llamada ({}): ahorro {:.2f} ms/s; comprobadas contra la copia literal de la original desde el arranque: "
-      "{} (reinicio {}, segundo bufer {}, soltar {}, estados {}, muestreo {}, mascaras {}; sin comparar {}){}",
+      "[efecto_pasada] last 10 s: {:.0f} calls/s; {} native ({} {}, {} {}, {} {}, {} {}, {} {}, {} {}), {} through "
+      "the original (off {}, check {}, measurement {}); native {:.3f} us/call ({} timed), original "
+      "{:.3f} us/call ({}): savings {:.2f} ms/s; checked against the literal copy of the original since startup: "
+      "{} (reset {}, second buffer {}, release {}, states {}, sampler {}, masks {}; not compared {}){}",
       llamadas_s, nativas, kNombresCamino[0], por_camino[0], kNombresCamino[1], por_camino[1], kNombresCamino[2],
       por_camino[2], kNombresCamino[3], por_camino[3], kNombresCamino[4], por_camino[4], kNombresCamino[5],
       por_camino[5], total_originales, originales[kPorApagada], originales[kPorComprobacion], originales[kPorMedida],
@@ -812,7 +812,7 @@ void Informe() {
       g_comprobadas_camino[0].load(std::memory_order_relaxed), g_comprobadas_camino[1].load(std::memory_order_relaxed),
       g_comprobadas_camino[2].load(std::memory_order_relaxed), g_comprobadas_camino[3].load(std::memory_order_relaxed),
       g_comprobadas_camino[4].load(std::memory_order_relaxed), g_comprobadas_camino[5].load(std::memory_order_relaxed),
-      g_saltadas.load(std::memory_order_relaxed), g_apagado.load(std::memory_order_relaxed) ? " | APAGADA por diferencia" : "");
+      g_saltadas.load(std::memory_order_relaxed), g_apagado.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "");
 }
 
 std::string Hex(const uint8_t* bytes, uint32_t n) {
@@ -828,34 +828,34 @@ std::string Hex(const uint8_t* bytes, uint32_t n) {
 // The first difference between two snapshots ("" if they are equal).
 std::string Diferencia(const Foto& a, const Foto& b) {
   if (a.que != b.que || a.destino != b.destino) {
-    return fmt::format("llamada {}/0x{:08X} frente a {}/0x{:08X}", a.que, a.destino, b.que, b.destino);
+    return fmt::format("call {}/0x{:08X} vs {}/0x{:08X}", a.que, a.destino, b.que, b.destino);
   }
   for (uint32_t i = 0; i < 14; ++i) {
     if (a.r[i] != b.r[i]) {
-      return fmt::format("{} 0x{:X} frente a 0x{:X}", kNombresR[i], a.r[i], b.r[i]);
+      return fmt::format("{} 0x{:X} vs 0x{:X}", kNombresR[i], a.r[i], b.r[i]);
     }
   }
   if (a.lr != b.lr) {
-    return fmt::format("lr 0x{:X} frente a 0x{:X}", a.lr, b.lr);
+    return fmt::format("lr 0x{:X} vs 0x{:X}", a.lr, b.lr);
   }
   for (uint32_t i = 0; i < 14; ++i) {
     if (a.f[i] != b.f[i]) {
-      return fmt::format("f{} 0x{:016X} frente a 0x{:016X}", i, a.f[i], b.f[i]);
+      return fmt::format("f{} 0x{:016X} vs 0x{:016X}", i, a.f[i], b.f[i]);
     }
   }
   for (uint32_t i = 0; i < 14; ++i) {
     if (std::memcmp(a.v + 16 * i, b.v + 16 * i, 16) != 0) {
-      return fmt::format("v{} {} frente a {}", i, Hex(a.v + 16 * i, 16), Hex(b.v + 16 * i, 16));
+      return fmt::format("v{} {} vs {}", i, Hex(a.v + 16 * i, 16), Hex(b.v + 16 * i, 16));
     }
   }
   if (a.csr != b.csr) {
-    return fmt::format("FPCR 0x{:X} frente a 0x{:X}", a.csr, b.csr);
+    return fmt::format("FPCR 0x{:X} vs 0x{:X}", a.csr, b.csr);
   }
   if (a.ultimo_indirecto != b.ultimo_indirecto) {
-    return fmt::format("ultimo indirecto 0x{:X} frente a 0x{:X}", a.ultimo_indirecto, b.ultimo_indirecto);
+    return fmt::format("last indirect 0x{:X} vs 0x{:X}", a.ultimo_indirecto, b.ultimo_indirecto);
   }
   if (a.memoria != b.memoria) {
-    return fmt::format("la memoria escrita hasta ahi (suma 0x{:016X} frente a 0x{:016X})", a.memoria, b.memoria);
+    return fmt::format("the memory written up to there (sum 0x{:016X} vs 0x{:016X})", a.memoria, b.memoria);
   }
   return std::string();
 }
@@ -908,7 +908,7 @@ std::string Diferencia(const Foto& a, const Foto& b) {
   std::string que;
   uint32_t donde = 0;
   if (copia.n != nativa.n) {
-    que = fmt::format("{} llamadas frente a {}", copia.n, nativa.n);
+    que = fmt::format("{} calls vs {}", copia.n, nativa.n);
   } else if (copia.n <= kMaxLlamadas) {
     for (uint32_t k = 0; k < copia.n && que.empty(); ++k) {
       que = Diferencia(copia.llamadas[k], nativa.llamadas[k]);
@@ -924,7 +924,7 @@ std::string Diferencia(const Foto& a, const Foto& b) {
         for (uint32_t b = 0; b < z.bytes[i]; ++b) {
           if (mem_copia[o + b] != mem_nativa[o + b]) {
             const uint32_t m = z.bytes[i] - b < 8u ? z.bytes[i] - b : 8u;
-            que = fmt::format("memoria en 0x{:08X} (zona {} +{}): original {} nativa {}", z.direccion[i] + b, i, b,
+            que = fmt::format("memory at 0x{:08X} (region {} +{}): original {} native {}", z.direccion[i] + b, i, b,
                               Hex(mem_copia + o + b, m), Hex(mem_nativa + o + b, m));
             break;
           }
@@ -950,25 +950,25 @@ std::string Diferencia(const Foto& a, const Foto& b) {
         g_comprobadas_camino[b].store(k, std::memory_order_relaxed);
         if (k == kMinimoRaro && ((1u << b) & kCaminosRaros) != 0) {
           g_raros_listos.store(g_raros_listos.load(std::memory_order_relaxed) | (1u << b), std::memory_order_relaxed);
-          REXLOG_INFO("[efecto_pasada] camino {}: {} llamadas comprobadas contra la copia literal de la original, 0 "
-                      "diferencias",
+          REXLOG_INFO("[efecto_pasada] path {}: {} calls checked against the literal copy of the original, 0 "
+                      "differences",
                       kNombresCamino[b], kMinimoRaro);
         }
       }
     }
     if (total == kComprobaciones) {
-      REXLOG_INFO("[efecto_pasada] {} llamadas comprobadas contra la copia literal de la original (en cada llamada que "
-                  "hace: r0-r13, lr, f0-f13, v0-v13, FPCR, ultimo indirecto y la memoria escrita; y la salida, la pila, "
-                  "los bufers de mascaras, la cuenta del sombreador, el dispositivo y las mascaras OR), 0 diferencias: "
-                  "en nativo, y sigue comprobando 1 de cada {}",
+      REXLOG_INFO("[efecto_pasada] {} calls checked against the literal copy of the original (in every call it "
+                  "makes: r0-r13, lr, f0-f13, v0-v13, FPCR, last indirect and memory written; and the exit, the stack, "
+                  "the mask buffers, the shader refcount, the device and the OR masks), 0 differences: "
+                  "native, and still checking 1 of every {}",
                   total, kPeriodo);
     }
     return;
   }
   g_apagado.store(true, std::memory_order_relaxed);  // the state is already the original's
-  REXLOG_ERROR("[efecto_pasada] DIFERENCIA con la original ({}{}; camino 0x{:X}): entrada this 0x{:08X}, pasada "
-               "0x{:08X}, pila 0x{:08X}. Camino nativo APAGADO para el resto de la sesion: se queda la original",
-               que, donde ? fmt::format(", en la llamada {}", donde) : std::string(", a la salida"), camino,
+  REXLOG_ERROR("[efecto_pasada] DIFFERENCE from the original ({}{}; path 0x{:X}): entry this 0x{:08X}, pass "
+               "0x{:08X}, stack 0x{:08X}. Native path OFF for the rest of the session: the original stays",
+               que, donde ? fmt::format(", in call {}", donde) : std::string(", at the exit"), camino,
                entrada.r3.u32, entrada.r4.u32, entrada.r1.u32);
 }
 

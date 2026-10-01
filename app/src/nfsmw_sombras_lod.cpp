@@ -126,7 +126,7 @@
 //      or by this lever): this shows at a glance whether nfsmw_sombras_mundo_corte bites
 //    - how many times CullView runs with a cull_info of views 13/14 and how many SceneryDrawInfo it
 //      leaves in its list. If it is 0, the scenery is not even culled for the shadow map; if it is
-//      large but the "escenario" emitter draws little, the caster filter of StuffScenery is what
+//      large but the "scenery" emitter draws little, the caster filter of StuffScenery is what
 //      trims, not the LOD.
 //    - the 10 solids that put the most triangles into the map, by name. That tells whether it is a
 //      car, a building or vegetation, with no interpretation.
@@ -173,45 +173,45 @@
 #include <rex/platform.h>
 
 REXCVAR_DEFINE_INT32(nfsmw_sombras_mundo_corte, 0, "NFSMW",
-                     "PROBADA INERTE (compilacion 117, con la C7 delante). La palanca SI escribe -el log dice "
-                     "'PixelMinSize 22 -> 72, los WorldModel dejan de proyectar sombra a 4481 unidades en vez "
-                     "de a 14586'- pero el emisor al que apunta pone 0,21 k triangulos de los 35,1 k del mapa, "
-                     "o sea el 0,6 %. A/B de la vista 13 (116 sin ella / 117 con ella): WorldModel dibujados "
-                     "3,73 -> 5,00 y mundo-resto 0,16 -> 0,21 k triangulos; el mapa entero 31,9 -> 35,1 k y la "
-                     "C6 63,3 -> 67,5 k. No baja: sube, dentro del ruido de dos vueltas distintas. Aunque "
-                     "cortara el 100 % del emisor ahorraria 0,2 k triangulos = 0,01 ms. Se deja en 0 para no "
-                     "perder sombras de fondo a cambio de nada. Distancia en unidades del mundo desde la camara "
-                     "de la luz; 0 = dejar el valor del juego. No toca coches ni escenario")
+                     "TESTED INERT (build 117, with C7 in place). The lever DOES write -the log says "
+                     "'PixelMinSize 22 -> 72, WorldModels stop casting shadows at 4481 units instead "
+                     "of 14586'- but the emitter it targets contributes 0.21 k triangles of the map's 35.1 k, "
+                     "i.e. 0.6 %. A/B of view 13 (116 without it / 117 with it): WorldModel drawn "
+                     "3.73 -> 5.00 and world-rest 0.16 -> 0.21 k triangles; the whole map 31.9 -> 35.1 k and "
+                     "C6 63.3 -> 67.5 k. It does not go down: it goes up, within the noise of two different laps. "
+                     "Even cutting 100 % of the emitter would save 0.2 k triangles = 0.01 ms. Left at 0 so as not "
+                     "to lose background shadows for nothing. Distance in world units from the light "
+                     "camera; 0 = keep the game's value. Does not touch cars or scenery")
     .range(0, 60000);
 
 REXCVAR_DEFINE_BOOL(nfsmw_sombras_reparto, true, "NFSMW",
-                    "Anotar cada pocos segundos el reparto REAL del pase de sombras: cuantos dibujos y "
-                    "cuantos triangulos pone cada emisor (mundo con huesos, mundo estatico, escenario y "
-                    "coches) en las vistas 13 y 14, y los diez solidos que mas triangulos meten, por "
-                    "nombre. Es la medida que dice cual de las palancas puede servir. Apagado no cuesta "
-                    "nada: el gancho caliente lee un booleano y llama al original");
+                    "Log every few seconds the REAL breakdown of the shadow pass: how many draws and "
+                    "how many triangles each emitter contributes (world with bones, static world, scenery and "
+                    "cars) in views 13 and 14, and the ten solids that add the most triangles, by "
+                    "name. It is the measurement that tells which of the levers can help. When off it costs "
+                    "nothing: the hot hook reads a boolean and calls the original");
 
 REXCVAR_DEFINE_INT32(nfsmw_sombras_reparto_cada_s, 10, "NFSMW",
-                     "Cada cuantos segundos se anota el reparto del pase de sombras")
+                     "How often, in seconds, the shadow pass breakdown is logged")
     .range(2, 120);
 
 REXCVAR_DEFINE_INT32(nfsmw_sombras_lod_h, 0, "NFSMW",
-                     "PROBADA INERTE (compilacion 114): escribe la H en el SceneryCullInfo, que solo lee "
-                     "DrawAScenery, o sea solo el escenario, y encima el que llega al mapa de sombras ya "
-                     "esta filtrado por el bit de caster. El log confirmo la escritura (9.146 -> 2.372) y "
-                     "los triangulos pasaron de 64,7 k a 65,5 k. Se deja en 0 para no perder sombras a "
-                     "cambio de nada. En porcentaje de la H de la escena; 0 = no tocar")
+                     "TESTED INERT (build 114): writes H into the SceneryCullInfo, which only "
+                     "DrawAScenery reads, i.e. only the scenery, and on top of that what reaches the shadow map is "
+                     "already filtered by the caster bit. The log confirmed the write (9,146 -> 2,372) and "
+                     "the triangles went from 64.7 k to 65.5 k. Left at 0 so as not to lose shadows "
+                     "for nothing. As a percentage of the scene's H; 0 = do not touch")
     .range(0, 1200);
 
 REXCVAR_DEFINE_BOOL(nfsmw_sombras_lod, false, "NFSMW",
-                    "PROBADA INERTE (compilacion 113): manda el escenario del mapa de sombras a la rama del "
-                    "cubo con el bit 0x1000 del SceneryCullInfo. El log confirmo la mascara "
-                    "(0x00004114 -> 0x00005114) y los triangulos pasaron de 59,1 k a 60,0 k, porque en esa "
-                    "rama el escenario marcado 0x1000100 se queda con la malla buena igual");
+                    "TESTED INERT (build 113): sends the shadow map scenery down the cubemap "
+                    "branch with bit 0x1000 of the SceneryCullInfo. The log confirmed the mask "
+                    "(0x00004114 -> 0x00005114) and the triangles went from 59.1 k to 60.0 k, because in that "
+                    "branch the scenery marked 0x1000100 keeps the good mesh anyway");
 
 REXCVAR_DEFINE_BOOL(nfsmw_sombras_lod_diag, false, "NFSMW",
-                    "Anota una vez por sesion las mascaras de todos los registros de vista, para comprobar "
-                    "que las vistas 13 y 14 reciben el bit y ninguna otra");
+                    "Logs once per session the masks of all the view records, to check "
+                    "that views 13 and 14 get the bit and no other view does");
 
 namespace nfsmw::sombras_lod {
 namespace {
@@ -269,7 +269,7 @@ constexpr uint32_t kPixelMinSizeMax = 4096;   // the same sanity cap nfsmw_sombr
 // --- Emitters ---------------------------------------------------------------------------------
 // In the shadow pass RenderWorldModels is called twice and the split is exact: 0x200000 carries the
 // WorldModels with bones and 0x202000 those without. In the other passes it is called once and all
-// of the world lands in "mundo-resto", which there simply means "mundo".
+// of the world lands in "world-rest", which there simply means "world".
 enum Emisor : uint8_t {
   kEmisorMundoAnimado = 0,   // RenderWorldModels(vista, 0x200000): WorldModel with bones
   kEmisorMundoResto = 1,     // RenderWorldModels in any other case
@@ -277,8 +277,8 @@ enum Emisor : uint8_t {
   kEmisorOtros = 3,          // the entity loop (cars) and everything else
   kEmisores = 4,
 };
-const char* const kNombreEmisor[kEmisores] = {"mundo-conhuesos", "mundo-resto", "escenario",
-                                              "otros (coches y demas)"};
+const char* const kNombreEmisor[kEmisores] = {"world-bones", "world-rest", "scenery",
+                                              "others (cars etc.)"};
 
 struct Celda {
   std::atomic<uint32_t> dibujos{0};
@@ -421,7 +421,7 @@ void ApuntarSolido(const uint8_t* base, uint32_t solido, uint32_t triangulos) {
             }
           }
         } else {
-          std::memcpy(fila.nombre, "(cruza de pagina)", 18);
+          std::memcpy(fila.nombre, "(spans two pages)", 18);
         }
         clave = solido;
       }
@@ -468,10 +468,10 @@ void AnotarVista(uint32_t vista, double fotogramas) {
   }
   const uint32_t mirados = g_mundo_mirados[vista].load(std::memory_order_relaxed);
   REXLOG_INFO(
-      "[sombras lod] C7 vista {}: TOTAL {:.0f} dibujos {:.1f} k triangulos ({:.0f} tri/dibujo) = "
+      "[sombras lod] C7 view {}: TOTAL {:.0f} draws {:.1f} k triangles ({:.0f} tri/draw) = "
       "{} {:.0f}/{:.1f}k | {} {:.0f}/{:.1f}k | {} {:.0f}/{:.1f}k | {} {:.0f}/{:.1f}k; "
-      "WorldModel mirados {:.0f}, dibujados {:.0f}; culling del escenario: {:.2f} pasadas con "
-      "{:.0f} objetos en la lista",
+      "WorldModel examined {:.0f}, drawn {:.0f}; scenery culling: {:.2f} passes with "
+      "{:.0f} objects in the list",
       vista, double(dibujos_total) / fotogramas, double(triangulos_total) / fotogramas / 1000.0,
       dibujos_total != 0 ? double(triangulos_total) / double(dibujos_total) : 0.0,
       kNombreEmisor[0], double(g_celda[vista][0].dibujos.load(std::memory_order_relaxed)) / fotogramas,
@@ -499,9 +499,9 @@ void EmitirInforme(const uint8_t* base, double segundos) {
   }
   const double f = double(fotogramas);
   REXLOG_INFO(
-      "[sombras lod] C7 reparto del pase de sombras, ultimos {:.1f} s ({} fotogramas), medias POR "
-      "FOTOGRAMA. Los triangulos son la suma de eSolid::NumPolys de cada eView::Render, o sea el "
-      "recuento del invitado; compara con los \"k triangulos\" de la linea C6",
+      "[sombras lod] C7 breakdown of the shadow pass, last {:.1f} s ({} frames), averages PER "
+      "FRAME. The triangles are the sum of eSolid::NumPolys over every eView::Render, i.e. the "
+      "guest's count; compare with the \"k triangles\" of the C6 line",
       segundos, fotogramas);
   AnotarVista(kVistaSombras1, f);
   AnotarVista(kVistaSombras2, f);
@@ -528,13 +528,13 @@ void EmitirInforme(const uint8_t* base, double segundos) {
     const Solido& s = g_solidos[orden[i]];
     const uint32_t dib = s.dibujos.load(std::memory_order_relaxed);
     const uint64_t tri = s.triangulos.load(std::memory_order_relaxed);
-    lista += fmt::format("{}\"{}\" {:.1f}k en {:.0f} dib ({} tri/dib)", i == 0 ? "" : " | ", s.nombre,
+    lista += fmt::format("{}\"{}\" {:.1f}k in {:.0f} draws ({} tri/draw)", i == 0 ? "" : " | ", s.nombre,
                          double(tri) / f / 1000.0, double(dib) / f, dib != 0 ? uint32_t(tri / dib) : 0u);
   }
   const uint32_t perdidos = g_solidos_perdidos.load(std::memory_order_relaxed);
   REXLOG_INFO(
-      "[sombras lod] C7 los {} solidos que mas triangulos meten en el mapa de sombras (por fotograma; "
-      "{:.0f} dibujos no cupieron en la tabla): {}",
+      "[sombras lod] C7 the {} solids that put the most triangles into the shadow map (per frame; "
+      "{:.0f} draws did not fit in the table): {}",
       tope, double(perdidos) / f, lista);
   ReiniciarCuentas();
 }
@@ -639,7 +639,7 @@ REX_HOOK_RAW(sub_824FA010) {
 
   const uint8_t emisor_previo = t_emisor;
   if (vista_ok) {
-    // Outside the shadow pass bit 0x2000 means something else, so everything goes to "mundo-resto".
+    // Outside the shadow pass bit 0x2000 means something else, so everything goes to "world-rest".
     t_emisor = ((flags & kFlagSombra) != 0 && (flags & kFlagSinHuesos) == 0) ? kEmisorMundoAnimado
                                                                             : kEmisorMundoResto;
   }
@@ -668,10 +668,10 @@ REX_HOOK_RAW(sub_824FA010) {
                     ? Distancia(h_escena, double(pmin_escena))
                     : 0.0;
             REXLOG_INFO(
-                "[sombras lod] corte del mundo en la vista {}: H {:.1f}, PixelMinSize {} -> {} "
-                "(los WorldModel dejan de proyectar sombra a {:.0f} unidades en vez de a {:.0f}). "
-                "La escena deja de dibujarlos a {:.0f}. No toca coches (el juego exime a las vistas "
-                "13 y 14 en CarRender) ni escenario",
+                "[sombras lod] world cutoff in view {}: H {:.1f}, PixelMinSize {} -> {} "
+                "(WorldModels stop casting shadows at {:.0f} units instead of {:.0f}). "
+                "The scene stops drawing them at {:.0f}. Does not touch cars (the game exempts views "
+                "13 and 14 in CarRender) or scenery",
                 id, h, pmin_original, pmin_nuevo, Distancia(h, double(pmin_nuevo)),
                 Distancia(h, double(pmin_original)), corte_escena);
           }
@@ -752,7 +752,7 @@ REX_HOOK_RAW(sub_824C3468) {
         }
         const uint32_t mascara = Leer32(base, registro + kOffMascara);
         if (diag) {
-          REXLOG_INFO("[sombras lod] registro {}: vista {} mascara 0x{:08X}", i, id, mascara);
+          REXLOG_INFO("[sombras lod] record {}: view {} mask 0x{:08X}", i, id, mascara);
         }
         if (!EsVistaDeSombras(id) || (mascara & kBitMallaReducida) != 0) {
           continue;
@@ -760,7 +760,7 @@ REX_HOOK_RAW(sub_824C3468) {
         Escribir32(base, registro + kOffMascara, mascara | kBitMallaReducida);
         if (!g_anotado.exchange(true)) {
           REXLOG_INFO(
-              "[sombras lod] vista {}: mascara 0x{:08X} -> 0x{:08X}; el umbral de tamano sube de 17 a 32 px",
+              "[sombras lod] view {}: mask 0x{:08X} -> 0x{:08X}; the size threshold goes up from 17 to 32 px",
               id, mascara, mascara | kBitMallaReducida);
         }
       }
@@ -783,7 +783,7 @@ REX_HOOK_RAW(sub_824C33D0) {
   // The count that answers the hypothesis: how many times this hook runs with a cull_info of view 13
   // or 14, and how many objects the culling leaves in that view's list. With 0 runs, the scenery is not
   // culled for the shadow map and the three cull_info levers could do nothing. With N runs and M
-  // objects, if the "escenario" emitter of the C7 report draws far fewer than M, the trimming comes
+  // objects, if the "scenery" emitter of the C7 report draws far fewer than M, the trimming comes
   // from the caster filter of StuffScenery.
   const bool registro_ok = registro != 0 && registro < kDireccionMaxima;
   uint32_t id_cuenta = 0;
@@ -817,16 +817,16 @@ REX_HOOK_RAW(sub_824C33D0) {
             EscribirFlotante(base, registro + kOffHRegistro, float(h_pedida));
             if (g_pct_anotado.exchange(pct) != pct) {
               REXLOG_INFO(
-                  "[sombras lod] H: escena (vista {}) {:.1f}, mapa (vista {}) {:.1f} = {:.2f}x; con {} % "
-                  "escribo {:.1f} en el cull_info, o sea x{:.3f} de lo que usa el juego. OJO: esto SOLO "
-                  "afecta al escenario, y el que llega al mapa de sombras ya esta filtrado por el bit de "
-                  "caster; medido inerte en la compilacion 114",
+                  "[sombras lod] H: scene (view {}) {:.1f}, map (view {}) {:.1f} = {:.2f}x; with {} % "
+                  "it writes {:.1f} into the cull_info, i.e. x{:.3f} of what the game uses. NOTE: this ONLY "
+                  "affects the scenery, and what reaches the shadow map is already filtered by the "
+                  "caster bit; measured inert in build 114",
                   kVistaEscena, h_escena, id, h_mapa, h_mapa / h_escena, pct, h_pedida, h_pedida / h_mapa);
               REXLOG_INFO(
-                  "[sombras lod] con esa H un objeto de radio {:.0f} deja de proyectar sombra pasadas "
-                  "{:.0f} unidades (liston 17 px; el juego la quitaba a {:.0f}) y baja a la malla reducida "
-                  "pasadas {:.0f} (liston {:.0f} px; el juego bajaba a {:.0f}). En la escena esos dos "
-                  "limites estan en {:.0f} y {:.0f}",
+                  "[sombras lod] with that H an object of radius {:.0f} stops casting a shadow beyond "
+                  "{:.0f} units (threshold 17 px; the game removed it at {:.0f}) and drops to the reduced mesh "
+                  "beyond {:.0f} (threshold {:.0f} px; the game dropped it at {:.0f}). In the scene those two "
+                  "limits are at {:.0f} and {:.0f}",
                   kRadioDeReferencia, Distancia(h_pedida, kUmbralDibujar), Distancia(h_mapa, kUmbralDibujar),
                   Distancia(h_pedida, kUmbralMallaBuena), kUmbralMallaBuena,
                   Distancia(h_mapa, kUmbralMallaBuena), Distancia(h_escena, kUmbralDibujar),
@@ -837,9 +837,9 @@ REX_HOOK_RAW(sub_824C33D0) {
               const double dy = double(LeerFlotante(base, registro + kOffPosicion + 4)) - double(g_escena_pos[1]);
               const double dz = double(LeerFlotante(base, registro + kOffPosicion + 8)) - double(g_escena_pos[2]);
               REXLOG_INFO(
-                  "[sombras lod] camaras: la escena mira desde ({:.0f}, {:.0f}, {:.0f}) y el mapa desde "
-                  "({:.0f}, {:.0f}, {:.0f}); separacion {:.0f} unidades. Cuanto mas lejos este la luz, mas "
-                  "agresivo es el mismo porcentaje",
+                  "[sombras lod] cameras: the scene looks from ({:.0f}, {:.0f}, {:.0f}) and the map from "
+                  "({:.0f}, {:.0f}, {:.0f}); separation {:.0f} units. The farther away the light is, the more "
+                  "aggressive the same percentage is",
                   double(g_escena_pos[0]), double(g_escena_pos[1]), double(g_escena_pos[2]),
                   double(LeerFlotante(base, registro + kOffPosicion + 0)),
                   double(LeerFlotante(base, registro + kOffPosicion + 4)),

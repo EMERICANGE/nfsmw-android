@@ -11,9 +11,9 @@ namespace {
 void Comprobar(bool c, const char* m) { if (!c) throw std::runtime_error(m); }
 std::vector<uint8_t> Leer(const std::filesystem::path& p) {
   std::ifstream f(p, std::ios::binary | std::ios::ate);
-  Comprobar(bool(f) && f.tellg() >= 0, "No se pudo leer la entrada");
+  Comprobar(bool(f) && f.tellg() >= 0, "Could not read the input");
   std::vector<uint8_t> d(static_cast<size_t>(f.tellg())); f.seekg(0);
-  Comprobar(bool(f.read(reinterpret_cast<char*>(d.data()), d.size())), "Lectura incompleta");
+  Comprobar(bool(f.read(reinterpret_cast<char*>(d.data()), d.size())), "Incomplete read");
   return d;
 }
 uint32_t U32(const std::vector<uint8_t>& d, size_t p) {
@@ -33,29 +33,29 @@ VKAPI_ATTR VkResult VKAPI_CALL Crear(VkDevice, const VkShaderModuleCreateInfo* i
   Comprobar(i->sType == VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO &&
       i->codeSize >= 20 && i->codeSize % 4 == 0 &&
       uintptr_t(i->pCode) % alignof(uint32_t) == 0 && i->pCode[0] == 0x07230203,
-      "Parametros incorrectos de vkCreateShaderModule");
+      "Wrong vkCreateShaderModule parameters");
   if (fallar) return VK_ERROR_OUT_OF_DEVICE_MEMORY;
   *m = (VkShaderModule)(uintptr_t(++creados));
   return VK_SUCCESS;
 }
 VKAPI_ATTR void VKAPI_CALL Destruir(VkDevice, VkShaderModule m, const VkAllocationCallbacks*) {
-  Comprobar(m != VK_NULL_HANDLE, "Se destruye un modulo nulo");
+  Comprobar(m != VK_NULL_HANDLE, "A null module is destroyed");
   ++destruidos;
 }
 }
 int main(int argc, char** argv) try {
-  Comprobar(argc == 3, "Uso: nfsmw_probar_biblioteca <paquete> <contenedores>");
+  Comprobar(argc == 3, "Usage: nfsmw_probar_biblioteca <package> <containers>");
   const auto original = Leer(argv[1]);
   BibliotecaShaders b; b.Cargar(original);
   const size_t cantidad = b.shaders().size();
-  Comprobar(cantidad > 1, "Corpus insuficiente");
+  Comprobar(cantidad > 1, "Corpus too small");
   size_t rechazados = 0, coincidencias = 0;
   auto rechazar = [&](std::vector<uint8_t> d, bool sellar = false) {
     if (sellar) Sellar(d);
     bool fallo = false;
     try { b.Cargar(d); } catch (const std::runtime_error&) { fallo = true; }
-    Comprobar(fallo, "Se acepto una alteracion del paquete");
-    Comprobar(b.shaders().size() == cantidad, "La carga fallida sustituyo la biblioteca");
+    Comprobar(fallo, "An altered package was accepted");
+    Comprobar(b.shaders().size() == cantidad, "The failed load replaced the library");
     ++rechazados;
   };
   for (size_t n = 0; n < 64; ++n) rechazar({original.begin(), original.begin() + n});
@@ -80,34 +80,34 @@ int main(int argc, char** argv) try {
     if (e.path().extension() != ".bin") continue;
     auto datos = Leer(e.path());
     const Shader* s = b.Buscar(datos);
-    Comprobar(s && s->original == datos, "No se recupera un contenedor original");
+    Comprobar(s && s->original == datos, "An original container is not recovered");
     datos.back() ^= 1;
-    Comprobar(!b.Buscar(datos), "Un contenedor alterado selecciona un shader");
+    Comprobar(!b.Buscar(datos), "An altered container selects a shader");
     ++coincidencias;
   }
   auto copia = b.shaders();
   copia.push_back(copia.front()); std::reverse(copia.begin(), copia.end());
-  Comprobar(EmpaquetarShaders(copia) == original, "El paquete no es determinista o no elimina duplicados");
+  Comprobar(EmpaquetarShaders(copia) == original, "The package is not deterministic or does not remove duplicates");
   copia.back().spirv.back() ^= 1;
   bool fallo = false;
   try { (void)EmpaquetarShaders(copia); } catch (const std::runtime_error&) { fallo = true; }
-  Comprobar(fallo, "Se aceptan traducciones distintas del mismo contenedor");
+  Comprobar(fallo, "Different translations of the same container are accepted");
   {
     ModulosShaders m((VkDevice)(uintptr_t(1)), Crear, Destruir);
     VkShaderModule modulo;
     fallar = true;
     Comprobar(m.Obtener(b.shaders().front(), modulo) == VK_ERROR_OUT_OF_DEVICE_MEMORY &&
-        modulo == VK_NULL_HANDLE, "Se oculta el error de Vulkan");
+        modulo == VK_NULL_HANDLE, "The Vulkan error is hidden");
     fallar = false;
     for (const auto& s : b.shaders()) {
       VkShaderModule repetido;
-      Comprobar(m.Obtener(s, modulo) == VK_SUCCESS && modulo != VK_NULL_HANDLE, "Fallo de creacion");
-      Comprobar(m.Obtener(s, repetido) == VK_SUCCESS && repetido == modulo, "Fallo de cache");
+      Comprobar(m.Obtener(s, modulo) == VK_SUCCESS && modulo != VK_NULL_HANDLE, "Creation failed");
+      Comprobar(m.Obtener(s, repetido) == VK_SUCCESS && repetido == modulo, "Cache failure");
     }
-    Comprobar(creados == cantidad, "Se crean modulos repetidos");
+    Comprobar(creados == cantidad, "Duplicate modules are created");
   }
-  Comprobar(destruidos == creados, "Fuga de modulos Vulkan");
-  std::printf("%zu originales encontrados; %zu unicos; %zu paquetes incorrectos rechazados; cache, fallo y destruccion comprobados con Vulkan simulado\n",
+  Comprobar(destruidos == creados, "Vulkan module leak");
+  std::printf("%zu originals found; %zu unique; %zu bad packages rejected; cache, failure and destruction checked with a simulated Vulkan\n",
       coincidencias, cantidad, rechazados);
   return 0;
 } catch (const std::exception& e) { std::fprintf(stderr, "%s\n", e.what()); return 1; }

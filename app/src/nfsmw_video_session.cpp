@@ -31,7 +31,7 @@ struct SesionVideo::Recursos {
   uint64_t version = 0; uint32_t anchoDestino = 0, altoDestino = 0;
   template<class T> T D(const char* n) const {
     auto f = reinterpret_cast<T>(proc(device,n));
-    if (!f) throw std::runtime_error(std::string("Falta ")+n);
+    if (!f) throw std::runtime_error(std::string("Missing ")+n);
     return f;
   }
 #define N(n) D<PFN_vk##n>("vk" #n)
@@ -51,19 +51,19 @@ struct SesionVideo::Recursos {
       bytes=Alinear(offsetVertices+sizeof(f.vertices));
       VkBufferCreateInfo bc{}; bc.sType=VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; bc.size=bytes;
       bc.usage=VK_BUFFER_USAGE_TRANSFER_SRC_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-      Comprobar(N(CreateBuffer)(device,&bc,nullptr,&buffer),"Buffer de video");
+      Comprobar(N(CreateBuffer)(device,&bc,nullptr,&buffer),"Video buffer");
       VkMemoryRequirements mr{}; N(GetBufferMemoryRequirements)(device,buffer,&mr);
       uint32_t tipo=Tipo(mr.memoryTypeBits,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
       coherente=tipo!=UINT32_MAX;
       if (!coherente) tipo=Tipo(mr.memoryTypeBits,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-      if (tipo==UINT32_MAX) throw std::runtime_error("Memoria visible de video no disponible");
+      if (tipo==UINT32_MAX) throw std::runtime_error("Host-visible video memory not available");
       VkMemoryAllocateFlagsInfo flags{}; flags.sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
       flags.flags=VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
       VkMemoryAllocateInfo ma{}; ma.sType=VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
       ma.pNext=&flags; ma.allocationSize=mr.size; ma.memoryTypeIndex=tipo;
-      Comprobar(N(AllocateMemory)(device,&ma,nullptr,&memoriaBuffer),"Memoria de video");
-      Comprobar(N(BindBufferMemory)(device,buffer,memoriaBuffer,0),"Enlace de video");
-      Comprobar(N(MapMemory)(device,memoriaBuffer,0,VK_WHOLE_SIZE,0,&mapeado),"Mapeo de video");
+      Comprobar(N(AllocateMemory)(device,&ma,nullptr,&memoriaBuffer),"Video memory");
+      Comprobar(N(BindBufferMemory)(device,buffer,memoriaBuffer,0),"Video memory binding");
+      Comprobar(N(MapMemory)(device,memoriaBuffer,0,VK_WHOLE_SIZE,0,&mapeado),"Video memory mapping");
       VkBufferDeviceAddressInfo bd{}; bd.sType=VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO; bd.buffer=buffer;
       direccion=N(GetBufferDeviceAddress)(device,&bd);
       for (unsigned i=0;i<3;++i) {
@@ -72,28 +72,28 @@ struct SesionVideo::Recursos {
         ic.extent={i?ancho/2:ancho,i?alto/2:alto,1}; ic.mipLevels=ic.arrayLayers=1;
         ic.samples=VK_SAMPLE_COUNT_1_BIT; ic.tiling=VK_IMAGE_TILING_OPTIMAL;
         ic.usage=VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT;
-        Comprobar(N(CreateImage)(device,&ic,nullptr,&imagenes[i]),"Plano de video");
+        Comprobar(N(CreateImage)(device,&ic,nullptr,&imagenes[i]),"Video plane");
         N(GetImageMemoryRequirements)(device,imagenes[i],&mr);
         tipo=Tipo(mr.memoryTypeBits,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        if (tipo==UINT32_MAX) throw std::runtime_error("Memoria local de video no disponible");
+        if (tipo==UINT32_MAX) throw std::runtime_error("Device-local video memory not available");
         ma.pNext=nullptr; ma.memoryTypeIndex=tipo; ma.allocationSize=mr.size;
-        Comprobar(N(AllocateMemory)(device,&ma,nullptr,&memorias[i]),"Memoria de plano");
-        Comprobar(N(BindImageMemory)(device,imagenes[i],memorias[i],0),"Enlace de plano");
+        Comprobar(N(AllocateMemory)(device,&ma,nullptr,&memorias[i]),"Plane memory");
+        Comprobar(N(BindImageMemory)(device,imagenes[i],memorias[i],0),"Plane memory binding");
         VkImageViewCreateInfo vi{}; vi.sType=VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         vi.image=imagenes[i]; vi.viewType=VK_IMAGE_VIEW_TYPE_2D; vi.format=VK_FORMAT_R8_UNORM;
         vi.subresourceRange={VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1};
-        Comprobar(N(CreateImageView)(device,&vi,nullptr,&vistas[i]),"Vista de plano");
+        Comprobar(N(CreateImageView)(device,&vi,nullptr,&vistas[i]),"Plane view");
       }
       video->ConfigurarTexturas(vistas);
       VkCommandPoolCreateInfo cp{}; cp.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
       cp.flags=VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; cp.queueFamilyIndex=familia;
-      Comprobar(N(CreateCommandPool)(device,&cp,nullptr,&pool),"Pool de video");
+      Comprobar(N(CreateCommandPool)(device,&cp,nullptr,&pool),"Video command pool");
       VkCommandBufferAllocateInfo ca{}; ca.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
       ca.commandPool=pool; ca.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY; ca.commandBufferCount=1;
-      Comprobar(N(AllocateCommandBuffers)(device,&ca,&cmd),"Comandos de video");
+      Comprobar(N(AllocateCommandBuffers)(device,&ca,&cmd),"Video command buffer");
       VkFenceCreateInfo fc{}; fc.sType=VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
       fc.flags=VK_FENCE_CREATE_SIGNALED_BIT;
-      Comprobar(N(CreateFence)(device,&fc,nullptr,&fence),"Fence de video");
+      Comprobar(N(CreateFence)(device,&fc,nullptr,&fence),"Video fence");
     } catch (...) { Liberar(); throw; }
   }
   ~Recursos() { Liberar(); }
@@ -115,7 +115,7 @@ struct SesionVideo::Recursos {
   bool Libre() {
     const VkResult r=N(GetFenceStatus)(device,fence);
     if (r==VK_NOT_READY) return false;
-    Comprobar(r,"Estado de fence de video"); enviada=false; return true;
+    Comprobar(r,"Video fence status"); enviada=false; return true;
   }
   void Barrera(VkImage i,VkImageLayout antes,VkImageLayout despues,VkPipelineStageFlags origen,VkPipelineStageFlags destino,VkAccessFlags a,VkAccessFlags b) {
     VkImageMemoryBarrier m{}; m.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -130,7 +130,7 @@ struct SesionVideo::Recursos {
       framebuffer=VK_NULL_HANDLE;
       VkFramebufferCreateInfo fb{}; fb.sType=VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       fb.renderPass=video->render_pass(); fb.attachmentCount=1; fb.pAttachments=&vista; fb.width=w; fb.height=h; fb.layers=1;
-      Comprobar(N(CreateFramebuffer)(device,&fb,nullptr,&framebuffer),"Framebuffer de presentacion nativa");
+      Comprobar(N(CreateFramebuffer)(device,&fb,nullptr,&framebuffer),"Native presentation framebuffer");
       version=nuevaVersion; anchoDestino=w; altoDestino=h;
     }
     for (unsigned i=0;i<3;++i) std::memcpy(static_cast<uint8_t*>(mapeado)+offsets[i],f.planos[i].data(),f.planos[i].size());
@@ -142,11 +142,11 @@ struct SesionVideo::Recursos {
     if (!coherente) {
       VkMappedMemoryRange rango{}; rango.sType=VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
       rango.memory=memoriaBuffer; rango.size=VK_WHOLE_SIZE;
-      Comprobar(N(FlushMappedMemoryRanges)(device,1,&rango),"Publicacion de planos en memoria no coherente");
+      Comprobar(N(FlushMappedMemoryRanges)(device,1,&rango),"Flush of the planes in non-coherent memory");
     }
-    Comprobar(N(ResetCommandBuffer)(cmd,0),"Reinicio de comandos nativos");
+    Comprobar(N(ResetCommandBuffer)(cmd,0),"Native command buffer reset");
     VkCommandBufferBeginInfo ci{}; ci.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    Comprobar(N(BeginCommandBuffer)(cmd,&ci),"Inicio de video nativo");
+    Comprobar(N(BeginCommandBuffer)(cmd,&ci),"Native video begin");
     for (unsigned i=0;i<3;++i) {
       Barrera(imagenes[i],texturasUsadas?VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
           texturasUsadas?VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT:VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -163,12 +163,12 @@ struct SesionVideo::Recursos {
     video->Dibujar(cmd,framebuffer,w,h,buffer,offsetVertices,direccion+offsetConstantes,f.variante,true);
     Barrera(imagen,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,VK_ACCESS_SHADER_READ_BIT);
-    Comprobar(N(EndCommandBuffer)(cmd),"Fin de video nativo");
+    Comprobar(N(EndCommandBuffer)(cmd),"Native video end");
   }
   void Enviar(VkQueue cola) {
-    Comprobar(N(ResetFences)(device,1,&fence),"Reinicio de fence nativa");
+    Comprobar(N(ResetFences)(device,1,&fence),"Native fence reset");
     VkSubmitInfo si{}; si.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO; si.commandBufferCount=1; si.pCommandBuffers=&cmd;
-    Comprobar(N(QueueSubmit)(cola,1,&si,fence),"Envio de video nativo");
+    Comprobar(N(QueueSubmit)(cola,1,&si,fence),"Native video submit");
     enviada=texturasUsadas=true;
   }
 #undef N
@@ -194,7 +194,7 @@ bool SesionVideo::Preparar(const FotogramaVideo& f,VkImage i,VkImageView v,uint6
   return false;
 }
 void SesionVideo::Enviar(VkQueue cola) {
-  if (!preparado_) throw std::runtime_error("Video no preparado");
+  if (!preparado_) throw std::runtime_error("Video not prepared");
   preparado_->Enviar(cola); preparado_=nullptr;
 }
 }

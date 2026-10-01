@@ -50,16 +50,16 @@ extern "C" {
 // https://github.com/koolkdev/libertyv/blob/master/libav_wrapper/xma2dec.c
 
 REXCVAR_DEFINE_INT32(audio_volcado_xma_s, 0, "Audio",
-                     "Diagnostico: segundos de cada contexto XMA que se guardan en "
-                     "xma_<contexto>_tramas/salida_<hz>.wav junto al ejecutable; 0 = nada");
+                     "Diagnostic: seconds of each XMA context saved to "
+                     "xma_<context>_tramas/salida_<hz>.wav next to the executable; 0 = none");
 REXCVAR_DEFINE_INT32(audio_volcado_xma_desde_s, 0, "Audio",
-                     "Diagnostico: segundos desde el primer audio XMA antes de empezar a volcar");
+                     "Diagnostic: seconds after the first XMA audio before dumping starts");
 REXCVAR_DEFINE_INT32(audio_volcado_xma_contextos, 12, "Audio",
-                     "Diagnostico: contextos XMA que se vuelcan como mucho");
+                     "Diagnostic: maximum number of XMA contexts dumped");
 REXCVAR_DEFINE_INT32(audio_volcado_xma_mb, 32, "Audio",
-                     "Diagnostico: megas como mucho de audio XMA acumulado sin escribir");
+                     "Diagnostic: maximum MB of accumulated XMA audio not yet written");
 REXCVAR_DEFINE_INT32(audio_volcado_xma_min_s, 2, "Audio",
-                     "Diagnostico: segundos minimos de un sonido XMA que se guardan cuando termina");
+                     "Diagnostic: minimum seconds of an XMA sound to save when it ends");
 
 namespace {
 
@@ -113,8 +113,8 @@ void EscribirVolcadoXmaEnHilo(uint32_t contexto, int tipo, const VolcadoXma& v) 
   fichero.write("data", 4);
   u32(bytes);
   fichero.write(reinterpret_cast<const char*>(v.muestras.data()), bytes);
-  REXAPU_INFO("XMA: volcado {} del contexto {}: {} muestras a {} Hz, {} canales",
-              tipo ? "de salida" : "de tramas", contexto, v.muestras.size() / v.canales,
+  REXAPU_INFO("XMA: {} dump of context {}: {} samples at {} Hz, {} channels",
+              tipo ? "output" : "frames", contexto, v.muestras.size() / v.canales,
               v.frecuencia, v.canales);
 }
 
@@ -215,7 +215,7 @@ void VolcarXma(uint32_t contexto, int tipo, uint32_t frecuencia, uint32_t canale
   }
   if (v.muestras.empty() && tipo == 0 && anotados_xma < 64) {
     ++anotados_xma;
-    REXAPU_INFO("XMA: contexto {} con audio a {} Hz, {} canales", contexto, frecuencia, canales);
+    REXAPU_INFO("XMA: context {} with audio at {} Hz, {} channels", contexto, frecuencia, canales);
   }
   if (v.muestras.empty()) {
     v.secuencia = ++secuencia_volcados_xma;
@@ -359,9 +359,9 @@ void XmaContext::AnotarProduccion(bool produjo, uint8_t motivo, const XMA_CONTEX
   en_silencio_ = false;
   const double ms = std::chrono::duration<double, std::milli>(ahora - silencio_desde_).count();
   if (ms >= 50.0 && lineas.fetch_add(1, std::memory_order_relaxed) < 200) {
-    REXLOG_INFO("[xma] silencio: el contexto {} estuvo {:.0f} ms sin producir y vuelve a sonar ({} pasadas vacias, "
-                "ultimo motivo {}: 1 solo vaciar, 2 sin entrada, 3 sin avance, 4 error; entradas {}{}, bufer actual {}, "
-                "bucles {})",
+    REXLOG_INFO("[xma] silence: context {} produced nothing for {:.0f} ms and is sounding again ({} empty passes, "
+                "last reason {}: 1 flush only, 2 no input, 3 no progress, 4 error; inputs {}{}, current buffer {}, "
+                "loops {})",
                 id_, ms, silencio_pasadas_, silencio_motivo_, uint32_t(data.input_buffer_0_valid),
                 uint32_t(data.input_buffer_1_valid), uint32_t(data.current_buffer), uint32_t(data.loop_count));
   }

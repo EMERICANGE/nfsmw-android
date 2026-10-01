@@ -3,8 +3,8 @@
 Usage: python tools/calientes.py <rex_perfil.log> <nfsmw.elf> <output.txt>
 
 rex_perfil.log is written by the sampling profiler of the app: every sample carries the addresses it saw (pc, lr
-and stack) as imagen+0x.... Each address is resolved with addr2line against the unstripped ELF of the same build and
-weighted by the share of samples it appeared in.
+and stack) as image+0x.... (imagen+0x.... in older logs). Each address is resolved with addr2line against the
+unstripped ELF of the same build and weighted by the share of samples it appeared in.
 """
 import collections
 import os
@@ -19,15 +19,15 @@ A2L = os.path.join(os.environ.get('DEVKITPRO', '/opt/devkitpro'), 'devkitA64', '
 peso = collections.Counter()
 ns = 0
 for l in open(LOG, encoding='utf-8', errors='ignore'):
-    m = re.match(r'^\s+(\d+) muestras', l)
+    m = re.match(r'^\s+(\d+) (?:muestras|samples)', l)
     if m:
         ns = int(m.group(1))
         continue
-    m = re.match(r'^\s+([\d.]+)%\s+(pc|lr|pila) (.*)', l)
+    m = re.match(r'^\s+([\d.]+)%\s+(pc|lr|pila|stack) (.*)', l)
     if not m:
         continue
     w = float(m.group(1)) * ns / 100
-    for a in set(re.findall(r'imagen\+0x([0-9a-f]+)', m.group(3))):
+    for a in set(re.findall(r'(?:imagen|image)\+0x([0-9a-f]+)', m.group(3))):
         peso[int(a, 16)] += w
 addrs = sorted(peso)
 out = subprocess.run([A2L, '-f', '-e', ELF] + [hex(a) for a in addrs], capture_output=True, text=True).stdout.split('\n')

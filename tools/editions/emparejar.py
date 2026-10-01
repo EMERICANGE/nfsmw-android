@@ -83,7 +83,7 @@ def main():
     wb = normalizar(np.frombuffer(img_b[tb[1] - BASE:tb[2] - BASE], dtype='>u4').astype(np.uint32))
     cadena = anclas(huellas(wa), huellas(wb))
     pos_a = [a for a, _ in cadena]
-    print('anclas en .text: %d (de %d instrucciones)' % (len(cadena), len(wa)))
+    print('anchors in .text: %d (of %d instructions)' % (len(cadena), len(wa)))
 
     def en(secs, dir_):
         return next((s for s in secs if s[1] <= dir_ < s[2]), None)

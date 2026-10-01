@@ -98,8 +98,8 @@ def main():
         if votos:
             mejor, n = votos.most_common(1)[0]
             total = sum(votos.values())
-            print('%08X\t%08X\t%+d\tdirecta %d/%d%s' % (d, mejor, mejor - d, n, total,
-                                                       '' if n == total else ' (otras: %s)' % dict(votos)))
+            print('%08X\t%08X\t%+d\tdirect %d/%d%s' % (d, mejor, mejor - d, n, total,
+                                                       '' if n == total else ' (others: %s)' % dict(votos)))
             continue
         # no direct references: the offset of the neighbors that have references
         k = bisect.bisect_left(conocidas, d)
@@ -114,10 +114,10 @@ def main():
                         despl[o - v] += 1
         if despl:
             s, n = despl.most_common(1)[0]
-            print('%08X\t%08X\t%+d\tvecinas %d/%d (%s)' % (d, d + s, s, n, sum(despl.values()),
+            print('%08X\t%08X\t%+d\tneighbors %d/%d (%s)' % (d, d + s, s, n, sum(despl.values()),
                                                          ', '.join('%08X' % v for v in vecinas)))
         else:
-            print('%08X\t-\t-\tsin referencias' % d)
+            print('%08X\t-\t-\tno references' % d)
 
 
 if __name__ == '__main__':

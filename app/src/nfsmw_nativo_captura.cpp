@@ -24,10 +24,10 @@
 #include <vector>
 
 REXCVAR_DEFINE_INT32(nfsmw_captura_cada_s, 0, "NFSMW",
-                     "Guardar una captura PNG de la imagen del juego cada N segundos en capturas/ "
-                     "junto al ejecutable (0 = nunca; solo para pruebas)")
+                     "Save a PNG capture of the game image every N seconds in capturas/ "
+                     "next to the executable (0 = never; for testing only)")
     .range(0, 3600);
-REXCVAR_DEFINE_INT32(nfsmw_captura_max, 20, "NFSMW", "Maximo de capturas por ejecucion")
+REXCVAR_DEFINE_INT32(nfsmw_captura_max, 20, "NFSMW", "Maximum number of captures per run")
     .range(1, 1000);
 
 namespace nfsmw::captura {
@@ -139,7 +139,7 @@ void Bucle(std::function<rex::ui::Presenter*()> obtener_presentador, int cada_s,
     rex::ui::RawImage imagen;
     if (!presentador || !presentador->CaptureGuestOutput(imagen) || !imagen.width ||
         !imagen.height) {
-      REXLOG_WARN("[captura] {}: no hay imagen del juego que capturar", n);
+      REXLOG_WARN("[captura] {}: no game image to capture", n);
       continue;
     }
     std::error_code ec;
@@ -155,7 +155,7 @@ void Bucle(std::function<rex::ui::Presenter*()> obtener_presentador, int cada_s,
     std::ofstream fichero(ruta, std::ios::binary);
     fichero.write(reinterpret_cast<const char*>(png.data()), std::streamsize(png.size()));
     if (!fichero) {
-      REXLOG_WARN("[captura] No se pudo escribir {}", ruta.string());
+      REXLOG_WARN("[captura] Could not write {}", ruta.string());
       continue;
     }
     REXLOG_INFO("[captura] {} ({}x{})", ruta.string(), imagen.width, imagen.height);
@@ -175,7 +175,7 @@ void Arrancar(std::function<rex::ui::Presenter*()> obtener_presentador) {
   }
   g_hilo = std::thread(Bucle, std::move(obtener_presentador), cada_s,
                        int(REXCVAR_GET(nfsmw_captura_max)));
-  REXLOG_INFO("[captura] Una captura cada {} s (maximo {})", cada_s,
+  REXLOG_INFO("[captura] One capture every {} s (maximum {})", cada_s,
               int(REXCVAR_GET(nfsmw_captura_max)));
 }
 

@@ -20,10 +20,10 @@ def huellas(fichero):
 pal_dir, otra_dir, hx_pal, hx_otra = sys.argv[1:5]
 h_pal, h_otra = huellas(hx_pal), huellas(hx_otra)
 otra = {n: open(os.path.join(otra_dir, n), 'rb').read() for n in os.listdir(otra_dir) if n.endswith('.bin')}
-for nombre, rol in [('p_000094.bin', 'resplandor'), ('p_000117.bin', 'cielo'), ('p_000139.bin', 'composicion')]:
+for nombre, rol in [('p_000094.bin', 'bright pass'), ('p_000117.bin', 'sky'), ('p_000139.bin', 'composition')]:
     b = open(os.path.join(pal_dir, nombre), 'rb').read()
     v = be(b, 4)
     identicos = sorted(n for n, u in otra.items() if u == b)
     mismo = sorted(n for n, u in otra.items() if be(u, 4) == v and u[v:] == b[v:])
-    print('%-12s %s PAL %s | identicos %s | mismo microcodigo %s' % (
+    print('%-12s %s PAL %s | identical %s | same microcode %s' % (
         rol, nombre, h_pal[nombre], identicos, ', '.join('%s=%s' % (n, h_otra[n]) for n in mismo)))

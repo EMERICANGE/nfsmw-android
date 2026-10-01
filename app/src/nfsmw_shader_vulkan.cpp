@@ -6,7 +6,7 @@ ModulosShaders::ModulosShaders(VkDevice dispositivo, PFN_vkCreateShaderModule cr
                                PFN_vkDestroyShaderModule destruir)
     : dispositivo_(dispositivo), crear_(crear), destruir_(destruir) {
   if (!dispositivo || !crear || !destruir)
-    throw std::invalid_argument("Dispositivo o funciones Vulkan ausentes");
+    throw std::invalid_argument("Missing device or Vulkan functions");
 }
 
 ModulosShaders::~ModulosShaders() {

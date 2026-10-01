@@ -11,15 +11,15 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_texturas_pool, true, "NFSMW",
-                    "Renderizador nativo (22/09): las texturas toman trozos de bloques grandes de memoria "
-                    "en vez de pedir una reserva dedicada cada una. En Horizon cada reserva dedicada cuesta "
-                    "~1,9 ms de CPU (un nvMapCreate, DOS reservas de direccion y DOS mapeos), y la imagen no "
-                    "cambia. Apagarlo vuelve a la reserva por textura")
+                    "Native renderer (22/09): textures take chunks of large memory blocks "
+                    "instead of each asking for a dedicated allocation. On Horizon each dedicated allocation costs "
+                    "~1.9 ms of CPU (one nvMapCreate, TWO address reservations and TWO mappings), and the image does not "
+                    "change. Turning it off goes back to one allocation per texture")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_INT32(nfsmw_nativo_texturas_pool_slab_mb, 32, "NFSMW",
-                     "Renderizador nativo: MB de cada bloque grande del pool de texturas. Mas grande = menos "
-                     "reservas al sistema, pero cada bloque nuevo cuesta un memset de ese tamano")
+                     "Native renderer: MB of each large block (slab) of the texture pool. Larger = fewer "
+                     "allocations from the system, but each new block costs a memset of that size")
     .range(4, 256)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -147,8 +147,8 @@ bool PoolTexturas::ElegirTipoDeMemoria(uint32_t& tipo_out, uint64_t& alineacion_
 
 bool PoolTexturas::Iniciar(const rex::ui::vulkan::VulkanDevice* dispositivo, int32_t mb_cache_max) {
   if (!REXCVAR_GET(nfsmw_nativo_texturas_pool)) {
-    REXLOG_INFO("[nativo] C3: pool de texturas (nfsmw_nativo_texturas_pool) = no; cada textura pedira su "
-                "reserva dedicada, como antes del 22/09");
+    REXLOG_INFO("[nativo] C3: texture pool (nfsmw_nativo_texturas_pool) = no; each texture will ask for its own "
+                "dedicated allocation, as before 22/09");
     return false;
   }
   if (dispositivo == nullptr) {
@@ -159,8 +159,8 @@ bool PoolTexturas::Iniciar(const rex::ui::vulkan::VulkanDevice* dispositivo, int
 
   uint64_t alineacion_vista = 0;
   if (!ElegirTipoDeMemoria(tipo_memoria_, alineacion_vista)) {
-    REXLOG_WARN("[nativo] C3: pool de texturas: no hay un tipo de memoria local valido; se sigue con la "
-                "reserva dedicada por textura");
+    REXLOG_WARN("[nativo] C3: texture pool: no valid local memory type; staying with the "
+                "dedicated allocation per texture");
     dispositivo_ = nullptr;
     device_ = VK_NULL_HANDLE;
     return false;
@@ -191,8 +191,8 @@ bool PoolTexturas::Iniciar(const rex::ui::vulkan::VulkanDevice* dispositivo, int
     }
   }
   if (slabs_.empty()) {
-    REXLOG_WARN("[nativo] C3: pool de texturas: no se pudo crear ni un bloque de {} MB; se sigue con la "
-                "reserva dedicada por textura",
+    REXLOG_WARN("[nativo] C3: texture pool: could not create a single {} MB slab; staying with the "
+                "dedicated allocation per texture",
                 slab_mb);
     activo_ = false;
     dispositivo_ = nullptr;
@@ -200,8 +200,8 @@ bool PoolTexturas::Iniciar(const rex::ui::vulkan::VulkanDevice* dispositivo, int
     return false;
   }
 
-  REXLOG_INFO("[nativo] C3: pool de texturas ENCENDIDO: {} bloques de {} MB precalentados ({} MB), tope {} "
-              "bloques ({} MB); tipo de memoria {}, unidad {} KB, alineacion que pide el driver {} KB",
+  REXLOG_INFO("[nativo] C3: texture pool ON: {} slabs of {} MB prewarmed ({} MB), cap {} "
+              "slabs ({} MB); memory type {}, unit {} KB, alignment the driver asks for {} KB",
               slabs_.size(), slab_mb, (slabs_.size() * slab_bytes_) >> 20, slabs_tope_,
               (uint64_t(slabs_tope_) * slab_bytes_) >> 20, tipo_memoria_, kUnidadPoolBytes >> 10,
               alineacion_vista >> 10);
@@ -237,7 +237,7 @@ bool PoolTexturas::CrearSlab(bool en_caliente) {
   slabs_.push_back(std::move(slab));
   if (en_caliente) {
     ++slabs_en_caliente_;
-    REXLOG_INFO("[nativo] C3: pool de texturas: bloque {} nuevo en caliente; ya van {} MB reservados",
+    REXLOG_INFO("[nativo] C3: texture pool: new slab {} created while running; {} MB allocated so far",
                 slabs_.size() - 1, (slabs_.size() * slab_bytes_) >> 20);
   }
   return true;
@@ -321,12 +321,12 @@ void PoolTexturas::Liberar(uint32_t bloque) {
   const uint32_t s = bloque >> 24;
   const uint32_t inicio = bloque & 0x00FFFFFFu;
   if (s >= slabs_.size()) {
-    REXLOG_ERROR("[nativo] C3: pool de texturas: bloque {:08X} con un bloque grande que no existe", bloque);
+    REXLOG_ERROR("[nativo] C3: texture pool: block {:08X} points to a slab that does not exist", bloque);
     return;
   }
   Slab& slab = slabs_[s];
   if (inicio >= slab.unidades || slab.largo[inicio] == 0u) {
-    REXLOG_ERROR("[nativo] C3: pool de texturas: bloque {:08X} que no era el inicio de nada (doble liberacion?)",
+    REXLOG_ERROR("[nativo] C3: texture pool: block {:08X} was not the start of anything (double free?)",
                  bloque);
     return;
   }
@@ -381,8 +381,8 @@ EstadoPoolTexturas PoolTexturas::Estado() const {
 
 std::string PoolTexturas::Resumen() const {
   if (!activo_) {
-    return std::string("pool de texturas apagado (") + std::to_string(texturas_dedicadas_) +
-           " texturas con reserva dedicada)";
+    return std::string("texture pool off (") + std::to_string(texturas_dedicadas_) +
+           " textures with a dedicated allocation)";
   }
   const EstadoPoolTexturas e = Estado();
   /*
@@ -391,14 +391,14 @@ std::string PoolTexturas::Resumen() const {
    * without anything failing. That is why both figures are printed together.
    */
   const uint64_t frag = e.bytes_libres > 0 ? 100u - (e.bytes_mayor_hueco * 100u / e.bytes_libres) : 0u;
-  return std::string("pool de texturas: ") + std::to_string(e.slabs) + " bloques (" +
+  return std::string("texture pool: ") + std::to_string(e.slabs) + " slabs (" +
          std::to_string(e.bytes_reservados >> 20) + " MB), " + std::to_string(e.bytes_en_uso >> 20) +
-         " MB en uso por " + std::to_string(e.texturas_vivas) + " texturas; libres " +
-         std::to_string(e.bytes_libres >> 20) + " MB con el mayor hueco en " +
-         std::to_string(e.bytes_mayor_hueco >> 20) + " MB (fragmentacion " + std::to_string(frag) +
-         " %); " + std::to_string(e.texturas_colocadas) + " colocadas y " +
-         std::to_string(e.texturas_dedicadas) + " a la ruta dedicada (" + std::to_string(e.huecos_fallados) +
-         " sin hueco); bloques en caliente " + std::to_string(e.slabs_en_caliente) + ", negados " +
+         " MB in use by " + std::to_string(e.texturas_vivas) + " textures; free " +
+         std::to_string(e.bytes_libres >> 20) + " MB with a largest gap of " +
+         std::to_string(e.bytes_mayor_hueco >> 20) + " MB (fragmentation " + std::to_string(frag) +
+         " %); " + std::to_string(e.texturas_colocadas) + " placed and " +
+         std::to_string(e.texturas_dedicadas) + " on the dedicated path (" + std::to_string(e.huecos_fallados) +
+         " found no gap); slabs created while running " + std::to_string(e.slabs_en_caliente) + ", refused " +
          std::to_string(e.slabs_fallados);
 }
 

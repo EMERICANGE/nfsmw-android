@@ -10,7 +10,7 @@
 // Testing on the Switch showed a regression: planes were copied and then rejected because of
 // the vertices. Only enable explicitly for development.
 REXCVAR_DEFINE_BOOL(nfsmw_native_video, false, "NFSMW",
-                    "Presentar cinematica por Vulkan nativo con respaldo Xenos")
+                    "Present cutscenes through native Vulkan, with Xenos as the fallback")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 namespace nfsmw::native {
@@ -22,7 +22,7 @@ std::shared_ptr<const FotogramaVideo> g_listo;
 ColaVideo g_cola;
 std::atomic<unsigned> g_rechazos{0};
 void Rechazo(unsigned bit,const char* motivo) {
-  if (!(g_rechazos.fetch_or(bit)&bit)) REXLOG_WARN("[video nativo] captura rechazada: {}",motivo);
+  if (!(g_rechazos.fetch_or(bit)&bit)) REXLOG_WARN("[video nativo] capture rejected: {}",motivo);
 }
 bool Activo() { return !g_desactivado.load(std::memory_order_relaxed) && REXCVAR_GET(nfsmw_native_video); }
 uint32_t BE(const uint8_t* base, uint32_t p) {
@@ -32,7 +32,7 @@ uint32_t BE(const uint8_t* base, uint32_t p) {
 bool Rango(uint32_t p, uint64_t n) { return p && uint64_t(p) + n <= (uint64_t(1) << 32); }
 }
 void DesactivarVideo(const char* motivo) {
-  if (!g_desactivado.exchange(true)) REXLOG_WARN("[video nativo] Xenos sigue activo: {}", motivo);
+  if (!g_desactivado.exchange(true)) REXLOG_WARN("[video nativo] Xenos stays active: {}", motivo);
   { std::lock_guard lock(g_mutex); g_capturado.reset(); g_listo.reset(); }
   g_cola.Vaciar();
 }
@@ -50,14 +50,14 @@ void CapturarPlanosVideo(const uint8_t* base, uint32_t objeto, uint32_t datos) {
     // The original shader's identity already includes its stage. Do not repeat it with
     // a boolean: swapping VS/PS here rejected every frame.
     if (!vs || !ps0 || !ps1 || ShaderDeObjeto(BE(base,objeto+72)) != vs) {
-      Rechazo(1,"VS del objeto o contenedores originales no reconocidos"); return;
+      Rechazo(1,"object VS or original containers not recognized"); return;
     }
     const uint32_t ancho = BE(base,objeto+124), alto = BE(base,objeto+128);
     if (!ancho || !alto || ancho > 1920 || alto > 1080 || ((ancho|alto)&1)) {
-      Rechazo(2,"dimensiones YUV no admitidas"); return;
+      Rechazo(2,"unsupported YUV dimensions"); return;
     }
     const auto* pixel = ShaderDeObjeto(BE(base,objeto+76));
-    if (pixel != ps0 && pixel != ps1) { Rechazo(4,"PS del objeto no reconocido"); return; }
+    if (pixel != ps0 && pixel != ps1) { Rechazo(4,"object PS not recognized"); return; }
     auto f = std::make_shared<FotogramaVideo>();
     f->objeto = objeto; f->ancho = ancho; f->alto = alto;
     f->vs = vs; f->ps[0] = ps0; f->ps[1] = ps1; f->variante = pixel == ps1;
@@ -67,7 +67,7 @@ void CapturarPlanosVideo(const uint8_t* base, uint32_t objeto, uint32_t datos) {
       const uint32_t pitch = BE(base,objeto+344+plano*4);
       if (BE(base,objeto+332+plano*4) != w || BE(base,objeto+356+plano*4) != h ||
           pitch < w || pitch > 4096 || !Rango(datos, offset+uint64_t(pitch)*h)) {
-        Rechazo(8,"disposicion de planos o pitch no admitido"); return;
+        Rechazo(8,"unsupported plane layout or pitch"); return;
       }
       f->planos[plano].resize(size_t(w)*h);
       for (uint32_t y = 0; y < h; ++y) {
@@ -80,7 +80,7 @@ void CapturarPlanosVideo(const uint8_t* base, uint32_t objeto, uint32_t datos) {
       offset += uint64_t(pitch)*h;
     }
     static std::atomic<bool> primera{true};
-    if (primera.exchange(false)) REXLOG_INFO("[video nativo] primera captura YUV {}x{}; shaders verificados",ancho,alto);
+    if (primera.exchange(false)) REXLOG_INFO("[video nativo] first YUV capture {}x{}; shaders verified",ancho,alto);
     std::lock_guard lock(g_mutex); g_capturado = std::move(f);
   } catch (const std::exception& e) { DesactivarVideo(e.what()); }
 }
@@ -96,7 +96,7 @@ void AnotarDibujoVideo(const uint8_t* base, bool esVideo, uint32_t objeto) {
       auto& v = g_capturado->vertices[i]; v = {leer(0),leer(1),leer(2),leer(3),leer(4)};
       if (!std::isfinite(v.x) || !std::isfinite(v.y) || !std::isfinite(v.z) || !std::isfinite(v.u) || !std::isfinite(v.v) ||
           std::abs(v.x)>1.1f || std::abs(v.y)>1.1f || v.z<0 || v.z>1 || v.u<0 || v.u>1 || v.v<0 || v.v>1) {
-        Rechazo(16,"vertices fuera del rango esperado"); return;
+        Rechazo(16,"vertices outside the expected range"); return;
       }
     }
     g_listo = std::move(g_capturado);
@@ -107,7 +107,7 @@ void AnotarSwapVideo() {
   try {
     std::shared_ptr<const FotogramaVideo> f;
     { std::lock_guard lock(g_mutex); f = std::move(g_listo); g_capturado.reset(); }
-    if (!g_cola.Encolar(std::move(f))) DesactivarVideo("cola de Swap llena; se evita desincronizar fotogramas");
+    if (!g_cola.Encolar(std::move(f))) DesactivarVideo("Swap queue full; this avoids desynchronized frames");
   } catch (const std::exception& e) { DesactivarVideo(e.what()); }
 }
 std::shared_ptr<const FotogramaVideo> ConsumirVideo() {

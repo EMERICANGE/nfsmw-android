@@ -30,8 +30,8 @@
 #include "nfsmw_audio_nativo.h"
 
 REXCVAR_DEFINE_INT32(nfsmw_audio_suma_nativa, 1, "NFSMW",
-                     "Suma con ganancia del motor de sonido (sub_825FDFB0): 0 = codigo recompilado, 1 = nativo (mismo "
-                     "resultado bit a bit; por defecto), 2 = validar el nativo contra el recompilado");
+                     "Gain-scaled sum of the sound engine (sub_825FDFB0): 0 = recompiled code, 1 = native (bit-identical "
+                     "result; default), 2 = validate the native one against the recompiled one");
 
 REX_EXTERN(__imp__sub_825FDFB0);
 
@@ -63,8 +63,8 @@ void Informar(int32_t modo) {
   if (ahora - ultimo < 10000 || !g_ultimo_informe_ms.compare_exchange_strong(ultimo, ahora, std::memory_order_relaxed)) {
     return;
   }
-  NFSMW_INFORME_DIFERIDO("[audio] suma con ganancia (modo {}): sub_825FDFB0 {} llamadas y {} muestras, diferencias con el "
-              "recompilado {}",
+  NFSMW_INFORME_DIFERIDO("[audio] gain-scaled sum (mode {}): sub_825FDFB0 {} calls and {} samples, differences with the "
+              "recompiled code {}",
               modo, g_llamadas.exchange(0), g_muestras.exchange(0), g_diferencias.exchange(0));
 }
 
@@ -124,7 +124,7 @@ void Validar(PPCContext& ctx, uint8_t* base) {
       while (i + 4 <= bytes && std::memcmp(p + i, recompilado.data() + i, 4) == 0) {
         i += 4;
       }
-      REXLOG_WARN("[audio] suma con ganancia: primera diferencia en la muestra {} de {} (destino 0x{:08X}, origen "
+      REXLOG_WARN("[audio] gain-scaled sum: first difference at sample {} of {} (destination 0x{:08X}, source "
                   "0x{:08X}, g {})",
                   i / 4, n, destino, origen, g);
     }

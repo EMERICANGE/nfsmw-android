@@ -13,10 +13,10 @@ VideoVulkan::VideoVulkan(VkDevice dispositivo, PFN_vkGetDeviceProcAddr proc,
                          const Shader& ps0, const Shader& ps1, VkFormat destino)
     : dispositivo_(dispositivo) {
   if (!dispositivo || !proc || !vs.vertices || ps0.vertices || ps1.vertices)
-    throw std::invalid_argument("Dispositivo o etapas incorrectos para video");
+    throw std::invalid_argument("Invalid device or stages for video");
 #define NFSMW_CARGAR_VIDEO(n) \
   n = reinterpret_cast<PFN_vk##n>(proc(dispositivo, "vk" #n)); \
-  if (!n) throw std::runtime_error("Falta vk" #n);
+  if (!n) throw std::runtime_error("Missing vk" #n);
   NFSMW_FUNCIONES_VIDEO(NFSMW_CARGAR_VIDEO)
 #undef NFSMW_CARGAR_VIDEO
   try {
@@ -30,13 +30,13 @@ VideoVulkan::VideoVulkan(VkDevice dispositivo, PFN_vkGetDeviceProcAddr proc,
       info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
       info.bindingCount = i == 0 || i == 3 ? 1 : 0;
       info.pBindings = &binding;
-      Comprobar(CreateDescriptorSetLayout(dispositivo, &info, nullptr, &layouts_[i]), "Layout de descriptores de video");
+      Comprobar(CreateDescriptorSetLayout(dispositivo, &info, nullptr, &layouts_[i]), "Video descriptor set layout");
     }
     const VkPushConstantRange rango{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 24};
     VkPipelineLayoutCreateInfo pl{}; pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl.setLayoutCount = 4; pl.pSetLayouts = layouts_.data();
     pl.pushConstantRangeCount = 1; pl.pPushConstantRanges = &rango;
-    Comprobar(CreatePipelineLayout(dispositivo, &pl, nullptr, &pipelineLayout_), "Layout de pipeline de video");
+    Comprobar(CreatePipelineLayout(dispositivo, &pl, nullptr, &pipelineLayout_), "Video pipeline layout");
     VkAttachmentDescription color{};
     color.format = destino; color.samples = VK_SAMPLE_COUNT_1_BIT;
     color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -47,11 +47,11 @@ VideoVulkan::VideoVulkan(VkDevice dispositivo, PFN_vkGetDeviceProcAddr proc,
     subpass.colorAttachmentCount = 1; subpass.pColorAttachments = &referencia;
     VkRenderPassCreateInfo rp{}; rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     rp.attachmentCount = 1; rp.pAttachments = &color; rp.subpassCount = 1; rp.pSubpasses = &subpass;
-    Comprobar(CreateRenderPass(dispositivo, &rp, nullptr, &renderPass_), "Render pass de video");
+    Comprobar(CreateRenderPass(dispositivo, &rp, nullptr, &renderPass_), "Video render pass");
     VkShaderModule moduloVS, moduloPS[2];
-    Comprobar(modulos.Obtener(vs, moduloVS), "VS de video");
-    Comprobar(modulos.Obtener(ps0, moduloPS[0]), "PS de video 0");
-    Comprobar(modulos.Obtener(ps1, moduloPS[1]), "PS de video 1");
+    Comprobar(modulos.Obtener(vs, moduloVS), "Video VS");
+    Comprobar(modulos.Obtener(ps0, moduloPS[0]), "Video PS 0");
+    Comprobar(modulos.Obtener(ps1, moduloPS[1]), "Video PS 1");
     const VkVertexInputBindingDescription vb{0, sizeof(VerticeVideo), VK_VERTEX_INPUT_RATE_VERTEX};
     const VkVertexInputAttributeDescription atributos[] = {
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0}, {4, 0, VK_FORMAT_R32G32_SFLOAT, 12}};
@@ -83,20 +83,20 @@ VideoVulkan::VideoVulkan(VkDevice dispositivo, PFN_vkGetDeviceProcAddr proc,
     gp.pColorBlendState = &cb; gp.pDynamicState = &ds; gp.layout = pipelineLayout_; gp.renderPass = renderPass_;
     for (size_t i = 0; i < 2; ++i) {
       etapas[1].module = moduloPS[i];
-      Comprobar(CreateGraphicsPipelines(dispositivo, VK_NULL_HANDLE, 1, &gp, nullptr, &pipelines_[i]), "Pipeline de video");
+      Comprobar(CreateGraphicsPipelines(dispositivo, VK_NULL_HANDLE, 1, &gp, nullptr, &pipelines_[i]), "Video pipeline");
     }
     const VkDescriptorPoolSize tamanos[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 3}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
     VkDescriptorPoolCreateInfo dp{}; dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     dp.maxSets = 4; dp.poolSizeCount = 2; dp.pPoolSizes = tamanos;
-    Comprobar(CreateDescriptorPool(dispositivo, &dp, nullptr, &pool_), "Pool de video");
+    Comprobar(CreateDescriptorPool(dispositivo, &dp, nullptr, &pool_), "Video descriptor pool");
     VkDescriptorSetAllocateInfo da{}; da.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     da.descriptorPool = pool_; da.descriptorSetCount = 4; da.pSetLayouts = layouts_.data();
-    Comprobar(AllocateDescriptorSets(dispositivo, &da, sets_.data()), "Descriptores de video");
+    Comprobar(AllocateDescriptorSets(dispositivo, &da, sets_.data()), "Video descriptor sets");
     VkSamplerCreateInfo sm{}; sm.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sm.magFilter = sm.minFilter = VK_FILTER_LINEAR; sm.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sm.addressModeU = sm.addressModeV = sm.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sm.maxLod = 0;
-    Comprobar(CreateSampler(dispositivo, &sm, nullptr, &sampler_), "Sampler de video");
+    Comprobar(CreateSampler(dispositivo, &sm, nullptr, &sampler_), "Video sampler");
   } catch (...) { Liberar(); throw; }
 }
 VideoVulkan::~VideoVulkan() { Liberar(); }
@@ -111,7 +111,7 @@ void VideoVulkan::Liberar() {
 void VideoVulkan::ConfigurarTexturas(const std::array<VkImageView, 3>& planos) {
   std::array<VkDescriptorImageInfo, 3> imagenes{};
   for (size_t i = 0; i < 3; ++i) {
-    if (!planos[i]) throw std::invalid_argument("Plano de video ausente");
+    if (!planos[i]) throw std::invalid_argument("Missing video plane");
     imagenes[i].imageView = planos[i]; imagenes[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   }
   VkDescriptorImageInfo sampler{}; sampler.sampler = sampler_;
@@ -127,7 +127,7 @@ void VideoVulkan::ConfigurarTexturas(const std::array<VkImageView, 3>& planos) {
 void VideoVulkan::Dibujar(VkCommandBuffer cmd, VkFramebuffer destino, uint32_t ancho, uint32_t alto,
                           VkBuffer vertices, VkDeviceSize offset, VkDeviceAddress constantes, uint32_t variante, bool fondoNegro) {
   if (!texturasListas_ || variante >= 2 || !cmd || !destino || !ancho || !alto || !vertices || !constantes || constantes % 16)
-    throw std::invalid_argument("Dibujado de video incompleto o constantes desalineadas");
+    throw std::invalid_argument("Incomplete video draw or misaligned constants");
   VkRenderPassBeginInfo inicio{}; inicio.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   inicio.renderPass = renderPass_; inicio.framebuffer = destino; inicio.renderArea.extent = {ancho, alto};
   CmdBeginRenderPass(cmd, &inicio, VK_SUBPASS_CONTENTS_INLINE);

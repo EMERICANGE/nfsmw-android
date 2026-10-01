@@ -63,9 +63,9 @@ for L in perdidas:
     if mejor and mejor[1] >= 0.6:
         parejas[origen[L]] = mejor[0]
         usadas.add(mejor[0])
-    print('PAL %s (fichero %d) sembrada %s -> %s' % (origen[L], pal[origen[L]], L,
-          '%s parecido %.2f' % mejor if mejor else 'sin candidata'))
+    print('PAL %s (file %d) seeded at %s -> %s' % (origen[L], pal[origen[L]], L,
+          '%s similarity %.2f' % mejor if mejor else 'no candidate'))
 sin = sorted(set(nuevas) - usadas)
-print('parejas: %d; nuevas sin pareja: %s; perdidas sin pareja: %s' % (
+print('pairs: %d; new functions without a pair: %s; lost functions without a pair: %s' % (
     len(parejas), sin, sorted(origen[L] for L in perdidas if origen[L] not in parejas)))
 json.dump({'parejas': parejas, 'nuevas_sin_pareja': sin}, open(ed + '/parejas_propuestas.json', 'w'), indent=1)

@@ -149,7 +149,7 @@ Result PedirContextoDe(unsigned char* salida) {
 
 void Volcar(const unsigned char* buf, unsigned tam) {
   char linea[340];
-  int n = std::snprintf(linea, sizeof(linea), "[relojes] contexto (%u bytes):", tam);
+  int n = std::snprintf(linea, sizeof(linea), "[relojes] context (%u bytes):", tam);
   for (unsigned i = 0; i < tam && n > 0 && unsigned(n) + 4 < sizeof(linea); ++i) {
     n += std::snprintf(linea + n, sizeof(linea) - unsigned(n), " %02X", buf[i]);
   }
@@ -169,7 +169,7 @@ void VolcarContexto() {
   if (R_SUCCEEDED(PedirContextoDe<56>(buf))) { Volcar(buf, 56); return; }
   if (R_SUCCEEDED(PedirContextoDe<64>(buf))) { Volcar(buf, 64); return; }
   if (R_SUCCEEDED(PedirContextoDe<72>(buf))) { Volcar(buf, 72); return; }
-  Aviso("[relojes] GetCurrentContext no cuela con ninguno de los tamanos probados");
+  Aviso("[relojes] GetCurrentContext does not work with any of the sizes tried");
 }
 
 Result PonerOverride(uint32_t modulo, uint32_t hz) {
@@ -237,8 +237,8 @@ bool Abrir() {
   }
   if (!elegido) {
     if (g_intentos == 1) {
-      Aviso("[relojes] no encuentro ningun sysmodule de relojes conocido (probados: sys:clk, hoc:clk, "
-            "hocclk, sysclk, clk:sys, sys:oc): no hay a quien pedirselo");
+      Aviso("[relojes] no known clock sysmodule found (tried: sys:clk, hoc:clk, "
+            "hocclk, sysclk, clk:sys, sys:oc): there is nobody to ask");
     }
     g_intentos = 5;  // do not ask again
     return false;
@@ -246,7 +246,7 @@ bool Abrir() {
   const Result rc = smGetService(&g_servicio, elegido);
   if (R_FAILED(rc)) {
     if (g_intentos == 1) {
-      std::fprintf(stderr, "[relojes] hay '%s' pero no se pudo abrir. Error 0x%X\n", elegido,
+      std::fprintf(stderr, "[relojes] '%s' exists but could not be opened. Error 0x%X\n", elegido,
                    (unsigned)rc);
     }
     return false;
@@ -255,8 +255,8 @@ bool Abrir() {
   uint32_t version = 0;
   if (R_FAILED(PedirVersionApi(&version))) {
     std::fprintf(stderr,
-                 "[relojes] '%s' abierto pero no contesta a GetApiVersion: no es la interfaz de "
-                 "sys-clk, no se toca nada (servicios hallados: %s)\n",
+                 "[relojes] '%s' opened but does not answer GetApiVersion: it is not the sys-clk "
+                 "interface, nothing is touched (services found: %s)\n",
                  elegido, hallados);
     serviceClose(&g_servicio);
     g_intentos = 5;
@@ -267,16 +267,16 @@ bool Abrir() {
   if (R_SUCCEEDED(PedirVersionTexto(version_texto, sizeof(version_texto)))) {
     version_texto[sizeof(version_texto) - 1] = 0;
     char linea[160];
-    std::snprintf(linea, sizeof(linea), "[relojes] version del sysmodule: %s", version_texto);
+    std::snprintf(linea, sizeof(linea), "[relojes] sysmodule version: %s", version_texto);
     Aviso(linea);
   } else {
-    Aviso("[relojes] el sysmodule no contesta a GetVersionString (orden 1)");
+    Aviso("[relojes] the sysmodule does not answer GetVersionString (command 1)");
   }
   VolcarContexto();
-  std::fprintf(stderr, "[relojes] sysmodule '%s', API %u (servicios hallados: %s)\n", elegido,
+  std::fprintf(stderr, "[relojes] sysmodule '%s', API %u (services found: %s)\n", elegido,
                (unsigned)version, hallados);
   g_abierto = true;
-  Aviso("[relojes] listo: los relojes pueden seguir a Reverse-NX");
+  Aviso("[relojes] ready: the clocks can follow Reverse-NX");
   return true;
 }
 
@@ -335,7 +335,7 @@ void Aplicar(bool a_sobremesa) {
     }
   }
   if (!hz[0] && !hz[1] && !hz[2]) {
-    Aviso("[relojes] no tienes nada puesto en esa columna: no se toca nada");
+    Aviso("[relojes] you have nothing set in that column: nothing is touched");
     return;
   }
   for (unsigned m = 0; m < kModulos; ++m) {
@@ -344,8 +344,8 @@ void Aplicar(bool a_sobremesa) {
     }
   }
   std::fprintf(stderr,
-               "[relojes] %s por Reverse-NX: CPU %u kHz, GPU %u kHz, memoria %u kHz (0 = como estaba)\n",
-               a_sobremesa ? "sobremesa" : "portatil", hz[0] / 1000u, hz[1] / 1000u, hz[2] / 1000u);
+               "[relojes] %s by Reverse-NX: CPU %u kHz, GPU %u kHz, memory %u kHz (0 = unchanged)\n",
+               a_sobremesa ? "docked" : "handheld", hz[0] / 1000u, hz[1] / 1000u, hz[2] / 1000u);
 }
 
 void Soltar() {
@@ -360,7 +360,7 @@ void Soltar() {
     }
   }
   if (alguno) {
-    Aviso("[relojes] soltados: los vuelve a poner el sysmodule");
+    Aviso("[relojes] released: the sysmodule sets them again");
   }
 }
 

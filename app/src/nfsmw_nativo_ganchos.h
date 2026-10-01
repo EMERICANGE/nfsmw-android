@@ -41,7 +41,7 @@ struct RegistroDibujo {
  * dumps it to the ring by dirty groups. If that mirror holds everything a draw needs, the renderer can
  * read it when drawing instead of reading the ~35 packets of each draw. This checks that without
  * touching anything: on 1 in 64 Draw* calls the mirror is snapshotted, and the ring, when pairing that
- * draw, compares the snapshot register by register with what it read from the packets ("sombra D3D"
+ * draw, compares the snapshot register by register with what it read from the packets ("D3D shadow"
  * line).
  */
 constexpr uint32_t kGruposEspejo = 9;  // 0x2000..0x2380 in steps of 0x80, and 0x4900 (booleans)
@@ -156,7 +156,7 @@ constexpr uint16_t kVegMotivoModo = 3;          // the effective EDRAM mode is n
 constexpr uint16_t kVegMotivoColor = 4;         // writes color
 constexpr uint16_t kVegMotivoSinDescarte = 5;   // no alpha test, no kill and no depth in the PS
 
-// What the ring sees for that draw, for the guard and the DIFERENCIA line.
+// What the ring sees for that draw, for the guard and the DIFFERENCE line.
 struct DetalleVegetacion {
   uint32_t modo = 0;        // RB_MODECONTROL
   uint32_t mascara = 0;     // RB_COLOR_MASK

@@ -32,12 +32,12 @@
 //    peak of the last buffer, the time of the last one and gaps longer than 50 ms. Atomics only; it does not log.
 //  - sub_821F74B0 (dual engine) and sub_821F7118 (single engine), on the thread that updates the car sound:
 //    they read the state, watch for gaps and write the log. [motor] lines:
-//      SIN MUESTRAS  a voice has gone over 50 ms without refilling a buffer while other voices keep refilling;
-//      VUELVE        the voice refills again, with the exact duration of the gap;
-//      Ac apagado    a stretch of 300 ms or more with the Ac voice below a quarter of the Dc, with a trace every
+//      NO SAMPLES    a voice has gone over 50 ms without refilling a buffer while other voices keep refilling;
+//      BACK          the voice refills again, with the exact duration of the gap;
+//      Ac off        a stretch of 300 ms or more with the Ac voice below a quarter of the Dc, with a trace every
 //                    100 ms starting 1 s before (to compare the bad corner with the good braking events);
-//      la actualizacion no corrio   more than 100 ms between two engine updates;
-//      resumen       every 10 s.
+//      update did not run   more than 100 ms between two engine updates;
+//      summary       every 10 s.
 
 #include <algorithm>
 #include <array>
@@ -60,9 +60,9 @@
 #include "nfsmw_audio_nativo.h"
 
 REXCVAR_DEFINE_BOOL(nfsmw_audio_sonda_motor, true, "NFSMW",
-                    "Sonda de medida del sonido del motor (Ginsu): buferes que rellena cada sintetizador, volumenes, "
-                    "rpm y estado de las voces; anota en el log los huecos de mas de 50 ms y los tramos con la "
-                    "aceleracion apagada. Solo mide: no cambia el audio");
+                    "Measurement probe for the engine sound (Ginsu): buffers refilled by each synthesizer, volumes, "
+                    "rpm and state of the voices; logs the gaps longer than 50 ms and the stretches with the "
+                    "acceleration sound off. It only measures: it does not change the audio");
 
 namespace nfsmw::audio_motor_sonda {
 namespace {
@@ -298,30 +298,30 @@ Estado LeerEstado(uint8_t* base, uint32_t objeto, bool doble) {
 }
 
 std::string TextoVoz(const char* nombre, const Voz& v, int64_t ahora) {
-  std::string rellenos = "sin retrollamadas vistas";
+  std::string rellenos = "no callbacks seen";
   if (const Sintetizador* s = Buscar(v.sint, false)) {
     const int64_t ultima = s->ultima_ns.load();
-    rellenos = fmt::format("{} buferes, ultimo hace {:.1f} ms con pico {}", s->buferes.load(),
+    rellenos = fmt::format("{} buffers, last one {:.1f} ms ago with peak {}", s->buferes.load(),
                            ultima != 0 ? double(ahora - ultima) / 1e6 : -1.0, s->pico.load());
   }
-  return fmt::format("{}: vol {} (SND {:.3f}), sint 0x{:08X} {} (tasa {} Hz, {} muestras por bufer), {}; "
-                     ".gin pos {} de {}, actual {} destino {} pasos {}; voz 0x{:08X} {} tono {}; flujo {} "
-                     "(voz 0x{:08X}) con {} muestras en cola + {} y {} buferes",
-                     nombre, v.volumen, v.volumen_snd, v.sint, v.tasa != 0 ? "arrancado" : "PARADO", v.tasa, v.n,
+  return fmt::format("{}: vol {} (SND {:.3f}), synth 0x{:08X} {} (rate {} Hz, {} samples per buffer), {}; "
+                     ".gin pos {} of {}, current {} target {} steps {}; voice 0x{:08X} {} pitch {}; stream {} "
+                     "(voice 0x{:08X}) with {} samples queued + {} and {} buffers",
+                     nombre, v.volumen, v.volumen_snd, v.sint, v.tasa != 0 ? "started" : "STOPPED", v.tasa, v.n,
                      rellenos, v.pos, v.total, v.actual, v.destino, v.pasos, v.manejador,
-                     v.valida ? "valida" : "NO VALIDA", v.tono, v.flujo, v.voz_flujo, v.en_cola, v.arrastre,
+                     v.valida ? "valid" : "NOT VALID", v.tono, v.flujo, v.voz_flujo, v.en_cola, v.arrastre,
                      v.buferes_cola);
 }
 
 std::string TextoEstado(const Estado& e, int64_t ahora) {
-  std::string t = fmt::format("DMX {}, listo {}, activo {}; ctl 0x{:08X}: rpm {:.0f}, delta {:.1f} (media {:.1f}), "
-                              "pesos {:.2f}/{:.2f}, ganancias AEMS {} Ac {} Dc {}; ",
+  std::string t = fmt::format("DMX {}, ready {}, active {}; ctl 0x{:08X}: rpm {:.0f}, delta {:.1f} (average {:.1f}), "
+                              "weights {:.2f}/{:.2f}, gains AEMS {} Ac {} Dc {}; ",
                               e.dmx, e.listo, e.activo, e.ctl, e.rpm, e.delta, e.delta_media, e.peso_a, e.peso_b,
                               e.g_aems, e.g_ac, e.g_dc);
-  t += TextoVoz("Ac (ranura 0)", e.voz[0], ahora);
+  t += TextoVoz("Ac (slot 0)", e.voz[0], ahora);
   if (e.doble) {
     t += "; ";
-    t += TextoVoz("Dc (ranura 1)", e.voz[1], ahora);
+    t += TextoVoz("Dc (slot 1)", e.voz[1], ahora);
   }
   return t;
 }
@@ -409,15 +409,15 @@ void Resumir(Motor& m, int64_t periodo_ns) {
     }
     Sintetizador* s = Buscar(m.sint[k], false);
     if (s == nullptr) {
-      texto += fmt::format("; {}: sin retrollamadas vistas", k == 0 ? "Ac" : "Dc");
+      texto += fmt::format("; {}: no callbacks seen", k == 0 ? "Ac" : "Dc");
       continue;
     }
     const uint64_t buferes = s->buferes.load();
     const uint64_t muestras = s->muestras.load();
     const uint64_t mudos = s->mudos.load();
     const uint64_t huecos = s->huecos.load();
-    texto += fmt::format("; {} (sint 0x{:08X}): {} buferes, {} muestras, {} mudos, hueco maximo {:.1f} ms, {} huecos "
-                         "de mas de 50 ms",
+    texto += fmt::format("; {} (synth 0x{:08X}): {} buffers, {} samples, {} silent, max gap {:.1f} ms, {} gaps "
+                         "longer than 50 ms",
                          k == 0 ? "Ac" : "Dc", m.sint[k], buferes - m.buferes_antes[k], muestras - m.muestras_antes[k],
                          mudos - m.mudos_antes[k], double(s->hueco_max_ns.exchange(0)) / 1e6,
                          huecos - m.huecos_antes[k]);
@@ -426,10 +426,10 @@ void Resumir(Motor& m, int64_t periodo_ns) {
     m.mudos_antes[k] = mudos;
     m.huecos_antes[k] = huecos;
   }
-  NFSMW_INFORME_DIFERIDO("[motor] resumen de {:.1f} s: motor 0x{:08X} ({}) {} actualizaciones, hueco maximo {:.1f} ms, {}en el "
-              "hilo de las retrollamadas, {} huecos con todas las voces paradas{}",
-              double(periodo_ns) / 1e9, m.objeto, m.doble ? "doble" : "simple", m.actualizaciones,
-              double(m.hueco_max_ns) / 1e6, m.en_mismo_hilo ? "" : "no ", m.paradas_servidor, texto);
+  NFSMW_INFORME_DIFERIDO("[motor] summary of {:.1f} s: engine 0x{:08X} ({}) {} updates, max gap {:.1f} ms, {}on the "
+              "callback thread, {} gaps with all the voices stopped{}",
+              double(periodo_ns) / 1e9, m.objeto, m.doble ? "dual" : "single", m.actualizaciones,
+              double(m.hueco_max_ns) / 1e6, m.en_mismo_hilo ? "" : "not ", m.paradas_servidor, texto);
   m.actualizaciones = 0;
   m.hueco_max_ns = 0;
 }
@@ -454,7 +454,7 @@ void AlActualizar(uint8_t* base, uint32_t objeto, bool doble) {
 
   if (!m->presentado && e.listo != 0) {
     m->presentado = true;
-    REXLOG_INFO("[motor] motor 0x{:08X} ({}) listo; {}", objeto, doble ? "doble" : "simple", TextoEstado(e, ahora));
+    REXLOG_INFO("[motor] engine 0x{:08X} ({}) ready; {}", objeto, doble ? "dual" : "single", TextoEstado(e, ahora));
   }
 
   // 1. The engine update itself.
@@ -462,7 +462,7 @@ void AlActualizar(uint8_t* base, uint32_t objeto, bool doble) {
     const int64_t hueco = ahora - m->ultima_ns;
     m->hueco_max_ns = std::max(m->hueco_max_ns, hueco);
     if (hueco > kActualizacionParadaNs) {
-      REXLOG_INFO("[motor] la actualizacion del motor 0x{:08X} no corrio en {:.1f} ms; {}", objeto,
+      REXLOG_INFO("[motor] engine 0x{:08X}: update did not run for {:.1f} ms; {}", objeto,
                   double(hueco) / 1e6, TextoEstado(e, ahora));
     }
   }
@@ -471,7 +471,7 @@ void AlActualizar(uint8_t* base, uint32_t objeto, bool doble) {
   // 2. Gaps of each voice: no buffer refill while the other voices refill.
   const int ranuras = doble ? 2 : 1;
   for (int k = 0; k < ranuras; ++k) {
-    const char* nombre = k == 0 ? "Ac (ranura 0)" : "Dc (ranura 1)";
+    const char* nombre = k == 0 ? "Ac (slot 0)" : "Dc (slot 1)";
     const Sintetizador* s = Buscar(e.voz[k].sint, false);
     if (s == nullptr) {
       continue;
@@ -480,7 +480,7 @@ void AlActualizar(uint8_t* base, uint32_t objeto, bool doble) {
     const uint64_t otros = g_secuencia.load() - s->secuencia.load();
     if (!m->en_hueco[k] && ultima != 0 && ahora - ultima > kHuecoNs && otros >= kOtrosMinimos) {
       m->en_hueco[k] = true;
-      REXLOG_INFO("[motor] SIN MUESTRAS {}: {:.1f} ms sin rellenar bufer mientras otras voces rellenaron {}; {}",
+      REXLOG_INFO("[motor] NO SAMPLES {}: {:.1f} ms without refilling a buffer while other voices refilled {}; {}",
                   nombre, double(ahora - ultima) / 1e6, otros, TextoEstado(e, ahora));
     }
     const uint64_t huecos = s->huecos.load();
@@ -488,7 +488,7 @@ void AlActualizar(uint8_t* base, uint32_t objeto, bool doble) {
       m->huecos_vistos[k] = huecos;
       const uint64_t otros_hueco = s->hueco_otros.load();
       if (m->en_hueco[k] || otros_hueco >= kOtrosMinimos) {
-        REXLOG_INFO("[motor] VUELVE {} tras {:.1f} ms sin rellenar (otras voces rellenaron {} buferes); {}", nombre,
+        REXLOG_INFO("[motor] BACK {} after {:.1f} ms without refilling (other voices refilled {} buffers); {}", nombre,
                     double(s->hueco_ns.load()) / 1e6, otros_hueco, TextoEstado(e, ahora));
       } else {
         ++m->paradas_servidor;
@@ -527,16 +527,16 @@ void AlActualizar(uint8_t* base, uint32_t objeto, bool doble) {
       m->vol_dc_max = std::max(m->vol_dc_max, e.voz[1].volumen);
       if (!m->apagado_avisado && ahora - m->apagado_desde_ns > kApagadoLargoNs) {
         m->apagado_avisado = true;
-        REXLOG_INFO("[motor] Ac lleva {:.0f} ms apagado con Dc sonando; {}",
+        REXLOG_INFO("[motor] Ac has been off for {:.0f} ms with Dc playing; {}",
                     double(ahora - m->apagado_desde_ns) / 1e6, TextoEstado(e, ahora));
       }
     } else if (m->apagado) {
       m->apagado = false;
       const int64_t duracion = ahora - m->apagado_desde_ns;
       if (duracion >= kApagadoMinimoNs) {
-        REXLOG_INFO("[motor] Ac apagado {:.0f} ms con Dc sonando (vol Dc maximo {}), rpm {:.0f} -> {:.0f}; al volver: "
-                    "{}; traza cada 100 ms desde 1 s antes (ms desde el inicio:vol Ac/Dc rpm delta_media "
-                    "ganancia Ac/Dc buferes Ac/Dc): {}",
+        REXLOG_INFO("[motor] Ac off {:.0f} ms with Dc playing (max Dc vol {}), rpm {:.0f} -> {:.0f}; on return: "
+                    "{}; trace every 100 ms from 1 s before (ms since the start:vol Ac/Dc rpm delta_media "
+                    "gain Ac/Dc buffers Ac/Dc): {}",
                     double(duracion) / 1e6, m->vol_dc_max, m->rpm_al_apagar, e.rpm, TextoEstado(e, ahora),
                     TextoTraza(*m, m->apagado_desde_ns - kTrazaAntesNs));
       }

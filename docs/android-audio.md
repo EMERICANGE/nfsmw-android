@@ -10,7 +10,7 @@ the conversion and the submission to SDL.
 The settings `audio_sdl_bomba = true` and `audio_sdl_bomba_cola = 12` are the Android
 defaults. `audio_maxqframes` stays at 12. The reserve adds
 latency and absorbs short delays; longer loads can still drain the queue.
-The `[audio] SDL en 10 s` log line counts delivered blocks and silences caused by
+The `[audio] SDL in 10 s` log line counts delivered blocks and silences caused by
 missing data. It does not detect silences that already come inside a game mix.
 
 Android's stereo mix keeps its floating-point peaks until the limiter.

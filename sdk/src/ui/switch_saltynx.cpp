@@ -79,7 +79,7 @@ struct BloqueFps {
   int8_t buffers_esperados;
 } __attribute__((packed));
 
-static_assert(sizeof(BloqueFps) == 174, "el overlay espera 174 bytes");
+static_assert(sizeof(BloqueFps) == 174, "the overlay expects 174 bytes");
 
 /* struct Shared from ReverseNX-RT (9 bytes). */
 struct BloqueReverseNx {
@@ -91,7 +91,7 @@ struct BloqueReverseNx {
   bool uso_ddr;
 } __attribute__((packed));
 
-static_assert(sizeof(BloqueReverseNx) == 9, "ReverseNX-RT usa 9 bytes");
+static_assert(sizeof(BloqueReverseNx) == 9, "ReverseNX-RT uses 9 bytes");
 
 /* API declared by the block: 0 unknown, 1 NVN, 2 GL, 3 Vulkan. */
 constexpr uint8_t kApiVulkan = 3;
@@ -244,7 +244,7 @@ void AvisarPublicado(const BloqueFps* bloque) {
   const unsigned desplazamiento =
       g_base ? unsigned(reinterpret_cast<const uint8_t*>(bloque) - static_cast<const uint8_t*>(g_base)) : 0u;
   std::fprintf(stderr,
-               "[saltynx] PUBLICADO a los %.2f s del arranque: FPS=%u y RES=%ux%u en el desplazamiento 0x%X\n",
+               "[saltynx] PUBLISHED %.2f s after startup: FPS=%u and RES=%ux%u at offset 0x%X\n",
                segundos, unsigned(g_ultimo_fps), unsigned(g_ultimo_ancho), unsigned(g_ultimo_alto),
                desplazamiento);
 }
@@ -313,16 +313,16 @@ bool BuscarMemoriaCompartidaPropia() {
  */
 void Diagnostico(Result rc_saltysd) {
   if (rc_saltysd == 0) {
-    Aviso("[saltynx] ni se ha intentado: el proceso no tiene sitio para otra sesion de puerto");
+    Aviso("[saltynx] not even attempted: the process has no room for another port session");
   } else {
-    AvisoNum("[saltynx] no conecta con los puertos de SaltyNX. Ultimo error", rc_saltysd);
+    AvisoNum("[saltynx] cannot connect to the SaltyNX ports. Last error", rc_saltysd);
   }
 
   // Our own title ID: SaltyNX rejects those above 0x01FFFFFFFFFFFFFF ("is a homebrew application"),
   // which is exactly the range forwarders fall in. Knowing it saves a question.
   u64 titulo = 0;
   if (R_SUCCEEDED(svcGetInfo(&titulo, InfoType_ProgramId, CUR_PROCESS_HANDLE, 0))) {
-    std::fprintf(stderr, "[saltynx] nuestro TID: %016llX (SaltyNX admite <= 01FFFFFFFFFFFFFF y sin 0x1F00)\n",
+    std::fprintf(stderr, "[saltynx] our TID: %016llX (SaltyNX accepts <= 01FFFFFFFFFFFFFF and without 0x1F00)\n",
                  (unsigned long long)titulo);
   }
 
@@ -333,9 +333,9 @@ void Diagnostico(Result rc_saltysd) {
     const Result rc = svcConnectToNamedPort(&h, p);
     if (R_SUCCEEDED(rc)) {
       svcCloseHandle(h);
-      Aviso(p[0] == 'I' ? "[saltynx] puerto InjectServ: SI conecta" : "[saltynx] puerto SaltySD: SI conecta");
+      Aviso(p[0] == 'I' ? "[saltynx] InjectServ port: DOES connect" : "[saltynx] SaltySD port: DOES connect");
     } else {
-      AvisoNum(p[0] == 'I' ? "[saltynx] puerto InjectServ: error" : "[saltynx] puerto SaltySD: error", rc);
+      AvisoNum(p[0] == 'I' ? "[saltynx] InjectServ port: error" : "[saltynx] SaltySD port: error", rc);
     }
   }
 
@@ -343,9 +343,9 @@ void Diagnostico(Result rc_saltysd) {
   const Result rc_sm = svcConnectToNamedPort(&control, "sm:");
   if (R_SUCCEEDED(rc_sm)) {
     svcCloseHandle(control);
-    Aviso("[saltynx] control: 'sm:' SI da sesion nueva, asi que el limite es del puerto de SaltyNX");
+    Aviso("[saltynx] control: 'sm:' DOES give a new session, so the limit belongs to the SaltyNX port");
   } else {
-    AvisoNum("[saltynx] control: 'sm:' tampoco da sesion, asi que el limite es NUESTRO. Error", rc_sm);
+    AvisoNum("[saltynx] control: 'sm:' gives no session either, so the limit is OURS. Error", rc_sm);
   }
 
   u64 bruto = 0;
@@ -354,7 +354,7 @@ void Diagnostico(Result rc_saltysd) {
     rc_lim = svcGetInfo(&bruto, InfoType_ResourceLimit, CUR_PROCESS_HANDLE, 0);
   }
   if (R_FAILED(rc_lim)) {
-    AvisoNum("[saltynx] no se pueden leer los limites del proceso. Error", rc_lim);
+    AvisoNum("[saltynx] cannot read the process limits. Error", rc_lim);
     return;
   }
   const Handle limite = static_cast<Handle>(bruto);
@@ -363,10 +363,10 @@ void Diagnostico(Result rc_saltysd) {
     LimitableResource cual;
   };
   const Recurso kRecursos[] = {
-      {"[saltynx] sesiones usadas / tope:", LimitableResource_Sessions},
-      {"[saltynx] eventos usados / tope:", LimitableResource_Events},
-      {"[saltynx] hilos usados / tope:", LimitableResource_Threads},
-      {"[saltynx] memorias transferibles usadas / tope:", LimitableResource_TransferMemories},
+      {"[saltynx] sessions used / cap:", LimitableResource_Sessions},
+      {"[saltynx] events used / cap:", LimitableResource_Events},
+      {"[saltynx] threads used / cap:", LimitableResource_Threads},
+      {"[saltynx] transfer memories used / cap:", LimitableResource_TransferMemories},
   };
   for (const Recurso& r : kRecursos) {
     s64 ahora = 0;
@@ -381,8 +381,8 @@ void Diagnostico(Result rc_saltysd) {
 
 /*
  * --- Making room for a session. ---------------------------------------------------------------------
- * Measured on the console: this process (forwarder + hbloader) has a resource limit with "sesiones
- * usadas / tope: 1 / 1". A single port session, and libnx already uses it for "sm:". That is why
+ * Measured on the console: this process (forwarder + hbloader) has a resource limit with "sessions
+ * used / cap: 1 / 1". A single port session, and libnx already uses it for "sm:". That is why
  * both SaltyNX ports and also the "sm:" control failed, all three with 0x10801 (resource
  * exhausted). It is not SaltyNX's fault.
  *
@@ -438,12 +438,12 @@ bool HacerSitio(bool* sm_cerrado, bool permitir_soltar_sm) {
                                                       static_cast<u64>(tope + 4));
       if (R_SUCCEEDED(rc)) {
         sitio = HaySitioParaUnaSesion(limite);
-        AvisoDos("[saltynx] subido el tope de sesiones del proceso:", (long long)tope, (long long)(tope + 4));
+        AvisoDos("[saltynx] raised the process session cap:", (long long)tope, (long long)(tope + 4));
       } else {
-        AvisoNum("[saltynx] no deja subir el tope de sesiones. Error", rc);
+        AvisoNum("[saltynx] raising the session cap is not allowed. Error", rc);
       }
     } else {
-      Aviso("[saltynx] el cargador no permite svcSetResourceLimitLimitValue (SVC 0x7E)");
+      Aviso("[saltynx] the loader does not allow svcSetResourceLimitLimitValue (SVC 0x7E)");
     }
   }
 
@@ -452,10 +452,10 @@ bool HacerSitio(bool* sm_cerrado, bool permitir_soltar_sm) {
     if (HaySitioParaUnaSesion(limite)) {
       *sm_cerrado = true;
       sitio = true;
-      Aviso("[saltynx] soltado 'sm:' un momento para tener sitio");
+      Aviso("[saltynx] released 'sm:' for a moment to make room");
     } else {
       smInitialize();  // it did not close: restore the count and leave it as it was
-      Aviso("[saltynx] ni soltando 'sm:' hay sitio para una sesion");
+      Aviso("[saltynx] not even releasing 'sm:' makes room for a session");
     }
   }
 
@@ -601,14 +601,14 @@ void Iniciar() {
 
   if (nombre && !g_avisado_conexion) {
     g_avisado_conexion = true;  // once; this is retried every second and used to fill the log
-    Aviso(nombre[0] == 'S' ? "[saltynx] conectado por SaltySD" : "[saltynx] conectado por InjectServ");
+    Aviso(nombre[0] == 'S' ? "[saltynx] connected through SaltySD" : "[saltynx] connected through InjectServ");
   }
   if (!g_mapeada) {
     if (R_FAILED(rc_manejador) && !g_avisado_sin_memoria) {
       // A port connected but did not serve the memory. The attempt is not lost: the other one has already
       // been tried. Only once: this is retried every second for the whole session and used to fill the log.
       g_avisado_sin_memoria = true;
-      AvisoNum("[saltynx] algun puerto conecta pero no da la memoria compartida; error", rc_manejador);
+      AvisoNum("[saltynx] a port connects but does not hand out the shared memory; error", rc_manejador);
     }
     // Path 2: no free session. If SaltyNX was injected into this process, its shared memory is already mapped here.
     if (!BuscarMemoriaCompartidaPropia()) {
@@ -620,12 +620,12 @@ void Iniciar() {
       if (g_intentos == 5 || g_intentos == 30) {
         Diagnostico(rc_puerto);
       } else if (g_intentos % 600 == 0) {
-        AvisoNum("[saltynx] se sigue reintentando sin exito. Error", rc_puerto);
+        AvisoNum("[saltynx] still retrying without success. Error", rc_puerto);
       }
       return;
     }
     g_mapeada = true;
-    Aviso("[saltynx] sin sesion en los puertos, pero su memoria compartida ya estaba mapeada aqui");
+    Aviso("[saltynx] no session on the ports, but its shared memory was already mapped here");
   }
 
   // The FPS block: if SaltyNX already left one in this process it is overwritten (its fields would be
@@ -635,17 +635,17 @@ void Iniciar() {
     g_fps.store(existente, std::memory_order_release);
     if (!g_avisado_bloque) {
       g_avisado_bloque = true;
-      Aviso("[saltynx] bloque de FPS ya presente: se escribe encima");
+      Aviso("[saltynx] FPS block already present: writing over it");
     }
   } else if (reservada) {
     auto* bloque = reinterpret_cast<BloqueFps*>(g_base + desplazamiento);
     std::memset(bloque, 0, sizeof(*bloque));
     bloque->magic = kMagicFps;
     g_fps.store(bloque, std::memory_order_release);
-    AvisoNum("[saltynx] bloque de FPS creado en el desplazamiento", (long long)desplazamiento);
+    AvisoNum("[saltynx] FPS block created at offset", (long long)desplazamiento);
   } else if (!g_avisado_sin_sitio) {
     g_avisado_sin_sitio = true;
-    Aviso("[saltynx] sin sitio para el bloque de FPS; se sigue intentando una vez por segundo");
+    Aviso("[saltynx] no room for the FPS block; still trying once per second");
   }
   if (BloqueFps* bloque = g_fps.load(std::memory_order_acquire)) {
     // FPS and resolution at once, without waiting for the next second or the next present.
@@ -672,10 +672,10 @@ void Iniciar() {
     std::memset(reverse, 0, sizeof(*reverse));
     reverse->magic = kMagicReverseNx;
     reverse->por_defecto = true;  // the system decides until the player says otherwise
-    AvisoNum("[saltynx] bloque de Reverse-NX creado en el desplazamiento", (long long)desplazamiento_nx);
+    AvisoNum("[saltynx] Reverse-NX block created at offset", (long long)desplazamiento_nx);
   } else if (!g_avisado_reverse) {
     g_avisado_reverse = true;  // once, since this is retried every second
-    Aviso(reverse ? "[saltynx] bloque de Reverse-NX ya presente" : "[saltynx] sin sitio para el bloque de Reverse-NX");
+    Aviso(reverse ? "[saltynx] Reverse-NX block already present" : "[saltynx] no room for the Reverse-NX block");
   }
   // Only stored if there is one. Otherwise a retry would write nullptr over a good pointer.
   if (reverse) {

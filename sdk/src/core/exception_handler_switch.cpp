@@ -113,8 +113,8 @@ alignas(16) uint32_t g_rex_exc_ocupadas[REX_EXC_RANURAS];
 }
 
 static_assert(sizeof(ThreadExceptionDump) <= REX_EXC_VOLCADO,
-              "el volcado ya no cabe en la ranura");
-static_assert(REX_EXC_RANURAS == 8, "el ensamblador compara contra 8 a mano");
+              "the dump no longer fits in the slot");
+static_assert(REX_EXC_RANURAS == 8, "the assembly compares against 8 by hand");
 
 /*
  * The exception entry, replacing libnx's
@@ -383,11 +383,11 @@ void ScanStack(CrashBuf& b, uint64_t stack, uint64_t base, uint64_t text_lo, uin
   stack &= ~uint64_t(7);
   MemoryInfo mi;
   if (!QueryReadable(stack, 8, &mi)) {
-    Append(b, "pila ilegible en 0x%016" PRIx64 "\n", stack);
+    Append(b, "unreadable stack at 0x%016" PRIx64 "\n", stack);
     return;
   }
   const uint64_t end = std::min(mi.addr + mi.size, stack + 0x10000);
-  Append(b, "posibles retornos en la pila (0x%016" PRIx64 "):\n", stack);
+  Append(b, "possible return addresses on the stack (0x%016" PRIx64 "):\n", stack);
   int hits = 0;
   for (uint64_t p = stack; p + 8 <= end && hits < 48; p += 8) {
     const uint64_t v = *reinterpret_cast<const uint64_t*>(p);
@@ -400,7 +400,7 @@ void ScanStack(CrashBuf& b, uint64_t stack, uint64_t base, uint64_t text_lo, uin
     if (!bl && !blr) {
       continue;
     }
-    Append(b, "  sp+0x%05" PRIx64 "  imagen+0x%" PRIx64 "\n", p - stack, v - base);
+    Append(b, "  sp+0x%05" PRIx64 "  image+0x%" PRIx64 "\n", p - stack, v - base);
     ++hits;
   }
 }
@@ -451,28 +451,28 @@ extern "C" void RexSwitchCrashLog(const char* reason, const ThreadExceptionDump*
   svcGetThreadId(&tid, CUR_THREAD_HANDLE);
 
   Append(b, "==== %s ====\n", reason ? reason : "?");
-  Append(b, "hilo %" PRIu64 ", imagen 0x%016" PRIx64 " (codigo hasta 0x%016" PRIx64 ")\n", tid,
+  Append(b, "thread %" PRIu64 ", image 0x%016" PRIx64 " (code up to 0x%016" PRIx64 ")\n", tid,
          base, text_hi);
-  Append(b, "pc 0x%016" PRIx64 " = imagen+0x%" PRIx64 "\n", pc, pc - base);
+  Append(b, "pc 0x%016" PRIx64 " = image+0x%" PRIx64 "\n", pc, pc - base);
 
   if (ctx) {
     const uint32_t esr = ctx->esr;
-    Append(b, "lr 0x%016" PRIx64 " = imagen+0x%" PRIx64 "\n", ctx->lr.x, ctx->lr.x - base);
+    Append(b, "lr 0x%016" PRIx64 " = image+0x%" PRIx64 "\n", ctx->lr.x, ctx->lr.x - base);
     Append(b, "esr 0x%08x (EC 0x%02x)  far 0x%016" PRIx64 "  error_desc 0x%x  pstate 0x%08x\n",
            esr, esr >> 26, ctx->far.x, ctx->error_desc, ctx->pstate);
     if (QueryReadable(pc, 4, &mi) && (mi.perm & Perm_X)) {
-      Append(b, "instruccion 0x%08x\n", *reinterpret_cast<const uint32_t*>(pc));
+      Append(b, "instruction 0x%08x\n", *reinterpret_cast<const uint32_t*>(pc));
     }
     MemoryInfo fm;
     u32 page_info = 0;
     if (R_SUCCEEDED(svcQueryMemory(&fm, &page_info, ctx->far.x))) {
       Append(b,
-             "far en region 0x%016" PRIx64 "+0x%" PRIx64 " tipo 0x%x permisos 0x%x\n",
+             "far in region 0x%016" PRIx64 "+0x%" PRIx64 " type 0x%x permissions 0x%x\n",
              fm.addr, fm.size, fm.type, fm.perm);
     }
     const uint64_t gm = reinterpret_cast<uint64_t>(RexGmBase());
     if (gm && ctx->far.x >= gm && ctx->far.x < gm + RexGmSize()) {
-      Append(b, "far dentro de la memoria del invitado: 0x%08" PRIx64 "\n", ctx->far.x - gm);
+      Append(b, "far inside guest memory: 0x%08" PRIx64 "\n", ctx->far.x - gm);
     }
     for (int i = 0; i < 29; ++i) {
       Append(b, "x%-2d 0x%016" PRIx64 "%s", i, ctx->cpu_gprs[i].x, (i % 3 == 2) ? "\n" : "  ");
@@ -483,13 +483,13 @@ extern "C" void RexSwitchCrashLog(const char* reason, const ThreadExceptionDump*
   // Frame chain: the ELF keeps x29 as the frame pointer (the Atmosphere report of
   // the first abort walked it completely). More reliable than the scan below,
   // which remains as a fallback for when the chain breaks.
-  Append(b, "cadena de marcos:\n");
+  Append(b, "frame chain:\n");
   uint64_t frame = ctx ? ctx->fp.x : stack;
   for (int i = 0; i < 40 && (frame & 7) == 0 && QueryReadable(frame, 16, &mi); ++i) {
     const uint64_t next = reinterpret_cast<const uint64_t*>(frame)[0];
     const uint64_t ret = reinterpret_cast<const uint64_t*>(frame)[1];
     if (ret >= text_lo && ret < text_hi) {
-      Append(b, "  #%02d imagen+0x%" PRIx64 "\n", i, ret - base);
+      Append(b, "  #%02d image+0x%" PRIx64 "\n", i, ret - base);
     } else {
       Append(b, "  #%02d 0x%016" PRIx64 "\n", i, ret);
     }
@@ -507,8 +507,8 @@ extern "C" void RexSwitchCrashLog(const char* reason, const ThreadExceptionDump*
 
 namespace rex::arch {
 
-static_assert(sizeof(vec128_t) == 16, "vec128_t ya no mide 16 bytes");
-static_assert(sizeof(FpuRegister) == 16, "FpuRegister ya no mide 16 bytes");
+static_assert(sizeof(vec128_t) == 16, "vec128_t is no longer 16 bytes");
+static_assert(sizeof(FpuRegister) == 16, "FpuRegister is no longer 16 bytes");
 
 namespace {
 
@@ -752,7 +752,7 @@ void WriteBack(const Exception& ex, const HostThreadContext& tc, ThreadException
   // not another exception: it ends with error 2345-0102.
   (void)far;
   (void)esr;
-  RexSwitchCrashLog(data_abort ? "fallo de acceso a memoria" : "excepcion de CPU", ctx,
+  RexSwitchCrashLog(data_abort ? "memory access fault" : "CPU exception", ctx,
                     ctx->sp.x, pc);
   diagAbortWithResult(MAKERESULT(Module_Libnx, 102));
 }

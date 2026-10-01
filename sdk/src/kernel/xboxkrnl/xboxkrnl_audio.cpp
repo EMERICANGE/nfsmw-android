@@ -36,11 +36,11 @@
 #include <vector>
 
 REXCVAR_DEFINE_INT32(audio_volcado_s, 0, "Audio",
-                     "Diagnostico: segundos del audio que entrega el juego (6 canales, antes del "
-                     "driver) que se guardan en audio_volcado_<cliente>.wav junto al ejecutable; "
-                     "0 = nada");
+                     "Diagnostic: seconds of the audio the game delivers (6 channels, before the "
+                     "driver) saved to audio_volcado_<client>.wav next to the executable; "
+                     "0 = none");
 REXCVAR_DEFINE_INT32(audio_volcado_desde_s, 0, "Audio",
-                     "Diagnostico: segundos de audio de cada cliente que se saltan antes del volcado");
+                     "Diagnostic: seconds of audio of each client skipped before the dump");
 
 namespace {
 
@@ -112,7 +112,7 @@ void EscribirVolcado(uint32_t cliente, std::vector<float> muestras) {
                       ("audio_volcado_" + std::to_string(cliente) + ".wav");
     std::ofstream fichero(ruta, std::ios::binary | std::ios::trunc);
     if (!fichero) {
-      REXKRNL_WARN("[audio] no se pudo crear el volcado {}", ruta.string());
+      REXKRNL_WARN("[audio] could not create the dump {}", ruta.string());
       return;
     }
     const uint32_t bytes = uint32_t(muestras.size() * sizeof(float));
@@ -131,7 +131,7 @@ void EscribirVolcado(uint32_t cliente, std::vector<float> muestras) {
     fichero.write("data", 4);
     u32(bytes);
     fichero.write(reinterpret_cast<const char*>(muestras.data()), bytes);
-    REXKRNL_INFO("[audio] volcado del cliente {}: {} muestras por canal en {}", cliente,
+    REXKRNL_INFO("[audio] dump of client {}: {} samples per channel in {}", cliente,
                  muestras.size() / 6, ruta.string());
   });
 }

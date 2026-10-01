@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 const [installer, game, output] = process.argv.slice(2);
 if (!output) {
-  console.error('uso: node biblioteca_shaders.mjs <clon de nfsmw-nx-installer> <carpeta del juego> <salida .nfsp>');
+  console.error('usage: node biblioteca_shaders.mjs <nfsmw-nx-installer clone> <game folder> <output .nfsp>');
   process.exit(1);
 }
 const base = pathToFileURL(path.resolve(installer) + '/');
@@ -28,7 +28,7 @@ const manifest = JSON.parse(fs.readFileSync(new URL('release/manifest.json', bas
 const xex = new Uint8Array(fs.readFileSync(path.join(game, 'default.xex')));
 const xexHash = sha(xex);
 const build = manifest.builds.find((b) => b.xex_sha256 === xexHash);
-console.log(`default.xex ${xexHash}: ${build ? build.edition : 'edicion desconocida'}`);
+console.log(`default.xex ${xexHash}: ${build ? build.edition : 'unknown edition'}`);
 const { image } = await readXexImage(xex, async (c, bits, size) => {
   modules.lzx.FS.writeFile('/i.lzx', c);
   if (modules.lzx.callMain(['/i.lzx', '/i.bin', String(bits), String(size)])) throw new Error('LZX failed');
@@ -64,6 +64,6 @@ if (!blur) throw new Error('composition shader not found');
 const library = await buildShaderLibrary(containers, modules, new Uint8Array(fs.readFileSync(new URL('shader_common.h', base))), () => {}, blur.name.slice(0, -4));
 const libraryHash = sha(library);
 console.log(`library: ${library.length} bytes, SHA-256 ${libraryHash}`);
-console.log(build ? (libraryHash === build.library_sha256 ? 'OK: coincide con la biblioteca oficial' : `DIFIERE de la oficial (${build.library_sha256})`) : 'sin referencia');
+console.log(build ? (libraryHash === build.library_sha256 ? 'OK: matches the official library' : `DIFFERS from the official one (${build.library_sha256})`) : 'no reference');
 fs.writeFileSync(output, library);
 console.log(`written to ${output}`);

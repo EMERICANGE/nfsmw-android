@@ -17,8 +17,8 @@
 #include <rex/logging.h>
 
 REXCVAR_DEFINE_BOOL(nfsmw_video_diag, false, "NFSMW",
-                    "Diagnostico de las cinematicas: anota la presentacion de fotogramas de las peliculas (quien "
-                    "llama, hilo, ritmo y buferes)");
+                    "Cutscene diagnostics: logs the presentation of movie frames (caller, "
+                    "thread, rate and buffers)");
 
 namespace nfsmw::video_diag {
 namespace {
@@ -63,7 +63,7 @@ void Resumen(const char* que, Contador& c, int64_t ahora) {
   const uint64_t total = c.llamadas.load(std::memory_order_relaxed);
   const uint64_t n = total - c.llamadas_desde.exchange(total);
   const int64_t dentro = c.us_dentro.exchange(0);
-  REXLOG_INFO("[video] {}: {:.1f} llamadas/s, {:.2f} ms dentro de media ({} en total)", que,
+  REXLOG_INFO("[video] {}: {:.1f} calls/s, {:.2f} ms inside on average ({} in total)", que,
               double(n) * 1e6 / double(ahora - desde), n ? double(dentro) / double(n) / 1000.0 : 0.0, total);
 }
 
@@ -82,8 +82,8 @@ REX_HOOK_RAW(sub_826DB4F8) {
   const uint32_t obj = ctx.r3.u32;
   const uint64_t n = g_presentar.llamadas.fetch_add(1, std::memory_order_relaxed);
   if (n < 6 || n % 300 == 0) {
-    REXLOG_INFO("[video] presentar #{} lr={:08X} obj={:08X} hilo={:06X} r4={:08X} r5={:08X} | {}x{} +44={:08X} "
-                "Y {}x{} paso {} U {}x{} paso {} V {}x{} paso {} pendientes={} grupo={}",
+    REXLOG_INFO("[video] present #{} lr={:08X} obj={:08X} hilo={:06X} r4={:08X} r5={:08X} | {}x{} +44={:08X} "
+                "Y {}x{} stride {} U {}x{} stride {} V {}x{} stride {} pendientes={} grupo={}",
                 n, lr, obj, IdHilo(), ctx.r4.u32, ctx.r5.u32, Leer32(base, obj + 124), Leer32(base, obj + 128),
                 Leer32(base, obj + 44), Leer32(base, obj + 332), Leer32(base, obj + 356), Leer32(base, obj + 344),
                 Leer32(base, obj + 336), Leer32(base, obj + 360), Leer32(base, obj + 348),
@@ -94,5 +94,5 @@ REX_HOOK_RAW(sub_826DB4F8) {
   __imp__sub_826DB4F8(ctx, base);
   const int64_t despues = AhoraUs();
   g_presentar.us_dentro.fetch_add(despues - antes, std::memory_order_relaxed);
-  Resumen("presentar", g_presentar, despues);
+  Resumen("present", g_presentar, despues);
 }

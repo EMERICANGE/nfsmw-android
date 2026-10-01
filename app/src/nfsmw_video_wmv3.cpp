@@ -97,7 +97,7 @@ struct FicheroVfs {
                                                   rex::filesystem::FileAccess::kGenericRead, false, true, &f,
                                                   &accion);
     if (estado != 0 || !f) {
-      REXLOG_WARN("[video] WMV3 nativo: no se puede abrir '{}' ({:08X})", ruta, uint32_t(estado));
+      REXLOG_WARN("[video] native WMV3: cannot open '{}' ({:08X})", ruta, uint32_t(estado));
       f = nullptr;
       return false;
     }
@@ -132,7 +132,7 @@ bool LeerCabecera(FicheroVfs& fichero, const std::string& ruta, Contenedor& c) {
   std::vector<uint8_t> cabecera(size_t(std::min<uint64_t>(fichero.tamano, kMaxCabecera)));
   if (cabecera.size() < 128 || !fichero.Leer(0, cabecera.data(), cabecera.size()) ||
       std::memcmp(cabecera.data(), kGuidCabecera, 16) != 0) {
-    REXLOG_WARN("[video] WMV3 nativo: '{}' no empieza por una cabecera ASF", ruta);
+    REXLOG_WARN("[video] native WMV3: '{}' does not start with an ASF header", ruta);
     return false;
   }
   const uint64_t tam_cabecera = Le64(&cabecera[16]);
@@ -184,14 +184,14 @@ bool LeerCabecera(FicheroVfs& fichero, const std::string& ruta, Contenedor& c) {
     p += size_t(tam);
   }
   if (!video || !c.tamano_paquete || !c.info.ancho || !c.info.alto) {
-    REXLOG_WARN("[video] WMV3 nativo: '{}' sin flujo WMV3 utilizable (paquete {}, {}x{})", ruta, c.tamano_paquete,
+    REXLOG_WARN("[video] native WMV3: '{}' has no usable WMV3 stream (packet {}, {}x{})", ruta, c.tamano_paquete,
                 c.info.ancho, c.info.alto);
     return false;
   }
   // The data object comes right after the header; its packets start 50 bytes later.
   std::vector<uint8_t> datos(50);
   if (!fichero.Leer(tam_cabecera, datos.data(), datos.size()) || std::memcmp(datos.data(), kGuidDatos, 16) != 0) {
-    REXLOG_WARN("[video] WMV3 nativo: '{}' sin objeto de datos detras de la cabecera", ruta);
+    REXLOG_WARN("[video] native WMV3: '{}' has no data object after the header", ruta);
     return false;
   }
   c.inicio_datos = tam_cabecera + 50;
@@ -241,8 +241,8 @@ struct AudioWmaPro::Estado {
     if (sustituye_salida == activa) return;
     sustituye_salida = activa;
     rex::audio::SetGameOutputSuppressed(activa);
-    REXLOG_INFO("[video] salida del juego {} durante la pista nativa de la pelicula",
-                activa ? "silenciada" : "restaurada");
+    REXLOG_INFO("[video] game output {} during the movie's native track",
+                activa ? "muted" : "restored");
   }
 
   static int64_t AhoraUs() {
@@ -269,7 +269,7 @@ struct AudioWmaPro::Estado {
           callado = true;
           SDL_ClearAudioStream(salida);
           SustituirSalidaJuego(false);
-          REXLOG_INFO("[video] audio WMA Pro: el juego dejo de pedir fotogramas; audio en silencio");
+          REXLOG_INFO("[video] WMA Pro audio: the game stopped requesting frames; audio silenced");
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         continue;
@@ -472,7 +472,7 @@ struct AudioWmaPro::Estado {
     }
     SustituirSalidaJuego(false);
 
-    REXLOG_INFO("[video] audio WMA Pro: {} paquetes ASF, {} bloques decodificados, {} muestras estéreo", c.paquetes,
+    REXLOG_INFO("[video] WMA Pro audio: {} ASF packets, {} blocks decoded, {} stereo samples", c.paquetes,
                 paquetes_decodificados.load(), muestras_salida.load());
   }
 };
@@ -484,19 +484,19 @@ void AudioWmaPro::Latido() {
   const int64_t ahora = Estado::AhoraUs();
   const int64_t antes = e_->latido_us.exchange(ahora, std::memory_order_relaxed);
   if (antes && ahora - antes > 250'000) {
-    REXLOG_INFO("[video] audio WMA Pro: fotogramas de nuevo tras {} ms", (ahora - antes) / 1000);
+    REXLOG_INFO("[video] WMA Pro audio: frames again after {} ms", (ahora - antes) / 1000);
   }
 }
 
 bool AudioWmaPro::Abrir(const std::string& ruta) {
   auto& e = *e_;
   if (!e.fichero.Abrir(ruta) || !LeerCabecera(e.fichero, ruta, e.c) || e.c.codec_audio == AV_CODEC_ID_NONE) {
-    REXLOG_WARN("[video] audio WMA nativo no disponible para '{}'", ruta);
+    REXLOG_WARN("[video] native WMA audio not available for '{}'", ruta);
     return false;
   }
   const AVCodec* decoder = avcodec_find_decoder(e.c.codec_audio);
   if (!decoder) {
-    REXLOG_ERROR("[video] FFmpeg no tiene el descodificador WMA {}", int(e.c.codec_audio));
+    REXLOG_ERROR("[video] FFmpeg does not have the WMA decoder {}", int(e.c.codec_audio));
     return false;
   }
   e.codec = avcodec_alloc_context3(decoder);
@@ -512,7 +512,7 @@ bool AudioWmaPro::Abrir(const std::string& ruta) {
     e.codec->extradata_size = int(e.c.extra_audio.size());
   }
   if (avcodec_open2(e.codec, decoder, nullptr) < 0) {
-    REXLOG_ERROR("[video] no se pudo abrir el descodificador WMA Pro para '{}'", ruta);
+    REXLOG_ERROR("[video] could not open the WMA Pro decoder for '{}'", ruta);
     return false;
   }
   e.pkt = av_packet_alloc();
@@ -523,10 +523,10 @@ bool AudioWmaPro::Abrir(const std::string& ruta) {
   spec.channels = 2;
   e.salida = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
   if (!e.salida || !SDL_ResumeAudioStreamDevice(e.salida)) {
-    REXLOG_ERROR("[video] no se pudo abrir la salida de audio de la cinematica: {}", SDL_GetError());
+    REXLOG_ERROR("[video] could not open the cutscene audio output: {}", SDL_GetError());
     return false;
   }
-  REXLOG_INFO("[video] audio nativo {} '{}' flujo {}: {} canales a {} Hz, bloque {}, extradata {} bytes",
+  REXLOG_INFO("[video] native audio {} '{}' stream {}: {} channels at {} Hz, block {}, extradata {} bytes",
               decoder->name, ruta, e.c.flujo_audio, e.c.canales_audio, e.c.frecuencia_audio,
               e.c.bloque_audio, e.c.extra_audio.size());
   e.latido_us.store(Estado::AhoraUs(), std::memory_order_relaxed);
@@ -560,7 +560,7 @@ DescodificadorWmv3::~DescodificadorWmv3() = default;
 bool DescodificadorWmv3::Abrir(const InfoWmv& info) {
   const AVCodec* wmv3 = avcodec_find_decoder(AV_CODEC_ID_WMV3);
   if (!wmv3) {
-    REXLOG_ERROR("[video] WMV3 nativo: FFmpeg sin descodificador WMV3");
+    REXLOG_ERROR("[video] native WMV3: FFmpeg has no WMV3 decoder");
     return false;
   }
   e_ = std::make_unique<Estado>();
@@ -579,7 +579,7 @@ bool DescodificadorWmv3::Abrir(const InfoWmv& info) {
     e_->codec->extradata_size = int(info.secuencia.size());
   }
   if (avcodec_open2(e_->codec, wmv3, nullptr) < 0) {
-    REXLOG_ERROR("[video] WMV3 nativo: avcodec_open2 fallo ({}x{})", info.ancho, info.alto);
+    REXLOG_ERROR("[video] native WMV3: avcodec_open2 failed ({}x{})", info.ancho, info.alto);
     e_ = std::make_unique<Estado>();
     return false;
   }
@@ -607,12 +607,12 @@ bool DescodificadorWmv3::Descodificar(const uint8_t* datos, size_t bytes, bool c
   e_->pkt->flags = clave ? AV_PKT_FLAG_KEY : 0;
   int r = avcodec_send_packet(e_->codec, e_->pkt);
   if (r < 0) {
-    REXLOG_WARN("[video] WMV3 nativo: avcodec_send_packet {} en el fotograma {} ({} bytes)", r, fotogramas_, bytes);
+    REXLOG_WARN("[video] native WMV3: avcodec_send_packet {} at frame {} ({} bytes)", r, fotogramas_, bytes);
     return false;
   }
   r = avcodec_receive_frame(e_->codec, e_->frame);
   if (r < 0) {
-    REXLOG_WARN("[video] WMV3 nativo: avcodec_receive_frame {} en el fotograma {} ({} bytes)", r, fotogramas_,
+    REXLOG_WARN("[video] native WMV3: avcodec_receive_frame {} at frame {} ({} bytes)", r, fotogramas_,
                 bytes);
     return false;
   }
@@ -759,7 +759,7 @@ bool PeliculaWmv::Abrir(const std::string& ruta) {
     return false;
   }
   const auto& s = info_.secuencia;
-  REXLOG_INFO("[video] WMV3 nativo: '{}' {}x{}, {} paquetes de {} bytes, flujo {}, secuencia {:02X}{:02X}{:02X}{:02X}",
+  REXLOG_INFO("[video] native WMV3: '{}' {}x{}, {} packets of {} bytes, stream {}, sequence {:02X}{:02X}{:02X}{:02X}",
               ruta, info_.ancho, info_.alto, e_->c.paquetes, e_->c.tamano_paquete, e_->c.flujo_video,
               s.size() > 0 ? s[0] : 0, s.size() > 1 ? s[1] : 0, s.size() > 2 ? s[2] : 0, s.size() > 3 ? s[3] : 0);
   return true;

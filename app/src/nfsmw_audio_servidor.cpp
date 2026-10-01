@@ -80,33 +80,33 @@
 #include <rex/platform.h>
 
 REXCVAR_DEFINE_BOOL(nfsmw_audio_rescate, true, "NFSMW",
-                    "Mantener en marcha el hilo servidor de audio del juego si la voz de XAudio "
-                    "deja de devolver fines de paquete");
+                    "Keep the game's audio server thread running if the XAudio voice "
+                    "stops returning end-of-packet notifications");
 REXCVAR_DEFINE_INT32(nfsmw_audio_diag_retraso_servidor_us, 0, "NFSMW",
-                     "Diagnostico: retrasa N microsegundos cada despertar del hilo servidor de "
-                     "audio del juego, para imitar en el PC lo que tarda en volver a correr en la "
-                     "Switch; 0 = nada");
+                     "Diagnostics: delays every wakeup of the game's audio server thread by N "
+                     "microseconds, to imitate on the PC how long it takes to run again on the "
+                     "Switch; 0 = none");
 REXCVAR_DEFINE_INT32(nfsmw_audio_servidor_prioridad, REX_PLATFORM_SWITCH != 0 ? 0x2D : 0, "NFSMW",
-                     "Prioridad de Horizon del hilo servidor de audio del juego (0x1C-0x3A); 0 = la de los hilos "
-                     "del juego (0x3B). Por defecto 45 (0x2D) en la Switch, para que no espere su turno detras de "
-                     "ellos en los choques; en el PC cualquier valor lo sube a THREAD_PRIORITY_HIGHEST");
+                     "Horizon priority of the game's audio server thread (0x1C-0x3A); 0 = that of the game's "
+                     "threads (0x3B). Default 45 (0x2D) on the Switch, so that it does not wait for its turn behind "
+                     "them in crashes; on the PC any value raises it to THREAD_PRIORITY_HIGHEST");
 REXCVAR_DEFINE_BOOL(nfsmw_audio_diag_anillo, false, "NFSMW",
-                    "Diagnostico: cada 10 s anota cuantos paquetes tenia la voz del servidor de "
-                    "audio en cada pasada, los fines de paquete y las entregas, y la CPU y los nucleos del "
-                    "hilo servidor");
+                    "Diagnostics: every 10 s logs how many packets the audio server's voice had on each "
+                    "pass, the end-of-packet notifications and the submissions, and the CPU and cores of the "
+                    "server thread");
 REXCVAR_DEFINE_INT32(nfsmw_audio_diag_anillo_ms, 10000, "NFSMW",
-                     "Diagnostico: milisegundos entre resumenes de nfsmw_audio_diag_anillo (como poco 100); "
-                     "500 separa los choques del atajo del callejon");
+                     "Diagnostics: milliseconds between nfsmw_audio_diag_anillo summaries (at least 100); "
+                     "500 separates the crashes in the alley shortcut");
 REXCVAR_DEFINE_DOUBLE(nfsmw_audio_diag_lentitud_mezcla, 0.0, "NFSMW",
-                      "Diagnostico: tras cada mezcla del hilo servidor de audio espera activamente N veces lo que "
-                      "ha tardado, antes de entregar el paquete; 3 imita una mezcla 4 veces mas lenta; 0 = nada");
+                      "Diagnostics: after each mix of the audio server thread, busy-waits N times as long as it "
+                      "took, before submitting the packet; 3 imitates a mix 4 times slower; 0 = none");
 REXCVAR_DEFINE_INT32(nfsmw_audio_esperar_servidor_ms,
                      (REX_PLATFORM_SWITCH != 0 || REX_PLATFORM_ANDROID != 0) ? 30 : 0, "NFSMW",
-                     "Antes de cada trama, si la voz del servidor de audio del juego no tiene paquete y el "
-                     "servidor esta en marcha, esperar como mucho N ms a que lo entregue (en vez de mezclar la "
-                     "trama con esa voz en silencio); 0 = no esperar (por defecto 30 en la Switch y 0 en el PC). "
-                     "Necesita colchon en el driver (audio_switch_tramas_en_cola en la Switch, "
-                     "audio_sdl_bomba_cola en el PC)");
+                     "Before each audio frame, if the voice of the game's audio server has no packet and the "
+                     "server is running, wait at most N ms for it to submit one (instead of mixing the "
+                     "frame with that voice silent); 0 = do not wait (default 30 on the Switch and 0 on the PC). "
+                     "Needs a cushion in the driver (audio_switch_tramas_en_cola on the Switch, "
+                     "audio_sdl_bomba_cola on the PC)");
 
 namespace nfsmw::hilos {
 // nfsmw_hilos_switch.cpp
@@ -284,11 +284,11 @@ void AnotarPasada(const uint8_t* base) {
     for (size_t i = 0; i < 5; ++i) {
       nucleos[i] = g_despertares_nucleo[i].exchange(0, std::memory_order_relaxed);
     }
-    REXLOG_INFO("[audio] anillo del servidor en {} ms: pasadas con 0/1/2 paquetes en la voz "
-                "{}/{}/{}, fines de paquete {}, entregas {}, maximo sin entrega {} ms, de despertar a "
-                "entregar media {} us y maximo {} us ({} veces), esperas antes de la trama {} (agotadas {}), "
-                "espera media {} us y maxima {} us, CPU del hilo servidor {} ms ({} %), despertares por nucleo "
-                "0/1/2/3/otros {}/{}/{}/{}/{}",
+    REXLOG_INFO("[audio] server ring in {} ms: passes with 0/1/2 packets in the voice "
+                "{}/{}/{}, packet ends {}, submissions {}, max without a submission {} ms, wakeup to "
+                "submission mean {} us and max {} us ({} times), waits before the audio frame {} (timed out {}), "
+                "mean wait {} us and max {} us, server thread CPU {} ms ({} %), wakeups per core "
+                "0/1/2/3/other {}/{}/{}/{}/{}",
                 ahora - d.desde_ms, d.pasadas_con[0], d.pasadas_con[1], d.pasadas_con[2],
                 fines - d.fines_antes, entregas - d.entregas_antes, d.max_sin_entrega_ms,
                 mezclas ? mezcla_suma_us / mezclas : 0, mezcla_max_us, mezclas, esperas, esperas_agotadas,
@@ -470,7 +470,7 @@ REX_HOOK_RAW(sub_82851FB8) {
   const bool del_servidor = static_cast<uint32_t>(ctx.lr) == kRetornoArranque;
   __imp__sub_82851FB8(ctx, base);
   if (del_servidor) {
-    REXLOG_INFO("[audio] voz del servidor de audio arrancada: resultado 0x{:08X}", ctx.r3.u32);
+    REXLOG_INFO("[audio] audio server voice started: result 0x{:08X}", ctx.r3.u32);
   }
 }
 
@@ -495,7 +495,7 @@ REX_HOOK_RAW(sub_828531E8) {
   static std::atomic<bool> gancho_registrado{false};
   if (!gancho_registrado.exchange(true, std::memory_order_relaxed)) {
     rex::audio::SetGanchoAntesDeTrama(&EsperarPaqueteServidor);
-    REXLOG_INFO("[audio] espera al servidor antes de cada trama: como mucho {} ms (0 = apagada)",
+    REXLOG_INFO("[audio] wait for the server before each audio frame: at most {} ms (0 = off)",
                 REXCVAR_GET(nfsmw_audio_esperar_servidor_ms));
   }
   // Once per thread, from the server thread itself: its handle (for the CPU in the packet ring summaries), the
@@ -508,10 +508,10 @@ REX_HOOK_RAW(sub_828531E8) {
     const int32_t prioridad = REXCVAR_GET(nfsmw_audio_servidor_prioridad);
     if (prioridad >= 0x1C && prioridad <= 0x3A) {
       const bool hecho = nfsmw::hilos::PrioridadHiloActual(prioridad);
-      REXLOG_INFO("[audio] hilo servidor de audio a prioridad 0x{:X}: {}", prioridad,
-                  hecho ? "hecho" : "no disponible en esta plataforma");
+      REXLOG_INFO("[audio] audio server thread at priority 0x{:X}: {}", prioridad,
+                  hecho ? "done" : "not available on this platform");
     } else if (prioridad != 0) {
-      REXLOG_WARN("[audio] nfsmw_audio_servidor_prioridad = {} fuera de 0x1C-0x3A: se ignora", prioridad);
+      REXLOG_WARN("[audio] nfsmw_audio_servidor_prioridad = {} outside 0x1C-0x3A: ignored", prioridad);
     }
   }
   for (;;) {
@@ -538,8 +538,8 @@ REX_HOOK_RAW(sub_828531E8) {
     const int64_t ahora = g_reloj_ms();
 
     if (r.activo && g_fines.load(std::memory_order_relaxed) != r.fines_al_entrar) {
-      REXLOG_INFO("[audio] la voz vuelve a devolver fines de paquete tras {} ms de rescate "
-                  "(paquetes liberados {}, reentregas {})",
+      REXLOG_INFO("[audio] the voice returns end-of-packet notifications again after {} ms of rescue "
+                  "(packets freed {}, resubmissions {})",
                   ahora - r.desde_ms, r.liberados, r.reentregas);
       r.activo = false;
     }
@@ -562,7 +562,7 @@ REX_HOOK_RAW(sub_828531E8) {
       r.ultimo_resumen_ms = ahora;
       r.fines_al_entrar = g_fines.load(std::memory_order_relaxed);
       if (++r.veces <= kMaxVolcados) {
-        Volcar("el hilo servidor lleva 250 ms sin avanzar; entra en rescate", base, obj, ahora);
+        Volcar("the server thread has not advanced for 250 ms; entering rescue", base, obj, ahora);
       }
     }
 
@@ -576,7 +576,7 @@ REX_HOOK_RAW(sub_828531E8) {
     }
     if (ahora - r.ultimo_resumen_ms >= kResumenRescateMs && r.veces <= kMaxVolcados) {
       r.ultimo_resumen_ms = ahora;
-      Volcar("sigue el rescate", base, obj, ahora);
+      Volcar("rescue continues", base, obj, ahora);
     }
     break;
   }

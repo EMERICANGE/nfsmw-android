@@ -32,7 +32,7 @@
 #include <rex/logging.h>
 
 REXCVAR_DEFINE_INT32(nfsmw_sombras_cada, 1, "NFSMW",
-                     "Actualizar los mapas de sombras 1 de cada N fotogramas (1 = como el juego)")
+                     "Update the shadow maps 1 of every N frames (1 = like the game)")
     .range(1, 8);
 
 /*
@@ -51,8 +51,8 @@ REXCVAR_DEFINE_INT32(nfsmw_sombras_cada, 1, "NFSMW",
  * must be checked in motion.
  */
 REXCVAR_DEFINE_INT32(nfsmw_sombras_mapas, 2, "NFSMW",
-                     "Mapas de sombras que dibuja el juego en carrera: 2 (como el juego) o 1. Con 1 se "
-                     "ahorra la mitad de los dibujos del pase, pero el segundo mapa se queda congelado")
+                     "Shadow maps the game draws in a race: 2 (like the game) or 1. With 1, half of the "
+                     "pass's draws are saved, but the second map stays frozen")
     .range(1, 2);
 
 /*
@@ -88,13 +88,13 @@ REXCVAR_DEFINE_INT32(nfsmw_sombras_mapas, 2, "NFSMW",
  * anything else, it tells exactly how much was missing.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_guardia_30, true, "NFSMW",
-                    "Si un tramo se mantiene por debajo de 30 FPS, recortar las sombras en el fotograma "
-                    "siguiente hasta volver a 30. Escalones: 1 un solo mapa, 2 sin sombras proyectadas. "
-                    "Ninguno salta fotogramas, asi que no parpadea. Baja de escalon sola cuando sobra "
-                    "margen (30 s) y nunca deshace lo que pongas tu");
+                    "If a stretch stays below 30 FPS, trim the shadows in the next frame until it is "
+                    "back at 30. Steps: 1 a single map, 2 no cast shadows. "
+                    "None of them skips frames, so nothing flickers. It steps down on its own when there is "
+                    "margin to spare (30 s) and never undoes what you set yourself");
 REXCVAR_DEFINE_INT32(nfsmw_guardia_30_presupuesto_us, 31000, "NFSMW",
-                     "Techo de fotograma en microsegundos para la guardia. 31000 deja 2,3 ms de margen sobre "
-                     "los 33333 de un fotograma de 30 FPS")
+                     "Frame ceiling in microseconds for the guard. 31000 leaves 2.3 ms of margin over "
+                     "the 33333 of a 30 FPS frame")
     .range(16000, 66000);
 
 /*
@@ -190,14 +190,14 @@ REXCVAR_DEFINE_INT32(nfsmw_guardia_30_presupuesto_us, 31000, "NFSMW",
  * 150 shortens the distance at which an object stops casting a shadow to two thirds. Shadows of small,
  * distant objects are lost (the least visible ones); nearby ones are untouched. It stays at 150 rather
  * than 200 because a shadow that pops in as you approach is noticeable, and the game must keep looking
- * right. The log says how many triangles it removes ("k triangulos" in the C6 line of area per render
+ * right. The log says how many triangles it removes ("k triangles" in the C6 line of area per render
  * target type).
  */
 REXCVAR_DEFINE_INT32(nfsmw_sombras_corte, 150, "NFSMW",
-                     "Corte por distancia del mapa de sombras, en porcentaje. 100 = como el juego. 200 = el "
-                     "doble de exigente, o sea la mitad de distancia: los objetos pequenos y lejanos dejan de "
-                     "proyectar sombra. El pase cuesta 0,556 ms reales por cada 10.000 triangulos y son los "
-                     "triangulos el 99 % de su coste, asi que aqui es donde se recorta de verdad");
+                     "Distance cutoff of the shadow map, in percent. 100 = like the game. 200 = twice "
+                     "as strict, that is, half the distance: small, distant objects stop "
+                     "casting a shadow. The pass costs 0.556 ms real per 10,000 triangles and triangles "
+                     "are 99 % of its cost, so this is where the real trimming happens");
 
 namespace nfsmw::sombras_corte {
 namespace {
@@ -266,8 +266,8 @@ void Aplicar(uint8_t* base) {
     Escribir32(base, vista + kOffPixelMinSize, nuevo);
     g_escrito_vista[i] = nuevo;
     if (!g_anotado.exchange(true)) {
-      REXLOG_INFO("[recortes] sombras: corte por distancia {} -> {} px (H = {:.1f}; la distancia de corte "
-                  "pasa de {:.0f} a {:.0f} unidades)",
+      REXLOG_INFO("[recortes] shadows: distance cutoff {} -> {} px (H = {:.1f}; the cutoff distance "
+                  "goes from {:.0f} to {:.0f} units)",
                   original, nuevo, double(ComoFloat(Leer32(base, vista + kOffH))),
                   35.0 * (1.0 + double(ComoFloat(Leer32(base, vista + kOffH))) / double(original)),
                   35.0 * (1.0 + double(ComoFloat(Leer32(base, vista + kOffH))) / double(nuevo)));
@@ -312,7 +312,7 @@ void Latir(double ms) {
     if (g_escalon != 0) {
       g_escalon = 0;
       g_escalon_publicado.store(0, std::memory_order_relaxed);
-      REXLOG_INFO("[guardia30] apagada: se devuelven las sombras completas");
+      REXLOG_INFO("[guardia30] off: the full shadows are given back");
     }
     return;
   }
@@ -339,14 +339,14 @@ void Latir(double ms) {
     g_en_escalon = 0;
     g_escalon_publicado.store(g_escalon, std::memory_order_relaxed);
     g_subidas.fetch_add(1, std::memory_order_relaxed);
-    REXLOG_INFO("[guardia30] {:.1f} ms de media por fotograma (techo {:.1f}): escalon {}", media, techo,
+    REXLOG_INFO("[guardia30] {:.1f} ms average per frame (ceiling {:.1f}): step {}", media, techo,
                 g_escalon);
   } else if (puede_bajar && media < techo - kHisteresisMs && g_escalon > 0) {
     --g_escalon;
     g_en_escalon = 0;
     g_escalon_publicado.store(g_escalon, std::memory_order_relaxed);
     g_bajadas.fetch_add(1, std::memory_order_relaxed);
-    REXLOG_INFO("[guardia30] {:.1f} ms de media por fotograma, sobra margen: escalon {}", media, g_escalon);
+    REXLOG_INFO("[guardia30] {:.1f} ms average per frame, margin to spare: step {}", media, g_escalon);
   }
 }
 
@@ -371,12 +371,12 @@ void Informe() {
     return;
   }
   ::nfsmw::nativo::InformeDiferido(fmt::format(
-      "[guardia30] fotogramas por escalon: 0 (dos mapas) {} = {:.1f} % | 1 (un mapa) {} | "
-      "2 (sin sombras) {} | subidas {} | bajadas {} -> {}",
+      "[guardia30] frames per step: 0 (two maps) {} = {:.1f} % | 1 (one map) {} | "
+      "2 (no shadows) {} | steps up {} | steps down {} -> {}",
       v[0], 100.0 * double(v[0]) / double(total), v[1], v[2],
       g_subidas.load(std::memory_order_relaxed), g_bajadas.load(std::memory_order_relaxed),
-      v[0] == total ? "NO HIZO FALTA: el trabajo cabia en 33,3 ms"
-                    : "*** hizo falta recortar: el trabajo NO cabia ***"));
+      v[0] == total ? "NOT NEEDED: the work fit in 33.3 ms"
+                    : "*** trimming was needed: the work did NOT fit ***"));
 }
 
 }  // namespace nfsmw::guardia30
@@ -397,7 +397,7 @@ REX_HOOK_RAW(sub_82443B18) {
   // A single map, which is what the game itself does in the menus (r4 = 0).
   if (nfsmw::guardia30::MapasEfectivos(REXCVAR_GET(nfsmw_sombras_mapas)) <= 1) {
     if (g_mapas_anotado.exchange(1, std::memory_order_relaxed) != 1) {
-      REXLOG_INFO("[recortes] sombras: un solo mapa en vez de dos");
+      REXLOG_INFO("[recortes] shadows: a single map instead of two");
     }
     ctx.r4.u64 = 0;
   } else {
@@ -411,7 +411,7 @@ REX_HOOK_RAW(sub_82443B18) {
     return;
   }
   if (g_cada_anotado.exchange(cada, std::memory_order_relaxed) != cada) {
-    REXLOG_INFO("[recortes] sombras: se actualizan 1 de cada {} fotogramas", cada);
+    REXLOG_INFO("[recortes] shadows: updated 1 of every {} frames", cada);
   }
   if (g_llamadas.fetch_add(1, std::memory_order_relaxed) % uint32_t(cada) == 0) {
     __imp__sub_82443B18(ctx, base);
@@ -472,11 +472,11 @@ REX_HOOK_RAW(sub_82443B18) {
  * The first time through, the view's H and the actual cutoff distance for each value are logged.
  */
 REXCVAR_DEFINE_INT32(nfsmw_escena_detalle_minimo, 0, "NFSMW",
-                     "Tamano minimo en pixeles para que un objeto se dibuje en la escena que se ve "
-                     "(eView::PixelMinSize de la vista 1; el juego usa 4). 0 = dejar el valor del juego. "
-                     "Subirlo ACERCA la distancia de corte de TODOS los objetos en proporcion inversa "
-                     "(6 = -33 %), asi que se paga en popping; y en GPU casi no da nada, porque lo que "
-                     "quita son objetos de menos de ese tamano en pixeles. Ver la tabla del fichero")
+                     "Minimum size in pixels for an object to be drawn in the visible scene "
+                     "(eView::PixelMinSize of view 1; the game uses 4). 0 = keep the game's value. "
+                     "Raising it brings the cutoff distance of ALL objects CLOSER in inverse proportion "
+                     "(6 = -33 %), so it is paid for in popping; and on the GPU it gains almost nothing, because what "
+                     "it removes are objects smaller than that size in pixels. See the table in the file")
     .range(0, 64);
 
 namespace nfsmw::escena_detalle {
@@ -524,9 +524,9 @@ void Aplicar(uint8_t* base, uint32_t vista) {
   }
   if (!g_anotada_vista.exchange(true)) {
     const double h = double(ComoFloat(Leer32(base, vista + kOffH)));
-    REXLOG_INFO("[recortes] escena (vista {}): PixelMinSize del juego {}, H {:.1f}, cerca {:.2f}, lejos "
-                "{:.1f}; distancia de corte de un objeto de radio {:.0f}: con 4 {:.0f}, con 5 {:.0f}, con "
-                "6 {:.0f}, con 8 {:.0f} unidades",
+    REXLOG_INFO("[recortes] scene (view {}): game PixelMinSize {}, H {:.1f}, near {:.2f}, far "
+                "{:.1f}; cutoff distance of an object of radius {:.0f}: with 4 {:.0f}, with 5 {:.0f}, with "
+                "6 {:.0f}, with 8 {:.0f} units",
                 kVistaEscena, leido, h, double(ComoFloat(Leer32(base, vista + kOffCerca))),
                 double(ComoFloat(Leer32(base, vista + kOffLejos))), double(kRadioDelJuego),
                 Corte(h, 4.0), Corte(h, 5.0), Corte(h, 6.0), Corte(h, 8.0));
@@ -535,14 +535,14 @@ void Aplicar(uint8_t* base, uint32_t vista) {
   // This setting only tightens: it never lowers the game's threshold, whatever the cvar says.
   if (pedido <= 0 || uint32_t(pedido) <= leido) {
     if (g_anotado_valor.exchange(0, std::memory_order_relaxed) != 0) {
-      REXLOG_INFO("[recortes] escena: se devuelve el detalle minimo del juego ({})", leido);
+      REXLOG_INFO("[recortes] scene: the game's minimum detail is restored ({})", leido);
     }
     return;
   }
   Escribir32(base, vista + kOffDetalle, uint32_t(pedido));
   if (g_anotado_valor.exchange(pedido, std::memory_order_relaxed) != pedido) {
-    REXLOG_INFO("[recortes] escena: los objetos de menos de {} pixeles dejan de dibujarse (el juego usa "
-                "{}): la distancia de corte se queda en el {:.0f} % de la suya",
+    REXLOG_INFO("[recortes] scene: objects smaller than {} pixels are no longer drawn (the game uses "
+                "{}): the cutoff distance drops to {:.0f} % of the game's",
                 pedido, leido, 100.0 * double(leido) / double(pedido));
   }
 }
@@ -580,9 +580,9 @@ REX_HOOK_RAW(sub_8243EC28) {
  * it touches nothing.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_prueba_menu_sombras, false, "NFSMW",
-                    "Pruebas (build 193): anota por que la escena del menu va con o sin pase de sombras y, si solo lo "
-                    "impide el puntero de video 0x82A2D1B4, lo oculta al elegir para que el menu dibuje sus sombras "
-                    "como en la consola con perfil. Solo para reproducir en el PC el parpadeo del menu")
+                    "Testing (build 193): logs why the menu scene goes with or without the shadow pass and, if the only "
+                    "obstacle is the video pointer 0x82A2D1B4, hides it while choosing so that the menu draws its shadows "
+                    "as on the console with a profile. Only for reproducing the menu flicker on the PC")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace nfsmw::prueba_menu_sombras {
@@ -650,12 +650,12 @@ REX_HOOK_RAW(sub_824455B8) {
   const uint32_t estado = (objeto ? 1u : 0u) | (hijo ? 2u : 0u) | (campo120 == 0 ? 4u : 0u) | (pelicula ? 8u : 0u);
   const uint64_t con_sombras = g_con_sombras.load(std::memory_order_relaxed);
   if (estado != g_ultimo_estado || g_llamadas - g_llamadas_anotadas >= 300) {
-    REXLOG_INFO("[prueba] menu con sombras (build 193): objeto {:08X}, +28 {:08X}, +120 {:08X}, video {:08X} -> {}; "
-                "{} llamadas desde la linea anterior, {} con sombras, {} forzadas desde el arranque",
+    REXLOG_INFO("[prueba] menu with shadows (build 193): object {:08X}, +28 {:08X}, +120 {:08X}, video {:08X} -> {}; "
+                "{} calls since the previous line, {} with shadows, {} forced since startup",
                 objeto, hijo, campo120, pelicula,
-                !objeto || !hijo || campo120 != 0 ? "SIN sombras (falla el objeto del frontal)"
-                : pelicula                        ? "sin sombras por el video: se oculta el video al elegir"
-                                                  : "con sombras, como en la consola",
+                !objeto || !hijo || campo120 != 0 ? "WITHOUT shadows (the frontend object fails)"
+                : pelicula                        ? "without shadows because of the video: the video is hidden while choosing"
+                                                  : "with shadows, as on the console",
                 g_llamadas - g_llamadas_anotadas, con_sombras - g_con_sombras_anotadas, g_forzadas);
     g_ultimo_estado = estado;
     g_llamadas_anotadas = g_llamadas;

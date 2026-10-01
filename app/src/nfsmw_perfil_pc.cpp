@@ -30,17 +30,17 @@
 #include <vector>
 
 REXCVAR_DEFINE_INT32(nfsmw_perfil_pc_desde_s, 0, "NFSMW",
-                     "PC: muestrear la CPU de los hilos ocupados desde este segundo de vida del proceso "
-                     "(0 = nunca; solo pruebas). Deja logs/perfil_pc.csv")
+                     "PC: sample the CPU of the busy threads from this second of process lifetime on "
+                     "(0 = never; testing only). Writes logs/perfil_pc.csv")
     .range(0, 3600)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_INT32(nfsmw_perfil_pc_duracion_s, 20, "NFSMW",
-                     "PC: segundos de muestreo de nfsmw_perfil_pc_desde_s")
+                     "PC: seconds of sampling for nfsmw_perfil_pc_desde_s")
     .range(1, 600)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_INT32(nfsmw_perfil_pc_pilas_s, 0, "NFSMW",
-                     "PC: volcar las pilas de todos los hilos en este segundo de vida del proceso (0 = nunca; "
-                     "solo pruebas). Deja logs/pilas_N.txt; el vigilante tambien vuelca al ver el juego parado")
+                     "PC: dump the stacks of all threads at this second of process lifetime (0 = never; "
+                     "testing only). Writes logs/pilas_N.txt; the watchdog also dumps them when it sees the game stalled")
     .range(0, 3600)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -323,13 +323,13 @@ void Bucle(int desde_s, int duracion_s) {
     }
     std::fclose(f);
   }
-  REXLOG_INFO("[perfil_pc] {} muestras en {:.1f} s (de {:.1f} a {:.1f} s de vida), {} pausas fallidas, {} "
-              "perdidas; {}",
+  REXLOG_INFO("[perfil_pc] {} samples in {:.1f} s (from {:.1f} to {:.1f} s of lifetime), {} failed pauses, {} "
+              "lost; {}",
               muestras.size(), fin_s - inicio, inicio, fin_s, fallos_pausa, perdidas,
-              f ? ruta.string() : std::string("no se pudo escribir el fichero"));
+              f ? ruta.string() : std::string("could not write the file"));
   for (const Hilo& h : hilos) {
     if (h.muestras) {
-      REXLOG_INFO("[perfil_pc] hilo {} \"{}\": {} muestras, CPU maxima {:.0f} %", h.id, h.nombre, h.muestras,
+      REXLOG_INFO("[perfil_pc] thread {} \"{}\": {} samples, peak CPU {:.0f} %", h.id, h.nombre, h.muestras,
                   h.cpu_max * 100.0);
     }
   }
@@ -526,8 +526,8 @@ void VolcarPilas(const char* motivo) {
     }
     std::fclose(f);
   }
-  REXLOG_WARN("[perfil_pc] pilas de {} hilos volcadas ({}): {}", hilos.size(), motivo,
-              f ? ruta.string() : std::string("no se pudo escribir el fichero"));
+  REXLOG_WARN("[perfil_pc] stacks of {} threads dumped ({}): {}", hilos.size(), motivo,
+              f ? ruta.string() : std::string("could not write the file"));
   for (Hilo& h : hilos) {
     CloseHandle(h.h);
   }
@@ -551,7 +551,7 @@ void Arrancar() {
     return;
   }
   g_hilo = std::thread(Bucle, desde_s, int(REXCVAR_GET(nfsmw_perfil_pc_duracion_s)));
-  REXLOG_INFO("[perfil_pc] muestreo de CPU desde {} s de vida del proceso, {} s", desde_s,
+  REXLOG_INFO("[perfil_pc] CPU sampling from {} s of process lifetime, for {} s", desde_s,
               int(REXCVAR_GET(nfsmw_perfil_pc_duracion_s)));
 }
 

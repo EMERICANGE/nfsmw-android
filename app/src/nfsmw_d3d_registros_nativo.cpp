@@ -47,7 +47,7 @@
 #include <rex/hook.h>
 #include <rex/logging.h>
 #include "nfsmw_informe_diferido.h"  // deferred reports
-#include "nfsmw_esperas_tiron.h"     // TreeCull in the [tiron] juego log line
+#include "nfsmw_esperas_tiron.h"     // TreeCull in the [tiron] game log line
 #include <rex/platform.h>
 
 #include <atomic>
@@ -59,8 +59,8 @@
 #include <type_traits>  // std::conditional_t in SetTextureNativo
 
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_registros_nativo, true, "NFSMW",
-                    "Volcado de registros cambiados del D3D del juego (sub_825A2AA0) en nativo: una copia "
-                    "en vez de ~15-20 instrucciones por palabra. Resultado identico bit a bit")
+                    "Dump of the changed registers of the game's D3D (sub_825A2AA0) in native code: one copy "
+                    "instead of ~15-20 instructions per word. Bit-for-bit identical result")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace {
@@ -126,13 +126,13 @@ void Informe() {
   }
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[d3d_registros] volcado de registros del D3D en nativo (sub_825A2AA0)");
+    REXLOG_INFO("[d3d_registros] D3D register dump in native code (sub_825A2AA0)");
     return;
   }
   const uint64_t llamadas = g_llamadas.exchange(0, std::memory_order_relaxed);
   const uint64_t palabras = g_palabras.exchange(0, std::memory_order_relaxed);
-  NFSMW_INFORME_DIFERIDO("[d3d_registros] ultimos 10 s: {} llamadas, {} palabras copiadas ({:.1f} por llamada), {} por el "
-              "camino del juego (anillo lleno o mascara 0)",
+  NFSMW_INFORME_DIFERIDO("[d3d_registros] last 10 s: {} calls, {} words copied ({:.1f} per call), {} through the "
+              "game's path (ring full or mask 0)",
               llamadas, palabras, llamadas ? double(palabras) / double(llamadas) : 0.0,
               g_lentos.exchange(0, std::memory_order_relaxed));
 }
@@ -232,7 +232,7 @@ struct Medida {
 Medida g_m_visible{"GetVisibleState (8243E7D8)"};
 Medida g_m_draw{"DrawAScenery (824C2850)"};
 Medida g_m_tree{"TreeCull (824C2F48)"};
-Medida g_m_efecto{"parametros de efecto (826992F0)"};
+Medida g_m_efecto{"effect parameters (826992F0)"};
 Medida* const kMedidas[] = {&g_m_visible, &g_m_draw, &g_m_tree, &g_m_efecto};
 std::atomic<int64_t> g_siguiente_medida_ms{0};
 
@@ -258,9 +258,9 @@ void InformeMedida() {
     const uint64_t k = m->muestras.exchange(0, std::memory_order_relaxed);
     const uint64_t ns = m->ns.exchange(0, std::memory_order_relaxed);
     const double ms_s = k ? double(ns) / double(k) * double(n) / 1e6 / 10.0 : 0.0;
-    linea += fmt::format(" | {}: {:.0f} llamadas/s, {:.2f} ms/s", m->nombre, double(n) / 10.0, ms_s);
+    linea += fmt::format(" | {}: {:.0f} calls/s, {:.2f} ms/s", m->nombre, double(n) / 10.0, ms_s);
   }
-  NFSMW_INFORME_DIFERIDO("[medida] ultimos 10 s{}", linea);
+  NFSMW_INFORME_DIFERIDO("[medida] last 10 s{}", linea);
 }
 
 template <typename F>
@@ -335,15 +335,15 @@ inline void Medir(Medida& m, F&& llamar) {
 //   mode and the 128 bytes of the frame are compared (the 32 of the box only if there is no NaN: the original
 //   passes it through lfs/stfs in double precision, and a signaling NaN becomes quiet). In those calls the
 //   original's state is kept. A single difference turns the native version off for the rest of the session
-//   ("[visible] DIFERENCIA" in the log, with the data). "[visible]" line every 10 s with the counts. If
+//   ("[visible] DIFFERENCE" in the log, with the data). "[visible]" line every 10 s with the counts. If
 //   something looked wrong: nfsmw_visible_nativo = false.
 // ---------------------------------------------------------------------------------------------------
 #include <rex/ppc/intrinsics.h>
 
 REXCVAR_DEFINE_BOOL(nfsmw_visible_nativo, true, "NFSMW",
-                    "eViewPlatInterface::GetVisibleState (sub_8243E7D8: la caja contra los 6 planos de la vista) en "
-                    "nativo (build 174), identico bit a bit. Se comprueba contra la original (las primeras 200.000 "
-                    "llamadas y despues 1 de cada 4096) y se apaga sola si difiere; false = la original")
+                    "eViewPlatInterface::GetVisibleState (sub_8243E7D8: the box against the 6 planes of the view) in "
+                    "native code (build 174), bit-for-bit identical. Checked against the original (the first 200,000 "
+                    "calls and then 1 of every 4096) and turns itself off if it differs; false = the original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_8243E7D8);
@@ -595,7 +595,7 @@ inline V Pareja(V x) {  // [a b c d] -> [a+b c+d a+b c+d]
   fuera = simde_mm_min_ps(fuera, simde_mm_add_ps(d3, r3));    // vaddfp v2,v7,v10
   fuera = simde_mm_min_ps(fuera, simde_mm_add_ps(d4, r4));    // vaddfp v8,v9,v13
   fuera = simde_mm_min_ps(fuera, simde_mm_add_ps(d5, r5));    // vaddfp v9,v0,v12
-  // "dentro": min(0,5, d - r) (vminfp v1,v10,v31; v8,v1,v8; v8,v8,v9; v10,v8,v10; v13,v10,v13; v0,v13,v0).
+  // "dentro": min(0.5, d - r) (vminfp v1,v10,v31; v8,v1,v8; v8,v8,v9; v10,v8,v10; v13,v10,v13; v0,v13,v0).
   V dentro = simde_mm_min_ps(medio, simde_mm_sub_ps(d0, r0));  // vsubfp v31,v9,v3
   dentro = simde_mm_min_ps(dentro, simde_mm_sub_ps(d1, r1));   // vsubfp v8,v8,v6
   dentro = simde_mm_min_ps(dentro, simde_mm_sub_ps(d2, r2));   // vsubfp v9,v9,v3
@@ -677,7 +677,7 @@ void Comprobar(PPCContext& ctx, uint8_t* base, uint64_t n) {
   } else if (ctx.r1.u64 != r1) {
     que = "r1";
   } else if (ctx.fpscr.csr != csr_nativa) {
-    que = "modo de denormales";
+    que = "denormal mode";
   } else {
     const bool con_nan = CajaConNaN(nativa) || CajaConNaN(p);
     for (uint32_t i = 0; i < 128 && !que; ++i) {
@@ -685,24 +685,24 @@ void Comprobar(PPCContext& ctx, uint8_t* base, uint64_t n) {
         continue;  // NaN in the box: the original passes it through double (lfs/stfs) and can change its payload
       }
       if (p[i] != nativa[i]) {
-        que = "marco de pila";
+        que = "stack frame";
         byte = i;
       }
     }
   }
   if (que) {
     g_apagado.store(true, std::memory_order_relaxed);
-    REXLOG_INFO("[visible] DIFERENCIA con la original ({}, byte +{} del marco) en la llamada {}: r3 nativa {} y original "
-                "{}; vista 0x{:08X}, min 0x{:08X}, max 0x{:08X}, matriz 0x{:08X}, pila 0x{:08X}, caja {:08X} {:08X} "
-                "{:08X} / {:08X} {:08X} {:08X}. Camino nativo APAGADO para el resto de la sesion: se queda la original",
+    REXLOG_INFO("[visible] DIFFERENCE from the original ({}, byte +{} of the frame) in call {}: r3 native {}, original "
+                "{}; view 0x{:08X}, min 0x{:08X}, max 0x{:08X}, matrix 0x{:08X}, stack 0x{:08X}, box {:08X} {:08X} "
+                "{:08X} / {:08X} {:08X} {:08X}. Native path OFF for the rest of the session: the original stays",
                 que, byte, n, k.r3, ctx.r3.u64, vista, pmin, pmax, mat, pila, k.caja[0], k.caja[1], k.caja[2],
                 k.caja[3], k.caja[4], k.caja[5]);
     return;
   }
   Sumar(g_comprobadas, uint64_t(1));
   if (n == kComprobaciones) {
-    REXLOG_INFO("[visible] {} llamadas comprobadas contra la original (r3, r12, lr, r1, modo de denormales y marco de "
-                "pila), 0 diferencias: GetVisibleState en nativo, y sigue comprobando 1 de cada {}",
+    REXLOG_INFO("[visible] {} calls checked against the original (r3, r12, lr, r1, denormal mode and stack "
+                "frame), 0 differences: GetVisibleState in native code, and still checking 1 of every {}",
                 g_comprobadas.load(std::memory_order_relaxed), kPeriodo);
   }
 }
@@ -737,17 +737,17 @@ void Informe() {
   const bool activo = REXCVAR_GET(nfsmw_visible_nativo);
   if (siguiente == 0) {
     REXLOG_INFO("[visible] GetVisibleState (8243E7D8) {}",
-                activo ? "en nativo (build 174): empieza comprobando contra la original"
-                       : "por la original (nfsmw_visible_nativo = false)");
+                activo ? "in native code (build 174): starts by checking against the original"
+                       : "through the original (nfsmw_visible_nativo = false)");
     return;
   }
   if (!activo) {
     return;
   }
-  NFSMW_INFORME_DIFERIDO("[visible] ultimos 10 s: {} en nativo, {} por la original (pila desalineada o lectura en su marco){}; "
-              "comprobadas contra la original desde el arranque: {} (las primeras {} llamadas y despues 1 de cada {})",
+  NFSMW_INFORME_DIFERIDO("[visible] last 10 s: {} native, {} through the original (misaligned stack or read in its frame){}; "
+              "checked against the original since startup: {} (the first {} calls and then 1 of every {})",
               g_nativas.exchange(0, std::memory_order_relaxed), g_originales.exchange(0, std::memory_order_relaxed),
-              g_apagado.load(std::memory_order_relaxed) ? " | APAGADO por diferencia" : "",
+              g_apagado.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "",
               g_comprobadas.load(std::memory_order_relaxed), kComprobaciones, kPeriodo);
 }
 
@@ -774,7 +774,7 @@ REX_HOOK_RAW(sub_824C2850) {  // ScenerySectionHeader::DrawAScenery
 
 REX_EXTERN(__imp__sub_824C2F48);
 REX_HOOK_RAW(sub_824C2F48) {  // ScenerySectionHeader::TreeCull
-  // Also its exact time, for the [tiron] juego log line (7,400 calls/s: two clock reads each). The 1-in-16
+  // Also its exact time, for the [tiron] game log line (7,400 calls/s: two clock reads each). The 1-in-16
   // measurement of the [medida] line is unchanged.
   const int64_t inicio_ns = AhoraNs();
   Medir(g_m_tree, [&] { __imp__sub_824C2F48(ctx, base); });
@@ -805,14 +805,14 @@ REX_HOOK_RAW(sub_824C2F48) {  // ScenerySectionHeader::TreeCull
 //   The first kComprobaciones calls through the native path run twice: the native version
 //   records each write (address and previous bytes), its results are saved, it is undone, the
 //   original runs and they are compared byte by byte. A single difference turns the native path
-//   off for good ("[efectos] DIFERENCIA" line in the log). "[efectos]" line every 10 s with
+//   off for good ("[efectos] DIFFERENCE" line in the log). "[efectos]" line every 10 s with
 //   the counts.
 // ---------------------------------------------------------------------------------------------------
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_efectos_nativo, true, "NFSMW",
-                    "Envio de parametros de efecto (sub_826992F0) en nativo: entero con "
-                    "nfsmw_d3d_efectos_nativo_todo (build 171); sin el, solo las constantes de coma flotante "
-                    "y, con enteros, booleanos o texturas, la original. Se comprueba contra la original y se "
-                    "apaga sola si difiere")
+                    "Effect parameter upload (sub_826992F0) in native code: all of it with "
+                    "nfsmw_d3d_efectos_nativo_todo (build 171); without it, only the floating-point constants "
+                    "and, with integers, booleans or textures, the original. Checked against the original and "
+                    "turns itself off if it differs")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace {
@@ -1019,27 +1019,27 @@ void InformeEfectos() {
   const uint64_t vectores = g_efectos_vectores.exchange(0, std::memory_order_relaxed);
   const uint64_t todo = g_todo.nativas.exchange(0, std::memory_order_relaxed);
   if (nativas != 0 || originales != 0 || todo == 0) {  // the lists 0-1 path (floating-point constants only)
-    REXLOG_INFO("[efectos] ultimos 10 s: {} en nativo ({:.1f} vectores cada una), {} por la original "
-                "(enteros/booleanos){}; comprobadas contra la original: {} de {}",
+    REXLOG_INFO("[efectos] last 10 s: {} native ({:.1f} vectors each), {} through the original "
+                "(integers/booleans){}; checked against the original: {} of {}",
                 nativas, nativas ? double(vectores) / double(nativas) : 0.0, originales,
-                g_efectos_apagado.load(std::memory_order_relaxed) ? " | APAGADO por diferencia" : "",
+                g_efectos_apagado.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "",
                 g_efectos_comprobadas.load(std::memory_order_relaxed), kComprobaciones);
   }
   if (todo != 0 || g_todo_apagado.load(std::memory_order_relaxed)) {  // The full path
     const uint64_t vectores_todo = g_todo.vectores.exchange(0, std::memory_order_relaxed);
     const uint64_t varios = g_todo.varios.exchange(0, std::memory_order_relaxed);
-    NFSMW_INFORME_DIFERIDO("[efectos] camino completo, ultimos 10 s: {} en nativo ({:.1f} vectores cada una; {} con listas "
-                "2-7: {} enteros, {} booleanos, {} texturas, {} liberaciones por la original{}){}; comprobadas "
-                "contra la original desde el arranque: {} ({} con listas 2-7; las primeras {} y luego 1 de cada "
-                "{}); abandonadas en estos 10 s: {} por una liberacion y {} por capa llena",
+    NFSMW_INFORME_DIFERIDO("[efectos] full path, last 10 s: {} native ({:.1f} vectors each; {} with lists "
+                "2-7: {} integers, {} booleans, {} textures, {} releases through the original{}){}; checked "
+                "against the original since startup: {} ({} with lists 2-7; the first {} and then 1 of every "
+                "{}); abandoned in these 10 s: {} because of a release and {} because the layer was full",
                 todo, todo ? double(vectores_todo) / double(todo) : 0.0,
                 g_todo.con_listas.exchange(0, std::memory_order_relaxed),
                 g_todo.enteros.exchange(0, std::memory_order_relaxed),
                 g_todo.booleanos.exchange(0, std::memory_order_relaxed),
                 g_todo.texturas.exchange(0, std::memory_order_relaxed),
                 g_todo.raras.exchange(0, std::memory_order_relaxed),
-                varios ? fmt::format(", {} enteros de 2-4 registros", varios) : std::string(),
-                g_todo_apagado.load(std::memory_order_relaxed) ? " | APAGADO por diferencia" : "",
+                varios ? fmt::format(", {} integers of 2-4 registers", varios) : std::string(),
+                g_todo_apagado.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "",
                 g_todo_comprobadas.load(std::memory_order_relaxed),
                 g_todo_comprobadas_listas.load(std::memory_order_relaxed), kComprobacionesTodo, kPeriodoTodo,
                 g_todo.abandonadas.exchange(0, std::memory_order_relaxed),
@@ -1105,15 +1105,15 @@ REX_EXTERN(__imp__sub_826992F0);
 //   not also shows up), r3, r1 and the floating-point mode. If the SetTexture release is needed (or the
 //   layer fills up: more than 8 KB written), that check is abandoned (the original does it) and the next
 //   one is checked. A difference turns off only the full path and the lists 0-1 path comes back, with
-//   its own guard ("[efectos] DIFERENCIA del camino completo" line in the log).
+//   its own guard ("[efectos] DIFFERENCE in the full path" line in the log).
 // ---------------------------------------------------------------------------------------------------
 #include <rex/ppc/intrinsics.h>
 
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_efectos_nativo_todo, true, "NFSMW",
-                    "sub_826992F0 ENTERA en nativo (build 171): tambien las constantes enteras y booleanas y "
-                    "las texturas (SetTexture). Se comprueba contra la original (las primeras 512 llamadas y "
-                    "despues 1 de cada 4096) y se apaga sola si difiere; false = como la build 154 (solo las "
-                    "constantes de coma flotante). Necesita nfsmw_d3d_efectos_nativo")
+                    "sub_826992F0 ENTIRELY in native code (build 171): also the integer and boolean constants and "
+                    "the textures (SetTexture). Checked against the original (the first 512 calls and "
+                    "then 1 of every 4096) and turns itself off if it differs; false = like build 154 (only the "
+                    "floating-point constants). Requires nfsmw_d3d_efectos_nativo")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DECLARE(bool, nfsmw_d3d_trace);
 
@@ -1124,7 +1124,7 @@ namespace {
 // rlwinm/rlwimi: 32-bit rotation (N from 1 to 31).
 template <unsigned N>
 inline uint32_t Rotl32(uint32_t x) {
-  static_assert(N > 0 && N < 32, "rotacion de 1 a 31");
+  static_assert(N > 0 && N < 32, "rotation from 1 to 31");
   return (x << N) | (x >> (32 - N));
 }
 
@@ -1618,8 +1618,8 @@ bool TodoActivo() {
   const bool pedido = REXCVAR_GET(nfsmw_d3d_efectos_nativo_todo);
   const bool traza = REXCVAR_GET(nfsmw_d3d_trace);
   if (pedido && traza) {
-    REXLOG_INFO("[efectos] nfsmw_d3d_trace activo: sin el camino completo, para que rex_d3d.log vea todas "
-                "las llamadas a SetTexture; se usa el de la build 154");
+    REXLOG_INFO("[efectos] nfsmw_d3d_trace on: no full path, so that rex_d3d.log sees all "
+                "the SetTexture calls; the build 154 one is used");
   }
   return pedido && !traza;
 }
@@ -1672,7 +1672,7 @@ void EfectosTodoLlamada(PPCContext& ctx, uint8_t* base) {
   uint32_t direccion = 0;
   for (uint32_t h = 0; h < MemoriaCapa::kHuecos && !que; ++h) {
     if (capa.direcciones[h] != 0 && *Puntero(base, capa.direcciones[h] - 1) != capa.valores[h]) {
-      que = "byte escrito por la nativa";
+      que = "byte written by the native version";
       direccion = capa.direcciones[h] - 1;
     }
   }
@@ -1681,7 +1681,7 @@ void EfectosTodoLlamada(PPCContext& ctx, uint8_t* base) {
     auto mirar = [&](uint32_t desde, uint32_t hasta, const uint8_t* previo) {
       for (uint32_t i = desde; i < hasta && !que; ++i) {
         if (p[i] != previo[i - desde] && !capa.Escrito(dispositivo + i)) {
-          que = "zona del dispositivo escrita por la original y no por la nativa";
+          que = "device area written by the original and not by the native version";
           direccion = dispositivo + i;
         }
       }
@@ -1698,13 +1698,13 @@ void EfectosTodoLlamada(PPCContext& ctx, uint8_t* base) {
   const uint32_t csr_esperado =
       capa.modo_vectorial ? (csr_antes | uint32_t(PPCFPSCRRegister::FlushMask)) : csr_antes;
   if (!que && ctx.fpscr.csr != csr_esperado) {
-    que = "modo de coma flotante";
+    que = "floating-point mode";
   }
   if (que) {
     g_todo_apagado.store(true, std::memory_order_relaxed);
-    REXLOG_INFO("[efectos] DIFERENCIA del camino completo con la original ({}) en 0x{:08X} (llamada {}, this "
-                "0x{:08X}, dispositivo 0x{:08X}; r3 0x{:X} nativa, 0x{:X} original): camino completo APAGADO "
-                "para siempre; sigue el de la build 154",
+    REXLOG_INFO("[efectos] DIFFERENCE in the full path from the original ({}) at 0x{:08X} (call {}, this "
+                "0x{:08X}, device 0x{:08X}; r3 0x{:X} native, 0x{:X} original): full path OFF "
+                "for good; the build 154 one carries on",
                 que, direccion, n, c.self, dispositivo, c.r3, ctx.r3.u64);
     return;
   }
@@ -1714,8 +1714,8 @@ void EfectosTodoLlamada(PPCContext& ctx, uint8_t* base) {
   }
   g_todo_comprobadas.store(comprobadas + 1, std::memory_order_relaxed);
   if (comprobadas + 1 == kComprobacionesTodo) {
-    REXLOG_INFO("[efectos] camino completo: {} llamadas comprobadas contra la original byte a byte ({} con "
-                "enteros, booleanos o texturas), 0 diferencias; en marcha, y sigue comprobando 1 de cada {}",
+    REXLOG_INFO("[efectos] full path: {} calls checked against the original byte by byte ({} with "
+                "integers, booleans or textures), 0 differences; running, and still checking 1 of every {}",
                 kComprobacionesTodo, g_todo_comprobadas_listas.load(std::memory_order_relaxed), kPeriodoTodo);
   }
 }
@@ -1782,15 +1782,15 @@ void EfectosLlamada(PPCContext& ctx, uint8_t* base) {
   }
   if (!igual) {
     g_efectos_apagado.store(true, std::memory_order_relaxed);
-    REXLOG_INFO("[efectos] DIFERENCIA con la original en 0x{:08X} (llamada {} de la comprobacion, this "
-                "0x{:08X}): camino nativo APAGADO para siempre; se queda la original",
+    REXLOG_INFO("[efectos] DIFFERENCE from the original at 0x{:08X} (call {} of the check, this "
+                "0x{:08X}): native path OFF for good; the original stays",
                 direccion_mala, comprobadas + 1, self);
     return;
   }
   g_efectos_comprobadas.store(comprobadas + 1, std::memory_order_relaxed);
   if (comprobadas + 1 == kComprobaciones) {
-    REXLOG_INFO("[efectos] {} llamadas comprobadas contra la original byte a byte, 0 diferencias: camino "
-                "nativo en marcha",
+    REXLOG_INFO("[efectos] {} calls checked against the original byte by byte, 0 differences: native "
+                "path running",
                 kComprobaciones);
   }
 }
@@ -1828,14 +1828,14 @@ REX_HOOK_RAW(sub_826992F0) {  // upload of effect parameters to the device
 //   With kComprobacionesJuego matches here and kComprobacionesAnillo in the ring, and no mismatch, it
 //   switches to applying: only the marker. Even then, 1 of every kComprobarCada FlushState calls, and those
 //   that carry a group not yet checked kMinimoPorGrupo times, go through the check path again. A single
-//   difference on either side turns it off for the rest of the session ("[d3d_marcador] DIFERENCIA" in the
+//   difference on either side turns it off for the rest of the session ("[d3d_marcador] DIFFERENCE" in the
 //   log). If the marker does not fit in the space the D3D has reserved ([dev+0] to [dev+4]), the game's
 //   dumps run instead, since they know how to request space (sub_825A29E8).
 // ---------------------------------------------------------------------------------------------------
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_marcador, true, "NFSMW",
-                    "Renderizador nativo (25/09, build 170, fase 2 del renderizador a nivel de Direct3D): FlushState "
-                    "escribe UN paquete con todos sus registros en vez de ~13 (tipo 0 y relleno). Empieza comprobando "
-                    "contra el camino del juego y se apaga solo si algo difiere. false = como antes")
+                    "Native renderer (25/09, build 170, phase 2 of the Direct3D-level renderer): FlushState "
+                    "writes ONE packet with all its registers instead of ~13 (type 0 and padding). It starts by "
+                    "checking against the game's path and turns itself off if anything differs. false = as before")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DECLARE(bool, nfsmw_nativo_sombra_d3d);
 
@@ -2079,26 +2079,26 @@ inline bool CoincidenPaquetes(uint8_t* base, uint32_t desde, uint32_t hasta, con
     }
     const uint32_t cabecera = ((t.cuenta - 1) << 16) | t.registro;
     if (p >= fin || Leer32(base, p) != cabecera) {
-      d = Diferencia{"cabecera", i, t.registro, cabecera, p < fin ? Leer32(base, p) : 0};
+      d = Diferencia{"header", i, t.registro, cabecera, p < fin ? Leer32(base, p) : 0};
       return false;
     }
     p += 4;
     if ((fin - p) / 4 < t.cuenta) {
-      d = Diferencia{"paquete corto", i, t.registro, t.cuenta, (fin - p) / 4};
+      d = Diferencia{"short packet", i, t.registro, t.cuenta, (fin - p) / 4};
       return false;
     }
     for (uint32_t k = 0; k < t.cuenta; ++k) {
       const uint32_t visto = Leer32(base, p + 4 * k);
       const uint32_t esperado = Leer32(base, t.origen + 4 * k);
       if (visto != esperado) {
-        d = Diferencia{"valor", i, t.registro + k, esperado, visto};
+        d = Diferencia{"value", i, t.registro + k, esperado, visto};
         return false;
       }
     }
     p += 4 * t.cuenta;
   }
   if (p != fin) {
-    d = Diferencia{"sobran palabras", v.n, 0, fin, p};
+    d = Diferencia{"extra words", v.n, 0, fin, p};
     return false;
   }
   return true;
@@ -2248,8 +2248,8 @@ uint32_t DecidirModo(uint32_t grupos) {
       return kMarcadorComprobar;
     }
     g_aplicando.store(true, std::memory_order_relaxed);
-    REXLOG_INFO("[d3d_marcador] {} volcados comprobados en el hilo del juego y {} en el del anillo, 0 diferencias: "
-                "FlushState escribe ya solo el marcador (1 de cada {} se sigue comprobando)",
+    REXLOG_INFO("[d3d_marcador] {} dumps checked on the game thread and {} on the ring thread, 0 differences: "
+                "FlushState now writes only the marker (1 of every {} is still checked)",
                 juego, anillo, kComprobarCada);
   }
   if ((grupos & ~g_grupos_listos.load(std::memory_order_relaxed)) != 0) {
@@ -2291,8 +2291,8 @@ void Apagar(const char* lado, const char* que, uint32_t secuencia, uint32_t regi
     return;
   }
   g_apagado.store(true, std::memory_order_relaxed);
-  REXLOG_ERROR("[d3d_marcador] DIFERENCIA en el {} ({}): marcador {}, grupo {}, registro {:04X}, esperado {:08X}, "
-               "visto {:08X}. Camino del marcador APAGADO para el resto de la sesion: FlushState vuelve al del juego",
+  REXLOG_ERROR("[d3d_marcador] DIFFERENCE on the {} ({}): marker {}, group {}, register {:04X}, expected {:08X}, "
+               "seen {:08X}. Marker path OFF for the rest of the session: FlushState goes back to the game's",
                lado, que, secuencia, NombreGrupo(registro), registro, esperado, visto);
 }
 
@@ -2304,8 +2304,8 @@ void InformeMarcador() {
   }
   g_i_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[d3d_marcador] marcador compuesto de FlushState activo (fase 2 del renderizador a nivel de "
-                "Direct3D): empieza comprobando");
+    REXLOG_INFO("[d3d_marcador] FlushState composite marker on (phase 2 of the Direct3D-level "
+                "renderer): starts by checking");
     return;
   }
   const uint64_t llamadas = g_i_llamadas.exchange(0, std::memory_order_relaxed);
@@ -2318,17 +2318,17 @@ void InformeMarcador() {
   for (; listos; listos &= listos - 1) {
     ++n_listos;
   }
-  NFSMW_INFORME_DIFERIDO("[d3d_marcador] ultimos 10 s: {} FlushState ({} con registros): {} solo con marcador ({:.1f} tramos y "
-              "{:.1f} palabras cada uno), {} comprobados contra el juego, {} sin sitio en el anillo, {} no comparables "
-              "| fase {} | comprobados: juego {} de {}, anillo {} de {}, grupos listos {} de {}",
+  NFSMW_INFORME_DIFERIDO("[d3d_marcador] last 10 s: {} FlushState ({} with registers): {} marker only ({:.1f} runs and "
+              "{:.1f} words each), {} checked against the game, {} with no room in the ring, {} not comparable "
+              "| phase {} | checked: game {} of {}, ring {} of {}, groups ready {} of {}",
               llamadas, con_registros, aplicados, aplicados ? double(tramos) / double(aplicados) : 0.0,
               aplicados ? double(palabras) / double(aplicados) : 0.0,
               g_i_comprobados.exchange(0, std::memory_order_relaxed),
               g_i_sin_sitio.exchange(0, std::memory_order_relaxed),
               g_i_no_comparables.exchange(0, std::memory_order_relaxed),
-              g_apagado.load(std::memory_order_relaxed) ? "APAGADO"
-              : g_aplicando.load(std::memory_order_relaxed) ? "aplicando"
-                                                             : "mirando",
+              g_apagado.load(std::memory_order_relaxed) ? "OFF"
+              : g_aplicando.load(std::memory_order_relaxed) ? "applying"
+                                                             : "observing",
               g_iguales_juego.load(std::memory_order_relaxed), kComprobacionesJuego,
               g_iguales_anillo.load(std::memory_order_relaxed), kComprobacionesAnillo, n_listos, uint32_t(kGrupos));
 }
@@ -2382,7 +2382,7 @@ bool NfsmwFlushStateMarcador(PPCContext& ctx, uint8_t* base) {
     return false;
   }
   if (g_distinto_anillo.load(std::memory_order_acquire)) {
-    Apagar("hilo del anillo", "registros tras los paquetes", g_distinto_secuencia.load(std::memory_order_relaxed),
+    Apagar("ring thread", "registers after the packets", g_distinto_secuencia.load(std::memory_order_relaxed),
            g_distinto_registro.load(std::memory_order_relaxed),
            g_distinto_en_marcador.load(std::memory_order_relaxed),
            g_distinto_en_registros.load(std::memory_order_relaxed));
@@ -2451,7 +2451,7 @@ bool NfsmwFlushStateMarcador(PPCContext& ctx, uint8_t* base) {
       if (g_anillo_lleno.load(std::memory_order_relaxed) != lentos || hasta < desde) {
         Sumar(g_i_no_comparables, uint64_t(1));
       } else if (!CoincidenPaquetes(base, desde, hasta, v, d)) {
-        Apagar("hilo del juego", d.que, secuencia, d.registro, d.esperado, d.visto);
+        Apagar("game thread", d.que, secuencia, d.registro, d.esperado, d.visto);
       } else {
         AnotarIgualJuego(v);
         if (EscribirMarcador(base, dev, &v, kMarcadorComprobar, secuencia, modo_dibujo, &dibujo)) {

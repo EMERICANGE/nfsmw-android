@@ -59,15 +59,15 @@
 //  ===========================================================================
 //  What is really behind the two profile lines (race)
 //
-//  The C2 profile says "reflejo 0.95, 320 (cubo y desenfoque) 2.53" raw,
+//  The C2 profile says "reflection 0.95, 320 (cube and blur) 2.53" raw,
 //  that is 1.55 and 4.12 ms real (x1.627). Both labels are misleading:
 //
-//  1) "reflejo" is not the road reflection. The category is decided by the
+//  1) "reflection" is not the road reflection. The category is decided by the
 //     render target width (CategoriaDeDestino in nfsmw_nativo_dibujos.cpp):
 //     everything with a pitch between 640 and 1279 lands there. What really
 //     lands there is the 1024x576 output buffer (pitch 1040, height 576 =
 //     599,040 texels), two passes per frame: 2 x 599,040 = 1.20 Mtexels,
-//     which is exactly what C6 logs ("reflejo 1.20 Mtexels en 2.0 pases")...
+//     which is exactly what C6 logs ("reflection 1.20 Mtexels in 2.0 passes")...
 //     and it logs the same in the menus, where there is no road and no
 //     reflection. With 68 draws per frame in a race and 4 in the menu: it is
 //     the final composite plus the HUD.
@@ -78,14 +78,14 @@
 //     Turning it on costs ms; leaving it off is a visual difference from the
 //     Xbox 360 (it is on now, see nfsmw_reflejo_carretera).
 //
-//  2) "320 (cubo y desenfoque)" is two different things mixed by pitch:
+//  2) "320 (cube and blur)" is two different things mixed by pitch:
 //     - The cubemap faces: 256x256 with pitch 320 (aligned to 80) = 81,920
-//       texels per pass. Two faces are drawn per frame (C2 "caras
-//       resueltas": each of the five that rotate shows up 41-52 times per
+//       texels per pass. Two faces are drawn per frame (C2 "faces
+//       resolved": each of the five that rotate shows up 41-52 times per
 //       ~10 s, that is one per frame among the five, plus the pinned one).
 //     - The bloom chain: one 512x288 pass (pitch 560, also lands here) and
 //       three or four at 256x144 (pitch 320). Its 128x72 siblings (pitch
-//       160) land in "menores".
+//       160) land in "small".
 //     Measured breakdown of the race frame (0.51 Mtexels, 6.2 passes, 311
 //     draws, 4.12 ms real), with the known cost of 0.874 ms of GPU per 100
 //     draws:
@@ -129,8 +129,8 @@
  * It costs ~109 draws per frame (14 k triangles at 640x360).
  */
 REXCVAR_DEFINE_BOOL(nfsmw_reflejo_carretera, true, "NFSMW",
-                    "Dibujar el reflejo de la carretera (pasada 640x360) durante la carrera; el agua tambien "
-                    "lo muestrea, sin el el mar sale negro")
+                    "Draw the road reflection (640x360 pass) during the race; the water also "
+                    "samples it, and without it the sea comes out black")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 /*
@@ -138,7 +138,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_reflejo_carretera, true, "NFSMW",
  *
  * Once enabled for the sea, the reflection was drawn in every race frame: ~210 draws on average, up to 280
  * in Heritage & Omega. In one run, 42 % of those draws were for copies nobody read: halfway through
- * Heritage the C2 report said "0 lecturas", and in Ironwood it was only read in 37 % of frames. With the
+ * Heritage the C2 report said "0 reads", and in Ironwood it was only read in 37 % of frames. With the
  * ring as the bottleneck, that is ~2 ms of CPU per frame wasted in those stretches.
  *
  * The renderer records when the reflection texture is read (nfsmw_reflejo_demanda.h). If it was read in
@@ -150,8 +150,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_reflejo_carretera, true, "NFSMW",
  * turns itself off and says so in the log. false = always draw it.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_reflejo_bajo_demanda, true, "NFSMW",
-                    "Dibujar el reflejo de la carretera solo cuando algo lo lee; sin lecturas recientes se renueva 1 de "
-                    "cada nfsmw_reflejo_refresco fotogramas")
+                    "Draw the road reflection only when something reads it; without recent reads it is refreshed 1 of "
+                    "every nfsmw_reflejo_refresco frames")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 /*
  * Measured on the PC (standing at the Heritage start): with 16 instead of the game's 6 the reflection
@@ -159,13 +159,13 @@ REXCVAR_DEFINE_BOOL(nfsmw_reflejo_bajo_demanda, true, "NFSMW",
  * so it is off.
  */
 REXCVAR_DEFINE_INT32(nfsmw_reflejo_detalle_minimo, 0, "NFSMW",
-                     "Objetos de menos de N pixeles que no se dibujan en el reflejo de la carretera (vistas 4 y 5), como "
-                     "nfsmw_cubemap_detalle_minimo en el cubo; 0 = el valor del juego (medido sin efecto con 16)")
+                     "Objects smaller than N pixels that are not drawn in the road reflection (views 4 and 5), like "
+                     "nfsmw_cubemap_detalle_minimo in the cubemap; 0 = the game's value (measured: no effect with 16)")
     .range(0, 64)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_INT32(nfsmw_reflejo_refresco, 4, "NFSMW",
-                     "Con nfsmw_reflejo_bajo_demanda: cada cuantos fotogramas se renueva el reflejo mientras nadie lo "
-                     "lee (el agua que aparece lo ve como mucho con ese retraso)")
+                     "With nfsmw_reflejo_bajo_demanda: how many frames between reflection refreshes while nobody "
+                     "reads it (water that comes into view sees it with at most that delay)")
     .range(1, 30)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -191,8 +191,8 @@ REXCVAR_DEFINE_INT32(nfsmw_reflejo_refresco, 4, "NFSMW",
  * gives 0 it falls back to reads for the whole run and says so in the log. false = by reads.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_reflejo_visibilidad, true, "NFSMW",
-                    "Con nfsmw_reflejo_bajo_demanda: el reflejo se renueva en todos los fotogramas solo si el agua deja "
-                    "alguna muestra en pantalla (consulta de oclusion), y no solo porque se mande a dibujar")
+                    "With nfsmw_reflejo_bajo_demanda: the reflection is refreshed every frame only if the water leaves "
+                    "some sample on screen (occlusion query), and not just because it is submitted for drawing")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace nfsmw::reflejo_demanda {
@@ -241,9 +241,9 @@ void AnotarTestigo(bool con_muestras) {
   if (!con_muestras) {
     g_testigos_mal.fetch_add(1, std::memory_order_relaxed);
     if (g_fase_visibilidad.exchange(kVisApagada, std::memory_order_relaxed) != kVisApagada) {
-      REXLOG_ERROR("[recortes] reflejo por visibilidad: DIFERENCIA, la composicion final (pantalla entera) dio 0 "
-                   "muestras en su consulta de oclusion tras {} testigos buenos; las consultas no son de fiar y el "
-                   "reflejo vuelve a decidirse por lecturas (como la 191) el resto de la sesion",
+      REXLOG_ERROR("[recortes] reflection by visibility: DIFFERENCE, the final composite (full screen) gave 0 "
+                   "samples in its occlusion query after {} good witnesses; the queries cannot be trusted and the "
+                   "reflection is decided by reads again (as in build 191) for the rest of the session",
                    g_testigos_bien.load(std::memory_order_relaxed));
     }
     return;
@@ -252,9 +252,9 @@ void AnotarTestigo(bool con_muestras) {
   int esperada = kVisMirando;
   if (bien >= kTestigosParaAplicar &&
       g_fase_visibilidad.compare_exchange_strong(esperada, kVisAplicando, std::memory_order_relaxed)) {
-    REXLOG_INFO("[recortes] reflejo por visibilidad: comprobado ({} testigos de la composicion final con muestras, 0 "
-                "sin ninguna); desde aqui el reflejo se renueva en todos los fotogramas solo si el agua deja muestras en "
-                "pantalla",
+    REXLOG_INFO("[recortes] reflection by visibility: verified ({} final composite witnesses with samples, 0 "
+                "without any); from here on the reflection is refreshed every frame only if the water leaves samples on "
+                "screen",
                 bien);
   }
 }
@@ -262,8 +262,8 @@ void AnotarTestigo(bool con_muestras) {
 }  // namespace nfsmw::reflejo_demanda
 
 REXCVAR_DEFINE_INT32(nfsmw_cubemap_caras_max, REX_PLATFORM_SWITCH != 0 ? 1 : -1, "NFSMW",
-                     "Caras del mapa de entorno del coche que se actualizan por fotograma en "
-                     "carrera (-1 = las que decide el juego)")
+                     "Faces of the car's environment map that are updated per frame in a "
+                     "race (-1 = the ones the game decides)")
     .range(-1, 6)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
@@ -291,13 +291,13 @@ REXCVAR_DEFINE_INT32(nfsmw_cubemap_caras_max, REX_PLATFORM_SWITCH != 0 ? 1 : -1,
  * Verified on the console with this enabled; not to be re-checked.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_retrovisor_recorte, true, "NFSMW",
-                    "Devolver al retrovisor (vista 20) los dos bits de recorte de la lista de dibujo que el "
-                    "juego le quita a el solo. Dibuja 415 objetos donde sus hermanas dibujan 6-95, y son el "
-                    "19,6 % de los dibujos del fotograma");
+                    "Give the rear-view mirror (view 20) back the two draw-list culling bits that the "
+                    "game removes from it alone. It draws 415 objects where its siblings draw 6-95, and they are "
+                    "19.6 % of the frame's draws");
 
 REXCVAR_DEFINE_INT32(nfsmw_cubemap_caras_siempre, REX_PLATFORM_SWITCH != 0 ? 4 : 0, "NFSMW",
-                     "Caras del mapa de entorno que se actualizan todos los fotogramas aunque haya "
-                     "limite (bit i = cara i de la tabla del juego; no cuentan para "
+                     "Environment map faces that are updated every frame even when there is a "
+                     "limit (bit i = face i of the game's table; they do not count toward "
                      "nfsmw_cubemap_caras_max)")
     .range(0, 63)
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
@@ -305,8 +305,8 @@ REXCVAR_DEFINE_INT32(nfsmw_cubemap_caras_siempre, REX_PLATFORM_SWITCH != 0 ? 4 :
 /*
  * The cubemap costs per draw, so it gets fewer draws.
  *
- * The face refreshed every frame draws between 10 and 100 objects (C2 "caras resueltas", "dibujos por
- * copia"), and at 0.874 ms of GPU per 100 draws that is most of the pass's 4.12 ms real. The game decides
+ * The face refreshed every frame draws between 10 and 100 objects (C2 "faces resolved", "draws per
+ * copy"), and at 0.874 ms of GPU per 100 draws that is most of the pass's 4.12 ms real. The game decides
  * which object enters a view with eView::PixelMinSize: in WorldModel::Render and in CarRender, if the
  * object's projected size is below that number, the call bails out before drawing (saving CPU and GPU at
  * once). The eView constructor sets it to 4 for every view, so a 256x256 environment map face applies the
@@ -321,19 +321,19 @@ REXCVAR_DEFINE_INT32(nfsmw_cubemap_caras_siempre, REX_PLATFORM_SWITCH != 0 ? 4 :
  * cares about (the scene and the six faces) must read exactly the constructor's 4. If a single one does
  * not match, it writes nothing and logs it.
  *
- * How to measure it: in the log, "C2 caras resueltas desde el informe anterior" gives the draws per copy
+ * How to measure it: in the log, "C2 faces resolved since the previous report" gives the draws per copy
  * of each face. On the PC it shows right away because all six are drawn every frame there.
  */
 REXCVAR_DEFINE_INT32(nfsmw_cubemap_detalle_minimo, 8, "NFSMW",
-                     "Tamano minimo en pixeles para que un objeto se dibuje en una cara del mapa de "
-                     "entorno del coche (eView::PixelMinSize; el juego usa 4 en todas las vistas). Solo "
-                     "se aplica a las caras que rotan, nunca a las fijas. 0 = dejar el valor del juego")
+                     "Minimum size in pixels for an object to be drawn in a face of the car's environment "
+                     "map (eView::PixelMinSize; the game uses 4 in all views). It only "
+                     "applies to the rotating faces, never to the pinned ones. 0 = keep the game's value")
     .range(0, 64);
 
 REXCVAR_DEFINE_INT32(nfsmw_cubemap_diag_ciclo_s, 0, "NFSMW",
-                     "Diagnostico: con N > 0, en carrera solo se actualiza una cara del mapa de entorno "
-                     "y cambia de cara cada N segundos (anota cada cambio), para ver cual usa el "
-                     "retrovisor")
+                     "Diagnostic: with N > 0, in a race only one environment map face is updated "
+                     "and it switches to another face every N seconds (logging each change), to see which one the "
+                     "rear-view mirror uses")
     .range(0, 60);
 
 namespace nfsmw::recortes_carrera {
@@ -468,8 +468,8 @@ void ContarRetrovisor(const uint8_t* base) {
     ++g_retrovisor.actualizada;
   }
   if (ahora - g_retrovisor.desde_ms >= 10000) {
-    NFSMW_INFORME_DIFERIDO("[recortes] carrera, ultimos {:.1f} s: {} fotogramas; la cara del retrovisor (vista 20) se "
-                "actualizo en {} ({:.0f} %)",
+    NFSMW_INFORME_DIFERIDO("[recortes] race, last {:.1f} s: {} frames; the rear-view mirror face (view 20) was "
+                "updated in {} ({:.0f} %)",
                 double(ahora - g_retrovisor.desde_ms) / 1000.0, g_retrovisor.fotogramas,
                 g_retrovisor.actualizada,
                 100.0 * double(g_retrovisor.actualizada) / double(std::max<uint32_t>(g_retrovisor.fotogramas, 1)));
@@ -482,13 +482,13 @@ void RegistrarTablaCaras(const uint8_t* base) {
     return;
   }
   const uint32_t filas = Leer32(base, kNumFilasCaras);
-  REXLOG_INFO("[recortes] cubemap del juego: {} fila(s) de activacion de caras", filas);
+  REXLOG_INFO("[recortes] game cubemap: {} face activation row(s)", filas);
   if (filas == 0 || filas > 32) {
     return;
   }
   for (uint32_t f = 0; f < filas; ++f) {
     const uint32_t d = kFilasCaras + 24 * f;
-    REXLOG_INFO("[recortes] fila {}: {} {} {} {} {} {}", f, Leer32(base, d), Leer32(base, d + 4),
+    REXLOG_INFO("[recortes] row {}: {} {} {} {} {} {}", f, Leer32(base, d), Leer32(base, d + 4),
                 Leer32(base, d + 8), Leer32(base, d + 12), Leer32(base, d + 16),
                 Leer32(base, d + 20));
   }
@@ -527,8 +527,8 @@ bool ComprobarLayoutDeVista(const uint8_t* base, uint32_t tabla) {
   }
   const uint32_t cara0 = Leer32(base, tabla);
   if (EsVista(cara0)) {
-    REXLOG_INFO("[recortes] cubo, cara 0 (vista {}): H {:.1f} cerca {:.2f} lejos {:.1f} fovbias {:.3f} "
-                "fov {:.1f} byn {} detalle {}; escena detalle {}",
+    REXLOG_INFO("[recortes] cubemap, face 0 (view {}): H {:.1f} near {:.2f} far {:.1f} fovbias {:.3f} "
+                "fov {:.1f} bw {} detail {}; scene detail {}",
                 NumeroDeVista(cara0), LeerFlotante(base, cara0 + kOffH),
                 LeerFlotante(base, cara0 + kOffNearZ), LeerFlotante(base, cara0 + kOffFarZ),
                 LeerFlotante(base, cara0 + kOffFovBias), LeerFlotante(base, cara0 + kOffFovGrados),
@@ -537,13 +537,13 @@ bool ComprobarLayoutDeVista(const uint8_t* base, uint32_t tabla) {
   }
   g_layout_vista = cuadra ? 1 : -1;
   if (!cuadra) {
-    REXLOG_WARN("[recortes] cubo: la estructura de la vista no cuadra (PixelMinSize en +0x{:X} "
-                "deberia ser un entero entre 1 y 64 en la escena y en las seis caras); "
-                "nfsmw_cubemap_detalle_minimo no va a tocar nada",
+    REXLOG_WARN("[recortes] cubemap: the view structure does not match (PixelMinSize at +0x{:X} "
+                "should be an integer between 1 and 64 in the scene and in all six faces); "
+                "nfsmw_cubemap_detalle_minimo will not touch anything",
                 kOffDetalleMinimo);
   } else {
-    REXLOG_INFO("[recortes] cubo: la estructura de la vista cuadra; la escena usa PixelMinSize {} y "
-                "las caras {} {} {} {} {} {}",
+    REXLOG_INFO("[recortes] cubemap: the view structure matches; the scene uses PixelMinSize {} and "
+                "the faces {} {} {} {} {} {}",
                 int32_t(Leer32(base, escena + kOffDetalleMinimo)),
                 int32_t(Leer32(base, Leer32(base, tabla) + kOffDetalleMinimo)),
                 int32_t(Leer32(base, Leer32(base, tabla + 4) + kOffDetalleMinimo)),
@@ -592,8 +592,8 @@ void AjustarDetalleCubo(uint8_t* base, uint32_t tabla, uint32_t cara, uint32_t v
   Escribir32(base, vista + kOffDetalleMinimo, uint32_t(deseado));
   g_detalle_aplicado[cara] = deseado;
   if (!g_aviso_detalle.exchange(true)) {
-    REXLOG_INFO("[recortes] cubo: los objetos de menos de {} pixeles dejan de dibujarse en las caras "
-                "que rotan (el juego usa {}); las caras fijas no se tocan",
+    REXLOG_INFO("[recortes] cubemap: objects smaller than {} pixels are no longer drawn in the rotating "
+                "faces (the game uses {}); the pinned faces are not touched",
                 deseado, kDetalleMinimoJuego);
   }
 }
@@ -610,7 +610,7 @@ void DiagnosticoUnaCara(uint8_t* base, uint32_t tabla, int32_t ciclo_s) {
     }
   }
   if (g_cara_diag.exchange(cara) != cara) {
-    REXLOG_INFO("[recortes] diagnostico: solo la cara {} del cubemap (vista {})", cara,
+    REXLOG_INFO("[recortes] diagnostic: only cubemap face {} (view {})", cara,
                 NumeroDeVista(Leer32(base, tabla + 4 * uint32_t(cara))));
   }
 }
@@ -631,9 +631,9 @@ void DiagnosticoUnaCara(uint8_t* base, uint32_t tabla, int32_t ciclo_s) {
  */
 const char* NombreDeDireccion(float x, float y, float z) {
   const float ax = x < 0 ? -x : x, ay = y < 0 ? -y : y, az = z < 0 ? -z : z;
-  if (ay >= ax && ay >= az) return y > 0 ? "ARRIBA (cielo)" : "ABAJO (suelo)";
-  if (az >= ax) return z > 0 ? "DELANTE" : "DETRAS";
-  return x > 0 ? "DERECHA" : "IZQUIERDA";
+  if (ay >= ax && ay >= az) return y > 0 ? "UP (sky)" : "DOWN (ground)";
+  if (az >= ax) return z > 0 ? "FRONT" : "BACK";
+  return x > 0 ? "RIGHT" : "LEFT";
 }
 
 void DiagnosticoCarasDelCubo(const uint8_t* base, uint32_t tabla) {
@@ -662,17 +662,17 @@ void DiagnosticoCarasDelCubo(const uint8_t* base, uint32_t tabla) {
     const float y = LeerFlotante(base, vista + kOffDireccion + 4);
     const float z = LeerFlotante(base, vista + kOffDireccion + 8);
     const bool fija = (siempre & (1u << i)) != 0;
-    REXLOG_INFO("[recortes] cubo cara {} = vista {} -> {} (dir {:+.2f} {:+.2f} {:+.2f}); "
-                "fov {:.1f} lejos {:.0f} detalle {}; {}",
+    REXLOG_INFO("[recortes] cubemap face {} = view {} -> {} (dir {:+.2f} {:+.2f} {:+.2f}); "
+                "fov {:.1f} far {:.0f} detail {}; {}",
                 i, NumeroDeVista(vista), NombreDeDireccion(x, y, z), double(x), double(y), double(z),
                 double(LeerFlotante(base, vista + kOffFovGrados)),
                 double(LeerFlotante(base, vista + kOffFarZ)),
                 int32_t(Leer32(base, vista + kOffDetalleMinimo)),
-                fija ? "SIEMPRE (no cuenta para el limite)" : "rota con las demas");
+                fija ? "ALWAYS (does not count toward the limit)" : "rotates with the others");
   }
   const int rotan = int(kCaras) - __builtin_popcount(siempre & 0x3Fu);
-  REXLOG_INFO("[recortes] cubo: {} caras rotan a {} por fotograma, asi que cada una se renueva 1 de "
-              "cada {:.1f} fotogramas; las fijas, en todos",
+  REXLOG_INFO("[recortes] cubemap: {} faces rotate at {} per frame, so each one is refreshed 1 of "
+              "every {:.1f} frames; the pinned ones, every frame",
               rotan, maximo,
               maximo > 0 ? double(rotan) / double(maximo > rotan ? rotan : maximo) : double(rotan));
   g_aviso_caras_nombradas.store(true, std::memory_order_relaxed);
@@ -699,7 +699,7 @@ struct EstadoReflejo {
 EstadoReflejo g_reflejo;
 
 const char* NombreFase(FaseReflejo fase) {
-  return fase == FaseReflejo::kAplicando ? "APLICANDO" : fase == FaseReflejo::kMirando ? "mirando" : "APAGADA";
+  return fase == FaseReflejo::kAplicando ? "APPLYING" : fase == FaseReflejo::kMirando ? "observing" : "OFF";
 }
 
 void InformeReflejo(int64_t ahora) {
@@ -727,29 +727,29 @@ void InformeReflejo(int64_t ahora) {
   // If copies to that address keep appearing while skipping, it is not the reflection: stop skipping.
   if (e.fase == FaseReflejo::kAplicando && e.dibujados + 10 + e.dibujados / 10 < dc) {
     e.fase = FaseReflejo::kApagado;
-    REXLOG_ERROR("[recortes] reflejo bajo demanda: DIFERENCIA, {} copias a {:08X} con solo {} fotogramas de reflejo "
-                 "dibujados; se apaga y el reflejo vuelve a dibujarse siempre",
+    REXLOG_ERROR("[recortes] on-demand reflection: DIFFERENCE, {} copies to {:08X} with only {} reflection frames "
+                 "drawn; it turns itself off and the reflection is always drawn again",
                  dc, nfsmw::reflejo_demanda::kDireccion, e.dibujados);
   }
-  NFSMW_INFORME_DIFERIDO("[recortes] reflejo bajo demanda (build 191), ultimos {:.1f} s: pedido en {} fotogramas, "
-                         "dibujado en {} y saltado en {} ({:.0f} %); {} copias y {} lecturas de {:08X}; fase {}",
+  NFSMW_INFORME_DIFERIDO("[recortes] on-demand reflection (build 191), last {:.1f} s: requested in {} frames, "
+                         "drawn in {} and skipped in {} ({:.0f} %); {} copies and {} reads of {:08X}; phase {}",
                          double(ahora - e.desde_ms) / 1000.0, e.pedidos, e.dibujados, e.pedidos - e.dibujados,
                          100.0 * double(e.pedidos - e.dibujados) / double(std::max<uint32_t>(e.pedidos, 1)), dc, dl,
                          nfsmw::reflejo_demanda::kDireccion, NombreFase(e.fase));
   // What the queries of the draws that sample the reflection reported in this interval.
   if (REXCVAR_GET(nfsmw_reflejo_visibilidad)) {
     const int fase = rd::g_fase_visibilidad.load(std::memory_order_relaxed);
-    NFSMW_INFORME_DIFERIDO("[recortes] reflejo por visibilidad (build 192): {} dibujos del agua medidos, {} con muestras "
-                           "en pantalla y {} tapados del todo; {} sin poder medir (se dan por visibles); testigos {} "
-                           "bien y {} mal; decide por {}",
+    NFSMW_INFORME_DIFERIDO("[recortes] reflection by visibility (build 192): {} water draws measured, {} with samples "
+                           "on screen and {} fully covered; {} could not be measured (assumed visible); witnesses {} "
+                           "good and {} bad; decided by {}",
                            (visibles - e.visibles_informe) + (ocultos - e.ocultos_informe),
                            visibles - e.visibles_informe, ocultos - e.ocultos_informe,
                            sin_medida - e.sin_medida_informe,
                            rd::g_testigos_bien.load(std::memory_order_relaxed),
                            rd::g_testigos_mal.load(std::memory_order_relaxed),
-                           fase == rd::kVisAplicando ? "VISIBILIDAD"
-                           : fase == rd::kVisMirando ? "lecturas (comprobando los testigos)"
-                                                     : "lecturas (guardia disparada)");
+                           fase == rd::kVisAplicando ? "VISIBILITY"
+                           : fase == rd::kVisMirando ? "reads (checking the witnesses)"
+                                                     : "reads (guard tripped)");
   }
   e.desde_ms = ahora;
   e.pedidos = 0;
@@ -794,8 +794,8 @@ void AjustarDetalleReflejo(uint8_t* base) {
     Escribir32(base, vista + kOffDetalleMinimo, uint32_t(deseado));
     g_reflejo_detalle_aplicado[i] = deseado;
     if (!g_aviso_reflejo_detalle.exchange(true)) {
-      REXLOG_INFO("[recortes] reflejo: los objetos de menos de {} pixeles dejan de dibujarse en el reflejo de la "
-                  "carretera (vista {}: el juego usa {})",
+      REXLOG_INFO("[recortes] reflection: objects smaller than {} pixels are no longer drawn in the road "
+                  "reflection (view {}: the game uses {})",
                   deseado, numero, g_reflejo_detalle_juego[i]);
     }
   }
@@ -825,14 +825,14 @@ void DecidirReflejo(uint8_t* base) {
     const uint64_t copias = rd::g_copias.load(std::memory_order_relaxed) - e.copias_inicio;
     if (copias * 10 >= uint64_t(kReflejoMirando) * 8) {
       e.fase = FaseReflejo::kAplicando;
-      REXLOG_INFO("[recortes] reflejo bajo demanda: comprobado ({} copias a {:08X} en {} fotogramas con el reflejo "
-                  "pedido); desde aqui solo se dibuja si se ha leido en los ultimos {} fotogramas, y si no, 1 de cada {}",
+      REXLOG_INFO("[recortes] on-demand reflection: verified ({} copies to {:08X} in {} frames with the reflection "
+                  "requested); from here on it is only drawn if read in the last {} frames, and otherwise 1 of every {}",
                   copias, rd::kDireccion, kReflejoMirando, kReflejoGracia,
                   std::max<int32_t>(1, REXCVAR_GET(nfsmw_reflejo_refresco)));
     } else {
       e.fase = FaseReflejo::kApagado;
-      REXLOG_WARN("[recortes] reflejo bajo demanda: APAGADO; en {} fotogramas con el reflejo pedido solo hubo {} copias "
-                  "a {:08X} (el reflejo no se resuelve ahi): se dibuja siempre",
+      REXLOG_WARN("[recortes] on-demand reflection: OFF; in {} frames with the reflection requested there were only {} "
+                  "copies to {:08X} (the reflection is not resolved there): it is always drawn",
                   kReflejoMirando, copias, rd::kDireccion);
     }
     return;
@@ -879,7 +879,7 @@ REX_HOOK_RAW(sub_8243FF30) {
   base[DireccionActiva(kVistaReflejo)] = 0;
   base[DireccionActiva(kVistaReflejoSegundo)] = 0;
   if (!g_aviso_reflejo.exchange(true)) {
-    REXLOG_INFO("[recortes] carrera: reflejo de la carretera apagado (vistas 4 y 5)");
+    REXLOG_INFO("[recortes] race: road reflection off (views 4 and 5)");
   }
 }
 
@@ -904,7 +904,7 @@ REX_HOOK_RAW(sub_82216600) {
   if (antes != despues) {
     Escribir32(base, destino + 132, despues);
     if (!g_aviso_retrovisor.exchange(true)) {
-      REXLOG_INFO("[recortes] retrovisor: se le devuelven los dos bits de recorte (mascara 0x{:08X} -> 0x{:08X})",
+      REXLOG_INFO("[recortes] rear-view mirror: its two culling bits are given back (mask 0x{:08X} -> 0x{:08X})",
                   antes, despues);
     }
   }
@@ -925,7 +925,7 @@ REX_HOOK_RAW(sub_8243C6E0) {
     return;
   }
   if (!g_aviso_vistas_caras.exchange(true)) {
-    REXLOG_INFO("[recortes] caras del cubemap (tabla 0x{:08X}): vistas {} {} {} {} {} {}", tabla,
+    REXLOG_INFO("[recortes] cubemap faces (table 0x{:08X}): views {} {} {} {} {} {}", tabla,
                 NumeroDeVista(Leer32(base, tabla)), NumeroDeVista(Leer32(base, tabla + 4)),
                 NumeroDeVista(Leer32(base, tabla + 8)), NumeroDeVista(Leer32(base, tabla + 12)),
                 NumeroDeVista(Leer32(base, tabla + 16)), NumeroDeVista(Leer32(base, tabla + 20)));
@@ -966,7 +966,7 @@ REX_HOOK_RAW(sub_8243C6E0) {
     }
     if (!EsVista(vista)) {
       if (!g_aviso_puntero.exchange(true)) {
-        REXLOG_WARN("[recortes] cara {} apunta a 0x{:08X}, fuera de la tabla de vistas; no se toca",
+        REXLOG_WARN("[recortes] face {} points to 0x{:08X}, outside the view table; left alone",
                     i, vista);
       }
       continue;
@@ -1000,14 +1000,14 @@ REX_HOOK_RAW(sub_8243C6E0) {
    */
   if (g_caras_estrenadas != kTodasLasCaras) {
     if (!g_aviso_estreno_falta.exchange(true)) {
-      REXLOG_INFO("[recortes] carrera: estrenando el cubemap, faltan caras (mascara 0x{:X} de 0x{:X}); "
-                  "hasta entonces no se recorta", g_caras_estrenadas, kTodasLasCaras);
+      REXLOG_INFO("[recortes] race: first draws of the cubemap, faces missing (mask 0x{:X} of 0x{:X}); "
+                  "nothing is trimmed until then", g_caras_estrenadas, kTodasLasCaras);
     }
     return;  // no face is turned off until all of them have been drawn once
   }
   if (!g_aviso_estreno.exchange(true)) {
-    REXLOG_INFO("[recortes] carrera: las seis caras del cubemap ya se han dibujado una vez; "
-                "a partir de aqui manda el limite");
+    REXLOG_INFO("[recortes] race: all six cubemap faces have already been drawn once; "
+                "from here on the limit applies");
   }
   if (n <= uint32_t(maximo)) {
     return;
@@ -1019,8 +1019,8 @@ REX_HOOK_RAW(sub_8243C6E0) {
     }
   }
   if (!g_aviso_caras.exchange(true)) {
-    REXLOG_INFO("[recortes] carrera: cubemap limitado a {} cara(s) por fotograma mas {} fija(s) "
-                "(mascara 0x{:X}; el juego activaba {})",
+    REXLOG_INFO("[recortes] race: cubemap limited to {} face(s) per frame plus {} pinned "
+                "(mask 0x{:X}; the game enabled {})",
                 maximo, fijas, siempre, n + fijas);
   }
 }

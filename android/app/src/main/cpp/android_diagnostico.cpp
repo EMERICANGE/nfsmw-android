@@ -29,20 +29,20 @@ std::string Probe() {
   VkInstance instance{};
   VkResult result = vkCreateInstance(&ci, nullptr, &instance);
   if (result != VK_SUCCESS) {
-    return "{\"compatible\":false,\"missing\":[\"No se pudo iniciar Vulkan (" +
+    return "{\"compatible\":false,\"missing\":[\"Could not initialize Vulkan (" +
         std::to_string(result) + ")\"]}";
   }
   uint32_t count = 0;
   result = vkEnumeratePhysicalDevices(instance, &count, nullptr);
   if (result != VK_SUCCESS || !count) {
     vkDestroyInstance(instance, nullptr);
-    return "{\"compatible\":false,\"missing\":[\"No se encontro una GPU Vulkan\"]}";
+    return "{\"compatible\":false,\"missing\":[\"No Vulkan GPU found\"]}";
   }
   std::vector<VkPhysicalDevice> devices(count);
   result = vkEnumeratePhysicalDevices(instance, &count, devices.data());
   if (result != VK_SUCCESS) {
     vkDestroyInstance(instance, nullptr);
-    return "{\"compatible\":false,\"missing\":[\"No se pudo consultar la GPU\"]}";
+    return "{\"compatible\":false,\"missing\":[\"Could not query the GPU\"]}";
   }
   // Android's native renderer selects the first physical device by default.
   VkPhysicalDevice gpu = devices[0];
@@ -63,10 +63,10 @@ std::string Probe() {
     if (!supported) missing.emplace_back(name);
   };
   // The SDK currently enables the native shader interface through Vulkan 1.2.
-  require(props.apiVersion >= VK_API_VERSION_1_2, "Vulkan 1.2 o posterior");
+  require(props.apiVersion >= VK_API_VERSION_1_2, "Vulkan 1.2 or later");
   require(features.shaderInt64, "shaderInt64");
   require(features.shaderSampledImageArrayDynamicIndexing, "shaderSampledImageArrayDynamicIndexing");
-  require(v12.bufferDeviceAddress, "bufferDeviceAddress (interfaz Vulkan 1.2)");
+  require(v12.bufferDeviceAddress, "bufferDeviceAddress (Vulkan 1.2 interface)");
   require(v12.runtimeDescriptorArray, "runtimeDescriptorArray");
   require(v12.descriptorBindingPartiallyBound, "descriptorBindingPartiallyBound");
   require(v12.descriptorBindingSampledImageUpdateAfterBind, "descriptorBindingSampledImageUpdateAfterBind");
@@ -82,7 +82,7 @@ std::string Probe() {
         VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
     bool supported = (fp.optimalTilingFeatures & required) == required;
     std::string name = "BC" + std::to_string(i + 1);
-    if (i < 3 && !supported) missing.push_back("Texturas " + name);
+    if (i < 3 && !supported) missing.push_back("Texture format " + name);
     if (i) formats << ',';
     formats << Json(name) << ':' << (supported ? "true" : "false");
   }

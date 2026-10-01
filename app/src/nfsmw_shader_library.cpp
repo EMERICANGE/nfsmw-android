@@ -13,7 +13,7 @@
  * this). Same fingerprint values; on AArch64, the same LDR.
  */
 #if defined(XXH_IMPLEM_13a8737387)
-#error "xxhash.h ya se ha incluido con su implementacion antes de este punto: XXH_FORCE_MEMORY_ACCESS 0 llegaria tarde"
+#error "xxhash.h was already included with its implementation before this point: XXH_FORCE_MEMORY_ACCESS 0 would come too late"
 #endif
 #undef XXH_FORCE_MEMORY_ACCESS
 #define XXH_FORCE_MEMORY_ACCESS 0
@@ -41,7 +41,7 @@ struct Lector {
   std::span<const uint8_t> datos;
   size_t posicion = 0;
   std::span<const uint8_t> Tomar(size_t n) {
-    Exigir(n <= datos.size() - posicion, "Paquete de shaders truncado");
+    Exigir(n <= datos.size() - posicion, "Truncated shader package");
     auto r = datos.subspan(posicion, n);
     posicion += n;
     return r;
@@ -66,34 +66,34 @@ void U64(std::vector<uint8_t>& d, uint64_t v) {
 
 void Validar(Shader& s) {
   Exigir(s.original.size() >= 24 && s.original.size() <= kMaxOriginal,
-         "Longitud del contenedor fuera de limites");
+         "Container length out of bounds");
   const uint32_t firma = BE(s.original.data());
-  Exigir((firma & ~1u) == 0x102A0E00, "Firma de contenedor desconocida");
+  Exigir((firma & ~1u) == 0x102A0E00, "Unknown container signature");
   const uint32_t virtuales = BE(s.original.data() + 4);
   const uint32_t fisicos = BE(s.original.data() + 8);
   Exigir(virtuales >= 24 && fisicos && !(fisicos % 12) &&
              uint64_t(virtuales) + fisicos == s.original.size(),
-         "Longitudes del contenedor incoherentes");
+         "Inconsistent container lengths");
   s.vertices = (firma & 1) != 0;
   s.huella = XXH3_64bits(s.original.data(), s.original.size());
   Exigir(s.spirv.size() >= 5 && s.spirv.size() <= kMaxSpirv / 4,
-         "Longitud SPIR-V fuera de limites");
+         "SPIR-V length out of bounds");
   Exigir(s.spirv[0] == 0x07230203 && s.spirv[4] == 0,
-         "Cabecera SPIR-V incorrecta");
+         "Invalid SPIR-V header");
   // This checks the wrapper; it does not replace spirv-val in the packager.
   bool entrada = false;
   for (size_t i = 5; i < s.spirv.size();) {
     const uint32_t palabras = s.spirv[i] >> 16, op = s.spirv[i] & 65535;
-    Exigir(palabras && palabras <= s.spirv.size() - i, "Instruccion SPIR-V truncada");
+    Exigir(palabras && palabras <= s.spirv.size() - i, "Truncated SPIR-V instruction");
     if (op == 15) {  // OpEntryPoint: execution model, id, name and interface.
       Exigir(!entrada && palabras >= 5 && s.spirv[i+1] == (s.vertices ? 0u : 4u) &&
                  s.spirv[i+3] == 0x6e69616d && s.spirv[i+4] == 0,
-             "La etapa o la entrada main de SPIR-V no coincide con el contenedor");
+             "The SPIR-V stage or main entry point does not match the container");
       entrada = true;
     }
     i += palabras;
   }
-  Exigir(entrada, "SPIR-V sin entrada main");
+  Exigir(entrada, "SPIR-V without a main entry point");
 }
 
 bool Menor(const Shader& a, const Shader& b) {
@@ -104,23 +104,23 @@ bool Menor(const Shader& a, const Shader& b) {
 
 void BibliotecaShaders::Cargar(std::span<const uint8_t> archivo) {
   Exigir(archivo.size() >= 24 && archivo.size() <= kMaxArchivo,
-         "Tamano del paquete de shaders fuera de limites");
+         "Shader package size out of bounds");
   Lector l{archivo};
   auto firma = l.Tomar(8);
-  Exigir(std::equal(firma.begin(), firma.end(), kFirma.begin()), "Firma de paquete desconocida");
-  Exigir(l.U32() == 1, "Version de paquete no admitida");
+  Exigir(std::equal(firma.begin(), firma.end(), kFirma.begin()), "Unknown package signature");
+  Exigir(l.U32() == 1, "Unsupported package version");
   const uint32_t cantidad = l.U32();
-  Exigir(cantidad && cantidad <= kMaxShaders, "Cantidad de shaders fuera de limites");
+  Exigir(cantidad && cantidad <= kMaxShaders, "Shader count out of bounds");
   const uint64_t huella = l.U64();
   Exigir(XXH3_64bits(archivo.data() + 24, archivo.size() - 24) == huella,
-         "Paquete de shaders alterado");
+         "Shader package has been altered");
   std::vector<Shader> nuevos;
   nuevos.reserve(cantidad);
   for (uint32_t i = 0; i < cantidad; ++i) {
     const uint32_t original = l.U32(), palabras = l.U32();
     const uint64_t esperada = l.U64();
     Exigir(original >= 24 && original <= kMaxOriginal &&
-               palabras >= 5 && palabras <= kMaxSpirv / 4, "Entrada demasiado grande");
+               palabras >= 5 && palabras <= kMaxSpirv / 4, "Entry too large");
     Shader s;
     auto datos = l.Tomar(original);
     s.original.assign(datos.begin(), datos.end());
@@ -129,22 +129,22 @@ void BibliotecaShaders::Cargar(std::span<const uint8_t> archivo) {
     s.spirv.reserve(palabras);
     for (uint32_t j = 0; j < palabras; ++j) s.spirv.push_back(codigo.U32());
     Validar(s);
-    Exigir(s.huella == esperada, "Huella de contenedor incorrecta");
-    if (!nuevos.empty()) Exigir(Menor(nuevos.back(), s), "Entradas repetidas o desordenadas");
+    Exigir(s.huella == esperada, "Wrong container fingerprint");
+    if (!nuevos.empty()) Exigir(Menor(nuevos.back(), s), "Duplicate or unsorted entries");
     nuevos.push_back(std::move(s));
   }
-  Exigir(l.posicion == archivo.size(), "Datos sobrantes en el paquete de shaders");
+  Exigir(l.posicion == archivo.size(), "Trailing data in the shader package");
   shaders_ = std::move(nuevos);
 }
 
 void BibliotecaShaders::Cargar(const std::filesystem::path& archivo) {
   std::ifstream f(archivo, std::ios::binary | std::ios::ate);
-  Exigir(bool(f), "No se pudo abrir el paquete de shaders");
+  Exigir(bool(f), "Could not open the shader package");
   const auto n = f.tellg();
-  Exigir(n >= 24 && n <= std::streamoff(kMaxArchivo), "Tamano del paquete fuera de limites");
+  Exigir(n >= 24 && n <= std::streamoff(kMaxArchivo), "Package size out of bounds");
   std::vector<uint8_t> datos(static_cast<size_t>(n));
   f.seekg(0);
-  Exigir(bool(f.read(reinterpret_cast<char*>(datos.data()), datos.size())), "Lectura incompleta del paquete");
+  Exigir(bool(f.read(reinterpret_cast<char*>(datos.data()), datos.size())), "Incomplete read of the package");
   Cargar(datos);
 }
 
@@ -161,7 +161,7 @@ const Shader* BibliotecaShaders::Buscar(std::span<const uint8_t> original) const
 }
 
 std::vector<uint8_t> EmpaquetarShaders(std::vector<Shader> shaders) {
-  Exigir(!shaders.empty() && shaders.size() <= kMaxShaders, "Cantidad de shaders fuera de limites");
+  Exigir(!shaders.empty() && shaders.size() <= kMaxShaders, "Shader count out of bounds");
   for (auto& s : shaders) Validar(s);
   std::sort(shaders.begin(), shaders.end(), Menor);
   std::vector<uint8_t> cuerpo;
@@ -169,11 +169,11 @@ std::vector<uint8_t> EmpaquetarShaders(std::vector<Shader> shaders) {
   const Shader* anterior = nullptr;
   for (const auto& s : shaders) {
     if (anterior && anterior->original == s.original) {
-      Exigir(anterior->spirv == s.spirv, "Un contenedor tiene dos traducciones distintas");
+      Exigir(anterior->spirv == s.spirv, "A container has two different translations");
       continue;
     }
     const size_t n = 16 + s.original.size() + s.spirv.size() * 4;
-    Exigir(n <= kMaxArchivo - 24 - cuerpo.size(), "Paquete demasiado grande");
+    Exigir(n <= kMaxArchivo - 24 - cuerpo.size(), "Package too large");
     U32(cuerpo, uint32_t(s.original.size())); U32(cuerpo, uint32_t(s.spirv.size()));
     U64(cuerpo, s.huella);
     cuerpo.insert(cuerpo.end(), s.original.begin(), s.original.end());

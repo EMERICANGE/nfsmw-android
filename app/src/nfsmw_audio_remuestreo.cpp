@@ -36,9 +36,9 @@
 // Native by default. On PC, in the alley test run, it gave 0 differences against the recompiled code over
 // 130 million samples and runs 1.7 and 3.7 times faster.
 REXCVAR_DEFINE_INT32(nfsmw_audio_remuestreo_nativo, 1, "NFSMW",
-                     "Remuestreadores lineales del motor de sonido (sub_826031C0 y sub_82619820): 0 = codigo "
-                     "recompilado, 1 = nativo (mismo resultado bit a bit; por defecto), 2 = validar el nativo contra "
-                     "el recompilado");
+                     "Linear resamplers of the sound engine (sub_826031C0 and sub_82619820): 0 = recompiled "
+                     "code, 1 = native (bit-identical result; default), 2 = validate the native one against "
+                     "the recompiled one");
 
 REX_EXTERN(__imp__sub_826031C0);
 REX_EXTERN(__imp__sub_82619820);
@@ -108,8 +108,8 @@ void Contar(Contador& c, int32_t n) {
   if (ahora - ultimo < 10000 || !g_ultimo_informe_ms.compare_exchange_strong(ultimo, ahora, std::memory_order_relaxed)) {
     return;
   }
-  NFSMW_INFORME_DIFERIDO("[audio] remuestreo lineal (modo {}): sub_826031C0 {} llamadas y {} muestras, sub_82619820 {} llamadas y {} "
-              "muestras ({} con el estado dentro del destino), diferencias con el recompilado {} y {}",
+  NFSMW_INFORME_DIFERIDO("[audio] linear resampling (mode {}): sub_826031C0 {} calls and {} samples, sub_82619820 {} calls and {} "
+              "samples ({} with the state inside the destination), differences with the recompiled code {} and {}",
               REXCVAR_GET(nfsmw_audio_remuestreo_nativo), g_826031C0.llamadas.exchange(0),
               g_826031C0.muestras.exchange(0), g_82619820.llamadas.exchange(0), g_82619820.muestras.exchange(0),
               g_82619820.pisados.exchange(0), g_826031C0.diferencias.exchange(0), g_82619820.diferencias.exchange(0));
@@ -117,8 +117,8 @@ void Contar(Contador& c, int32_t n) {
 
 void AnotarDiferencia(const char* funcion, uint32_t destino, int32_t indice, uint32_t nativo, uint32_t recompilado) {
   if (!g_diferencia_anotada.exchange(true, std::memory_order_relaxed)) {
-    REXLOG_WARN("[audio] remuestreo lineal: primera diferencia en {}: destino 0x{:08X}, muestra {}, nativo 0x{:08X}, "
-                "recompilado 0x{:08X}",
+    REXLOG_WARN("[audio] linear resampling: first difference in {}: destination 0x{:08X}, sample {}, native 0x{:08X}, "
+                "recompiled 0x{:08X}",
                 funcion, destino, indice, nativo, recompilado);
   }
 }

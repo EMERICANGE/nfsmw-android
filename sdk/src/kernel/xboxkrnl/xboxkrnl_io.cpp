@@ -52,9 +52,9 @@
  * A monotonic clock read per call is a few nanoseconds next to a trip to the SD. It is on.
  */
 REXCVAR_DEFINE_INT32(nfsmw_io_aviso_ms, 8, "Filesystem",
-                     "Avisa en el log de cada apertura o lectura que pase de estos ms (0 = nunca).");
+                     "Logs a warning for every open or read that takes longer than this many ms (0 = never).");
 REXCVAR_DEFINE_INT32(nfsmw_io_resumen_s, 15, "Filesystem",
-                     "Cada cuantos segundos se escribe el resumen [io] (0 = nunca).");
+                     "How often, in seconds, the [io] summary is written (0 = never).");
 
 namespace rex::kernel::xboxkrnl {
 using namespace rex::system;
@@ -266,31 +266,31 @@ void QuizaResumenIo(uint64_t ahora_us) {
   const uint64_t aperturas = d.aperturas_ok + d.aperturas_fallo;
 
   REXKRNL_INFO(
-      "[io] {} s: {} aperturas ({} fallan) {:.1f} ms en total, peor {:.1f} ms, media {:.2f} ms; "
-      "{} lecturas {:.1f} MB en {:.1f} ms, peor {:.1f} ms",
+      "[io] {} s: {} opens ({} fail) {:.1f} ms in total, worst {:.1f} ms, mean {:.2f} ms; "
+      "{} reads {:.1f} MB in {:.1f} ms, worst {:.1f} ms",
       periodo_s, aperturas, d.aperturas_fallo, d.us_aperturas / 1000.0, peor_abrir / 1000.0,
       aperturas ? (d.us_aperturas / 1000.0) / double(aperturas) : 0.0, d.lecturas,
       d.bytes_leidos / (1024.0 * 1024.0), d.us_lecturas / 1000.0, peor_leer / 1000.0);
   REXKRNL_INFO(
-      "[io] rutas: {} resueltas sin tocar la SD, {} stats, {} barridos de directorio ({} entradas "
-      "en el arbol); ventana: {} aciertos / {} rellenos / {} directas, {:.1f} MB desde RAM, {} "
-      "ficheros con ventana",
+      "[io] paths: {} resolved without touching the SD, {} stats, {} directory sweeps ({} entries "
+      "in the tree); window: {} hits / {} refills / {} direct, {:.1f} MB from RAM, {} "
+      "files with a window",
       d.misses_en_seco, d.stats_en_sd, d.barridos_en_sd, rutas.entradas_en_arbol, d.aciertos,
       d.rellenos, d.directas, d.bytes_ram / (1024.0 * 1024.0), ventana.ventanas_vivas);
 
   /*
    * The line that tells whether a block cache is worth it and whether the window has anything to do.
-   *  - "releidas"  = reads whose exact range (file+offset+size) had already been read before.
+   *  - "reread"    = reads whose exact range (file+offset+size) had already been read before.
    *                  A cache would remove those bytes entirely; not the rest.
-   *  - "seguidas"  = reads that start exactly where the previous one of the same file ended. If
+   *  - "sequential" = reads that start exactly where the previous one of the same file ended. If
    *                  this is high, read-ahead helps; if it is low, the game jumps around and the
    *                  window only gets in the way.
-   *  - "desalojos" = times the range table ran out of room. If it grows, the figures fall short.
+   *  - "evictions" = times the range table ran out of room. If it grows, the figures fall short.
    */
   const uint64_t lecturas_tramo = d.relecturas + d.distintos;
   REXKRNL_INFO(
-      "[io] rangos: {} releidas de {} ({:.0f} %), {:.1f} MB ya leidos antes de {:.1f} MB ({:.0f} %); {} "
-      "seguidas ({:.0f} %); {} desalojos",
+      "[io] ranges: {} reread out of {} ({:.0f} %), {:.1f} MB already read before, out of {:.1f} MB ({:.0f} %); {} "
+      "sequential ({:.0f} %); {} evictions",
       d.relecturas, lecturas_tramo,
       lecturas_tramo ? 100.0 * double(d.relecturas) / double(lecturas_tramo) : 0.0,
       d.bytes_relectura / (1024.0 * 1024.0),
@@ -310,24 +310,24 @@ void QuizaResumenIo(uint64_t ahora_us) {
    * the line there is no way to tell whether it works.
    *
    * How to read it:
-   *  - "expulsiones" at 0 is what is expected. If it grows, the cap is too small and the LRU
+   *  - "evictions" at 0 is what is expected. If it grows, the cap is too small and the LRU
    *    drops entries before reusing them, which is exactly how the block cache died.
-   *  - "de la SD" against "desde RAM" is the amplification. By exact range it must be 1:1 on
+   *  - "from the SD" against "from RAM" is the amplification. By exact range it must be 1:1 on
    *    the first lap and go down from there; if more SD were read than delivered, something is
    *    wrong (the block cache read 318 for 304 delivered, and that is why it was turned off).
    */
   const auto rangos = rex::filesystem::LeerEstadisticasRangos();
   const uint64_t rangos_total = rangos.aciertos + rangos.fallos;
   REXKRNL_INFO(
-      "[io] rangos-cache: {} aciertos / {} fallos ({:.0f} %), {:.1f} MB desde RAM contra {:.1f} MB "
-      "de la SD; {} entradas vivas ({:.1f} MB de {} tope), {} expulsiones; no cacheadas: {} bajo el "
-      "suelo de {} KB, {} sobre el techo, {} del barrido de carga ({:.1f} MB){}",
+      "[io] range-cache: {} hits / {} misses ({:.0f} %), {:.1f} MB from RAM against {:.1f} MB "
+      "from the SD; {} live entries ({:.1f} MB of {} cap), {} evictions; not cached: {} below the "
+      "floor of {} KB, {} above the ceiling, {} from the load sweep ({:.1f} MB){}",
       rangos.aciertos, rangos.fallos,
       rangos_total ? 100.0 * double(rangos.aciertos) / double(rangos_total) : 0.0,
       rangos.bytes_ram / (1024.0 * 1024.0), rangos.bytes_disco / (1024.0 * 1024.0), rangos.entradas,
       rangos.bytes_vivos / (1024.0 * 1024.0), rangos.tope_mb, rangos.expulsiones, rangos.bajo_suelo,
       rangos.suelo_kb, rangos.sobre_techo, rangos.secuenciales,
-      rangos.secuenciales_bytes / (1024.0 * 1024.0), rangos.sin_memoria ? " [APAGADA: sin memoria]" : "");
+      rangos.secuenciales_bytes / (1024.0 * 1024.0), rangos.sin_memoria ? " [OFF: out of memory]" : "");
 }
 
 // Always measured: reading the monotonic clock on Horizon is a processor register read, not a system call.
@@ -343,8 +343,8 @@ inline void AnotarApertura(uint64_t us, bool ok, const std::string_view ruta) {
   const int32_t aviso_ms = REXCVAR_GET(nfsmw_io_aviso_ms);
   if (aviso_ms > 0 && us >= static_cast<uint64_t>(aviso_ms) * 1000ull &&
       g_io_avisos.fetch_add(1, std::memory_order_relaxed) < 300) {
-    REXKRNL_WARN("[io] LENTO: abrir '{}' tardo {:.1f} ms ({})", ruta, us / 1000.0,
-                 ok ? "abierto" : "no existe");
+    REXKRNL_WARN("[io] SLOW: opening '{}' took {:.1f} ms ({})", ruta, us / 1000.0,
+                 ok ? "opened" : "does not exist");
   }
 }
 
@@ -361,8 +361,8 @@ inline void AnotarLectura(uint64_t us, uint32_t bytes, const std::string_view ru
   if (aviso_ms > 0 && us >= static_cast<uint64_t>(aviso_ms) * 1000ull &&
       g_io_avisos.fetch_add(1, std::memory_order_relaxed) < 300) {
     // The offset is included. Without it a sequential sweep cannot be told apart from a reread.
-    REXKRNL_WARN("[io] LENTO: leer {} bytes de '{}' en {} tardo {:.1f} ms{}", bytes, ruta,
-                 desplazamiento, us / 1000.0, releida ? " (RELEIDA)" : "");
+    REXKRNL_WARN("[io] SLOW: reading {} bytes of '{}' at {} took {:.1f} ms{}", bytes, ruta,
+                 desplazamiento, us / 1000.0, releida ? " (REREAD)" : "");
   }
 }
 
@@ -390,7 +390,7 @@ void NfsmwAnotarApertura(const rex::filesystem::Entry* entrada, const std::strin
     g_nfsmw_wmv_abiertos.erase(g_nfsmw_wmv_abiertos.begin());
   }
   g_nfsmw_wmv_abiertos.emplace_back(entrada, ruta);
-  REXLOG_INFO("[video] el juego abre '{}'", ruta);
+  REXLOG_INFO("[video] the game opens '{}'", ruta);
 }
 
 void NfsmwAnotarLectura(const rex::filesystem::Entry* entrada) {
@@ -399,7 +399,7 @@ void NfsmwAnotarLectura(const rex::filesystem::Entry* entrada) {
     if (e == entrada) {
       if (r != g_nfsmw_ultimo_wmv_leido) {
         g_nfsmw_ultimo_wmv_leido = r;
-        REXLOG_INFO("[video] el juego lee '{}'", r);
+        REXLOG_INFO("[video] the game reads '{}'", r);
       }
       return;
     }
@@ -1055,7 +1055,7 @@ u32 NtFlushBuffersFile_entry(u32 file_handle, ppc_ptr_t<X_IO_STATUS_BLOCK> io_st
     result = file->Flush();
     static std::atomic<uint32_t> avisos{0};
     if (avisos.fetch_add(1, std::memory_order_relaxed) < 16) {
-      REXKRNL_INFO("[guardado] NtFlushBuffersFile: {} bajado al disco (resultado {:08X})",
+      REXKRNL_INFO("[guardado] NtFlushBuffersFile: {} flushed to disk (result {:08X})",
                    file->path(), uint32_t(result));
     }
   }

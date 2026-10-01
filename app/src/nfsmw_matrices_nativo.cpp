@@ -70,7 +70,7 @@
 //   the ones in nfsmw_material_nativo.cpp), it is undone, the original runs (with the real hooks) and the
 //   recorded bytes, the whole frame (416 bytes), r3, r1 and the FPCR are compared. The original's result is
 //   always kept. A single difference turns the native version off for the session and writes
-//   "[matrices] DIFERENCIA". "[matrices]" line every 10 s.
+//   "[matrices] DIFFERENCE". "[matrices]" line every 10 s.
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -87,9 +87,9 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_matrices_nativo, true, "NFSMW",
-                    "Matrices por dibujo (sub_824538D0: A x P, A x Q, A x C y la inversa rigida de A) en nativo "
-                    "(build 176), identico bit a bit. Se comprueba contra la original (las primeras 100.000 llamadas "
-                    "de cada camino y despues 1 de cada 4096) y se apaga sola si difiere; false = la original")
+                    "Per-draw matrices (sub_824538D0: A x P, A x Q, A x C and the rigid inverse of A) in native code "
+                    "(build 176), bit-identical. Checked against the original (the first 100,000 calls "
+                    "of each path and then 1 of every 4096) and turns itself off if they differ; false = the original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_824538D0);
@@ -747,7 +747,7 @@ constexpr uint32_t kMaxAnotaciones = 96;      // 6 from the prologue and the cac
 constexpr uint32_t kMarcoVigilado = kMarco + 32;  // the frame and the caller's r3/r4 slots (up to r1+416)
 
 enum Tipo : uint32_t { kTipoCache = 0, kTipoCalculo = 1, kTipos = 2 };
-constexpr const char* kNombres[kTipos] = {"cache", "calculo"};
+constexpr const char* kNombres[kTipos] = {"cache", "computation"};
 
 struct Contadores {
   std::atomic<uint64_t> llamadas{0};
@@ -786,24 +786,24 @@ void Informe() {
   }
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[matrices] sub_824538D0 en nativo (build 176); se comprueban contra la original las primeras {} "
-                "llamadas de cada camino (cache y calculo) y despues 1 de cada {}",
+    REXLOG_INFO("[matrices] sub_824538D0 in native code (build 176); the first {} calls of each path (cache and "
+                "computation) are checked against the original, then 1 of every {}",
                 kComprobaciones, kPeriodo);
     return;
   }
   std::string linea;
   for (uint32_t t = 0; t < kTipos; ++t) {
     Contadores& c = g_c[t];
-    linea += fmt::format(" | {}: {} nativas, {} originales, {} comprobadas", kNombres[t],
+    linea += fmt::format(" | {}: {} native, {} original, {} checked", kNombres[t],
                          c.nativas.exchange(0, std::memory_order_relaxed),
                          c.originales.exchange(0, std::memory_order_relaxed),
                          c.comprobadas.exchange(0, std::memory_order_relaxed));
   }
-  NFSMW_INFORME_DIFERIDO("[matrices] ultimos 10 s{} | a la original por pila desalineada {}, entrada en el marco {}, NaN {}{}",
+  NFSMW_INFORME_DIFERIDO("[matrices] last 10 s{} | to the original for misaligned stack {}, input inside the frame {}, NaN {}{}",
               linea, g_motivos[kPorPila].exchange(0, std::memory_order_relaxed),
               g_motivos[kPorMarco].exchange(0, std::memory_order_relaxed),
               g_motivos[kPorNaN].exchange(0, std::memory_order_relaxed),
-              g_apagado.load(std::memory_order_relaxed) ? " | APAGADA por diferencia" : "");
+              g_apagado.load(std::memory_order_relaxed) ? " | OFF after a difference" : "");
 }
 
 std::string Hex(const uint8_t* bytes, uint32_t n) {
@@ -869,8 +869,8 @@ void NotarComprobada(uint32_t tipo) {
   const uint64_t total = c.comprobadas_total.load(std::memory_order_relaxed) + 1;
   c.comprobadas_total.store(total, std::memory_order_relaxed);
   if (total == kComprobaciones && !g_apagado.load(std::memory_order_relaxed)) {
-    REXLOG_INFO("[matrices] sub_824538D0 (camino {}): {} llamadas comprobadas contra la original byte a byte, 0 "
-                "diferencias: camino nativo en marcha",
+    REXLOG_INFO("[matrices] sub_824538D0 (path {}): {} calls checked against the original byte by byte, 0 "
+                "differences: native path running",
                 kNombres[tipo], kComprobaciones);
   }
 }
@@ -936,27 +936,27 @@ void NotarComprobada(uint32_t tipo) {
     }
   }
   const char* motivo = nullptr;
-  if (reg.lleno) motivo = "demasiadas escrituras";
-  else if (mala < reg.n) motivo = "bytes distintos";
-  else if (byte_marco < kMarcoVigilado) motivo = "marco de pila distinto";
-  else if (ctx.r3.u64 != r3_esperado) motivo = "r3 distinto";
-  else if (ctx.r1.u64 != r1x.u64) motivo = "r1 distinto";
-  else if (ctx.fpscr.csr != csr_esperado) motivo = "FPCR de la original distinto";
-  else if (csr_nativa != csr_esperado) motivo = "FPCR de la nativa distinto";
+  if (reg.lleno) motivo = "too many writes";
+  else if (mala < reg.n) motivo = "different bytes";
+  else if (byte_marco < kMarcoVigilado) motivo = "different stack frame";
+  else if (ctx.r3.u64 != r3_esperado) motivo = "different r3";
+  else if (ctx.r1.u64 != r1x.u64) motivo = "different r1";
+  else if (ctx.fpscr.csr != csr_esperado) motivo = "different FPCR in the original";
+  else if (csr_nativa != csr_esperado) motivo = "different FPCR in the native version";
   NotarComprobada(tipo);
   if (!motivo) {
     return;
   }
   g_apagado.store(true, std::memory_order_relaxed);  // the state is already the original's
   const Anotacion* a = mala < reg.n ? &reg.a[mala] : nullptr;
-  REXLOG_INFO("[matrices] DIFERENCIA en sub_824538D0 ({}; camino {}, comprobacion {}): r3 0x{:08X} r4 0x{:08X} r5 "
-              "0x{:08X} r1 0x{:08X}; escritoras {}; direccion 0x{:08X} nativa {} original {}; primer byte distinto "
-              "del marco: {}; r3 nativa 0x{:X} original 0x{:X}; FPCR entrada 0x{:X} nativa 0x{:X} original 0x{:X}. "
-              "Camino nativo APAGADO para siempre, se queda la original",
+  REXLOG_INFO("[matrices] DIFFERENCE in sub_824538D0 ({}; path {}, check {}): r3 0x{:08X} r4 0x{:08X} r5 "
+              "0x{:08X} r1 0x{:08X}; writers {}; address 0x{:08X} native {} original {}; first different byte "
+              "of the frame: {}; r3 native 0x{:X} original 0x{:X}; FPCR entry 0x{:X} native 0x{:X} original 0x{:X}. "
+              "Native path turned OFF for good, the original stays",
               motivo, kNombres[tipo], g_c[tipo].comprobadas_total.load(std::memory_order_relaxed), r3e.u32, r4e.u32,
               r5e.u32, r1e.u32, esc.llamadas, a ? a->direccion : 0u, a ? Hex(a->despues, a->bytes) : std::string("-"),
               a ? Hex(Puntero(base, a->direccion), a->bytes) : std::string("-"),
-              byte_marco < kMarcoVigilado ? fmt::format("r1+{}", byte_marco) : std::string("ninguno"), r3_esperado,
+              byte_marco < kMarcoVigilado ? fmt::format("r1+{}", byte_marco) : std::string("none"), r3_esperado,
               ctx.r3.u64, csr_e, csr_nativa, ctx.fpscr.csr);
 }
 

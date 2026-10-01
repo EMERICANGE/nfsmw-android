@@ -76,7 +76,7 @@
 //        and every call it would make is compared with the recorded one.
 //     4. The call list, the arguments, the 9 words and, on return, r3/r1/lr (and r12, r9-r11 on the short
 //        paths) must match. A difference turns the native version off for the session and writes
-//        "[eview] DIFERENCIA".
+//        "[eview] DIFFERENCE".
 //   The final state is always the original's. One thread at a time (if another one is checking, the
 //   original runs at first and the native version afterwards). If the trace fills up (more than 1021 drawn
 //   submeshes), that call does not count. "[eview]" line every 10 s: native calls, original calls, checked
@@ -95,9 +95,9 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_eview_nativo, true, "NFSMW",
-                    "eViewPlatInterface::Render (sub_8243E358, el bucle de submallas de cada modelo) en nativo, "
-                    "identico bit a bit (build 176). Se comprueba contra la original al empezar y 1 de cada 4096 "
-                    "llamadas despues, y se apaga sola si difiere; false = la original")
+                    "eViewPlatInterface::Render (sub_8243E358, the submesh loop of each model) in native code, "
+                    "bit-for-bit identical (build 176). Checked against the original at the start and 1 of every 4096 "
+                    "calls afterwards, and turns itself off if it differs; false = the original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // This file only names by their 8 digits the functions it hooks or that were already hooked
@@ -393,7 +393,7 @@ struct Real {
 // Guard: trace of the original's calls and dry replay of the native version.
 // ---------------------------------------------------------------------------------------------------------------
 enum Tipo : uint8_t { k500010 = 0, kB18 = 1, kPaquete = 2, kAB8 = 3 };
-constexpr const char* kNombreLlamada[] = {"8250_0010", "8221_8B18", "paquete 8245_2868", "8221_8AB8"};
+constexpr const char* kNombreLlamada[] = {"8250_0010", "8221_8B18", "packet 8245_2868", "8221_8AB8"};
 
 struct Evento {
   uint8_t tipo;
@@ -502,18 +502,18 @@ struct Repeticion {
   void Comparar(const Evento& x) {
     if (k >= t.n) {
       if (!t.lleno) {  // with the trace full, whatever is beyond it cannot be compared (not a difference)
-        Fallo("la nativa llama de mas");
+        Fallo("native makes extra calls");
       }
       ++k;
       return;
     }
     const Evento& y = t.ev[k];
     if (y.tipo != x.tipo) {
-      Fallo("otra funcion");
+      Fallo("different function");
     } else if (std::memcmp(y.r, x.r, sizeof(x.r)) != 0) {
-      Fallo("otros registros");
+      Fallo("different registers");
     } else if (std::memcmp(y.pila, x.pila, sizeof(x.pila)) != 0) {
-      Fallo("otra pila");
+      Fallo("different stack");
     }
     ++k;
   }
@@ -596,8 +596,8 @@ void Informe() {
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   const int64_t desde = g_desde_ms.exchange(ahora, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[eview] Render (8243E358) en nativo (build 176): se comprueban contra la original las primeras {} "
-                "llamadas y despues 1 de cada {}",
+    REXLOG_INFO("[eview] Render (8243E358) in native code (build 176): the first {} calls are checked against the "
+                "original and then 1 of every {}",
                 kComprobacionesRender, kPeriodo);
     g_medidas.store(0, std::memory_order_relaxed);
     g_medidas_ns.store(0, std::memory_order_relaxed);
@@ -608,12 +608,12 @@ void Informe() {
   const uint64_t medidas = g_medidas.exchange(0, std::memory_order_relaxed);
   const uint64_t ns = g_medidas_ns.exchange(0, std::memory_order_relaxed);
   const double us = medidas ? double(ns) / double(medidas) / 1000.0 : 0.0;
-  NFSMW_INFORME_DIFERIDO("[eview] ultimos {:.1f} s: Render {} nativas ({:.2f} us por llamada con GetVisibleState y el paquete "
-              "dentro = {:.1f} ms/s), {} originales, {} comprobadas{}; comprobadas desde el arranque {} ({} sin poder "
-              "comprobar)",
+  NFSMW_INFORME_DIFERIDO("[eview] last {:.1f} s: Render {} native ({:.2f} us per call with GetVisibleState and the packet "
+              "included = {:.1f} ms/s), {} original, {} checked{}; checked since startup {} ({} could not be "
+              "checked)",
               segundos, nativas, us, segundos > 0 ? us * double(nativas) / 1000.0 / segundos : 0.0,
               g_originales.exchange(0, std::memory_order_relaxed), g_comprobadas.exchange(0, std::memory_order_relaxed),
-              g_apagado.load(std::memory_order_relaxed) ? " | APAGADA por diferencia" : "",
+              g_apagado.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "",
               g_comprobadas_total.load(std::memory_order_relaxed), g_sin_comprobar.load(std::memory_order_relaxed));
 }
 
@@ -650,15 +650,15 @@ void Informe() {
   t.camino = p.ab8 ? 3u : p.camino == 2 ? 2u : 1u;
 
   if (!t.fallo && p.k != t.n && !t.lleno) {
-    p.Fallo("la original llama a mas funciones");
+    p.Fallo("the original calls more functions");
   }
   if (!t.fallo) {
     if (en_ab8 != p.ab8) {
-      t.fallo = en_ab8 ? "la nativa no llega a 8221_8AB8" : "la nativa llama a 8221_8AB8 y la original no";
+      t.fallo = en_ab8 ? "native never reaches 8221_8AB8" : "native calls 8221_8AB8, original does not";
     } else if (en_ab8 && (p.ab8_r3 != ctx.r3.u64 || p.ab8_r4 != ctx.r4.u64)) {
-      t.fallo = "8221_8AB8 con otros registros";
+      t.fallo = "8221_8AB8 with different registers";
     } else if (t.s.inesperada) {
-      t.fallo = "escritura fuera de las 9 palabras";
+      t.fallo = "write outside the 9 words";
     } else {
       for (uint32_t i = 0; i < t.s.n; ++i) {
         if (Leer32(base, t.s.dir[i]) != t.s.val[i]) {
@@ -677,22 +677,22 @@ void Apagar(const PPCContext& ctx, uint64_t n, const char* que, bool de_la_traza
   const Traza& t = g_traza;
   std::string detalle;
   if (!de_la_traza) {
-    detalle = fmt::format("; al volver: r1 0x{:X} r3 0x{:X} lr 0x{:X} r12 0x{:X}", ctx.r1.u64, ctx.r3.u64, ctx.lr,
+    detalle = fmt::format("; on return: r1 0x{:X} r3 0x{:X} lr 0x{:X} r12 0x{:X}", ctx.r1.u64, ctx.r3.u64, ctx.lr,
                           ctx.r12.u64);
   } else if (std::strcmp(que, "memoria distinta") == 0 && t.donde < t.s.n) {
-    detalle = fmt::format("; palabra 0x{:08X}: nativa 0x{:08X}, original 0x{:08X}", t.s.dir[t.donde],
+    detalle = fmt::format("; word 0x{:08X}: native 0x{:08X}, original 0x{:08X}", t.s.dir[t.donde],
                           t.s.val[t.donde], t.memoria_original);
   } else if (t.donde < t.n) {
     const Evento& y = t.ev[t.donde];
-    detalle = fmt::format("; llamada {} de la original: {} r3 0x{:X} r4 0x{:X} r5 0x{:X} r6 0x{:X} r7 0x{:X}",
+    detalle = fmt::format("; call {} of the original: {} r3 0x{:X} r4 0x{:X} r5 0x{:X} r6 0x{:X} r7 0x{:X}",
                           t.donde, kNombreLlamada[y.tipo], y.r[0], y.r[1], y.r[2], y.r[3], y.r[4]);
   } else if (t.n == 0 && t.camino == 3) {
-    detalle = "; la traza esta VACIA: las llamadas de la Render original no pasan por los ganchos de este fichero "
-              "(falta revertir_llamadas_eview.py en app/generated/default?)";
+    detalle = "; the trace is EMPTY: the original Render's calls do not go through this file's hooks "
+              "(revertir_llamadas_eview.py missing in app/generated/default?)";
   }
-  REXLOG_INFO("[eview] DIFERENCIA en Render ({}; llamada {}, camino {}): vista 0x{:08X} modelo 0x{:08X} matriz "
-              "0x{:08X} r1 0x{:08X}; la original hizo {} llamadas{}. Camino nativo APAGADO para el resto de la "
-              "sesion, se queda la original",
+  REXLOG_INFO("[eview] DIFFERENCE in Render ({}; call {}, path {}): view 0x{:08X} model 0x{:08X} matrix "
+              "0x{:08X} r1 0x{:08X}; the original made {} calls{}. Native path OFF for the rest of the "
+              "session, the original stays",
               que, n, t.camino, uint32_t(t.e.r3), uint32_t(t.e.r4), uint32_t(t.e.r5), uint32_t(t.e.r1), t.n, detalle);
 }
 
@@ -746,15 +746,15 @@ void Apagar(const PPCContext& ctx, uint64_t n, const char* que, bool de_la_traza
   if (!que) {
     const uint64_t marco64 = t.marco64;
     if (ctx.r1.u64 != marco64 + kMarco) {
-      que = "r1 distinto";
+      que = "r1 differs";
     } else if (t.camino == 3) {
-      if (ctx.r3.u64 != t.e.r4) que = "r3 distinto";
-      else if (ctx.lr != kLrAB8) que = "lr distinto";
+      if (ctx.r3.u64 != t.e.r4) que = "r3 differs";
+      else if (ctx.lr != kLrAB8) que = "lr differs";
     } else {
-      if (ctx.r3.u64 != t.e.r3) que = "r3 distinto";
-      else if (ctx.lr != kLrPrologo || ctx.r12.u64 != t.e.lr) que = "r12/lr distintos";
+      if (ctx.r3.u64 != t.e.r3) que = "r3 differs";
+      else if (ctx.lr != kLrPrologo || ctx.r12.u64 != t.e.lr) que = "r12/lr differ";
       else if (t.camino == 2 && (ctx.r11.u64 != kR11Bandera || ctx.r10.u64 != (t.banderas & 0x800u) ||
-                                 ctx.r9.u64 != t.salir)) que = "r9-r11 distintos";
+                                 ctx.r9.u64 != t.salir)) que = "r9-r11 differ";
     }
   }
   if (t.lleno && !que) {
@@ -769,8 +769,8 @@ void Apagar(const PPCContext& ctx, uint64_t n, const char* que, bool de_la_traza
   const uint64_t total = g_comprobadas_total.load(std::memory_order_relaxed) + 1;
   g_comprobadas_total.store(total, std::memory_order_relaxed);
   if (total == kComprobacionesRender) {
-    REXLOG_INFO("[eview] Render: {} llamadas comprobadas contra la original (llamadas, argumentos, pila y registros), "
-                "0 diferencias: camino nativo en marcha, y sigue comprobando 1 de cada {}",
+    REXLOG_INFO("[eview] Render: {} calls checked against the original (calls, arguments, stack and registers), "
+                "0 differences: native path running, and still checking 1 of every {}",
                 total, kPeriodo);
   }
 }

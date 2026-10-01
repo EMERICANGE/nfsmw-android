@@ -40,8 +40,8 @@ On the device connected on 1 October 2026, the following was checked:
 - BC1, BC2, BC3, BC4 and BC5 are not supported as sampled images.
 - The executable and the shader library match, by SHA256, the PAL Spain copy
   used in the earlier tests.
-- Startup gets as far as creating Vulkan, but the renderer logs (no shaderInt64,
-  so nothing is drawn): `C6: el dispositivo Vulkan no tiene shaderInt64: no se dibuja`.
+- Startup gets as far as creating Vulkan, but the renderer logs
+  `C6: the Vulkan device has no shaderInt64: nothing is drawn`.
 - Kernel 4.14 ignores `MAP_FIXED_NOREPLACE` and can return a different address.
   The runtime accepted that address as a correct fixed reservation, which left
   the reused guest stack protected. This is fixed by checking the returned

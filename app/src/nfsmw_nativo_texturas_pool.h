@@ -25,8 +25,8 @@
 // The measurement (console, entering a new zone)
 //
 //   From rex_perfil.log:
-//     "NvMap nuevos 17.6 con cache (2.8 MB) y 0.3 sin cache (0.0 MB), 7.8 ms |
-//      direcciones de GPU 35.4 (4.0 ms), mapeos 35.4 (0.0 MB, 19.2 ms)"
+//     "new NvMap 17.6 cached (2.8 MB) and 0.3 uncached (0.0 MB), 7.8 ms |
+//      GPU addresses 35.4 (4.0 ms), mappings 35.4 (0.0 MB, 19.2 ms)"
 //   -> 31.0 ms/s of CPU just allocating and mapping. And 35.4/17.9 = 1.98: two VAs and two
 //      mappings per NvMap, exactly what the code above predicts.
 //
