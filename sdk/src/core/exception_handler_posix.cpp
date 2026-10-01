@@ -20,6 +20,7 @@
 #if REX_PLATFORM_LINUX || REX_PLATFORM_MAC
 
 #include <signal.h>
+#include <unistd.h>
 
 #include <cstdint>
 #include <cstring>
@@ -417,6 +418,19 @@ static void ExceptionHandlerCallback(int signal_number, siginfo_t* signal_info,
       return;
     }
   }
+#if REX_PLATFORM_ANDROID
+  // Nobody handled this fault. Returning with our handler still installed
+  // retries the same instruction forever (black screen and a log storm).
+  // Restore Android/ART's previous handler; the repeated synchronous fault
+  // then follows the normal crash path, including debuggerd's tombstone.
+  const struct sigaction* original = signal_number == SIGILL
+      ? &original_sigill_handler_ : &original_sigsegv_handler_;
+  struct sigaction fallback = *original;
+  if (fallback.sa_handler == SIG_IGN) fallback.sa_handler = SIG_DFL;
+  if (sigaction(signal_number, &fallback, nullptr) != 0) {
+    _exit(128 + signal_number);
+  }
+#endif
 }
 
 void ExceptionHandler::Install(Handler fn, void* data) {

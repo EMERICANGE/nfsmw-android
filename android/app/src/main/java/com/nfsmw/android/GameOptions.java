@@ -41,8 +41,12 @@ final class GameOptions {
 
     static final String RESOLUTION = "resolution";
     static final String FPS = "fps";
+    static final String RENDERER = "renderer";
 
     static final Option[] ALL = {
+            new Option(RENDERER, "Renderizador", "nfsmw_renderizador", "nativo",
+                    new String[] {"nativo", "xenos"},
+                    new String[] {"Nativo", "Compatibilidad · experimental"}),
             new Option(RESOLUTION, "Resolución interna", "nfsmw_resolucion_interna", "1280x720",
                     new String[] {"640x360", "1024x576", "1280x720", "1920x1080"},
                     new String[] {"640x360 · máximo rendimiento", "1024x576 · rendimiento", "1280x720 · equilibrado",
@@ -112,6 +116,27 @@ final class GameOptions {
         List<String> args = new ArrayList<>();
         for (Option o : ALL) {
             args.add("--" + o.cvar + "=" + get(context, o.key));
+        }
+        if ("xenos".equals(get(context, RENDERER))) {
+            // Use ordinary descriptor sets and host framebuffers on older drivers.
+            // Xenos also decompresses unsupported BC texture formats on the GPU.
+            args.add("--vulkan_native_shader_features=false");
+            args.add("--render_target_path_vulkan=fbo");
+            args.add("--vulkan_require_geometry_shader=false");
+            args.add("--vulkan_require_fill_mode_non_solid=false");
+            args.add("--async_shader_compilation=false");
+            args.add("--nfsmw_d3d_registros_nativo=false");
+            args.add("--nfsmw_d3d_marcador=false");
+            args.add("--nfsmw_d3d_marcador_registro=false");
+            args.add("--nfsmw_d3d_efectos_nativo=false");
+            args.add("--nfsmw_render_sin_mosaico=false");
+            args.add("--nfsmw_material_nativo=false");
+            args.add("--nfsmw_visible_nativo=false");
+            args.add("--nfsmw_matrices_nativo=false");
+            args.add("--nfsmw_eview_nativo=false");
+            args.add("--nfsmw_escenario_nativo=false");
+            args.add("--nfsmw_efecto_pasada_nativo=false");
+            args.add("--nfsmw_pegamento_nativo=false");
         }
         return args;
     }

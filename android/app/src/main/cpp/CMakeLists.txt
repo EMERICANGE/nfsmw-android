@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(nfsmw_android LANGUAGES C CXX)
 
+# Small launcher probe: it must also load on ARMv8.0 phones without loading the game.
+add_library(nfsmw_diagnostics SHARED android_diagnostico.cpp)
+target_include_directories(nfsmw_diagnostics PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../../../../../sdk/thirdparty/vulkan-headers/include")
+target_compile_options(nfsmw_diagnostics PRIVATE -march=armv8-a)
+target_link_libraries(nfsmw_diagnostics PRIVATE vulkan)
+target_link_options(nfsmw_diagnostics PRIVATE "-Wl,-z,max-page-size=16384")
+
 # SDL's Android Activity loads libSDL3.so and then libmain.so. Keep both native
 # libraries and the ReXGlue app in this Gradle externalNativeBuild graph.
 get_filename_component(NFSMW_REXSDK_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../../sdk" ABSOLUTE)

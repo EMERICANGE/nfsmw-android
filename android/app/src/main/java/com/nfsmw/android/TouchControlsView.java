@@ -336,8 +336,7 @@ public final class TouchControlsView extends View {
             int index = event.getActionIndex();
             float px = event.getX(index), py = event.getY(index);
             Control stick = hitAny(px, py);
-            if (stick != null && stick.type == STICK && stick.pointer < 0 &&
-                    !(stick.id.equals("ls") && tiltSteering)) {
+            if (stick != null && stick.type == STICK && stick.pointer < 0) {
                 stick.pointer = event.getPointerId(index);
                 stick.originX = px;
                 stick.originY = py;
@@ -518,9 +517,11 @@ public final class TouchControlsView extends View {
         boolean active = !editing && !hiddenByGamepad;
         int buttons = active ? buttonState() : 0;
         int lx = 0, ly = 0, rx = 0, ry = 0, lt = 0, rt = 0;
+        boolean steeringHeld = false;
         if (active) {
             for (Control c : controls) {
                 if (c.type == STICK && c.id.equals("ls")) {
+                    steeringHeld = c.pointer >= 0;
                     lx = axis(c.knobX);
                     ly = axis(-c.knobY);  // XInput: up is positive
                 } else if (c.type == STICK) {
@@ -531,7 +532,8 @@ public final class TouchControlsView extends View {
                     else rt = 255;
                 }
             }
-            if (tiltSteering) {
+            // Touch steering wins while held; releasing it resumes tilt steering.
+            if (tiltSteering && !steeringHeld) {
                 lx = axis(clamp(tilt * tiltSensitivity, -1f, 1f));
             }
         }
@@ -601,7 +603,7 @@ public final class TouchControlsView extends View {
             case STICK: {
                 boolean held = c.pointer >= 0;
                 float bx = held ? c.originX : cx, by = held ? c.originY : cy;
-                boolean tiltMode = c.id.equals("ls") && tiltSteering && !editing;
+                boolean tiltMode = c.id.equals("ls") && tiltSteering && !editing && !held;
                 fill.setColor(withAlpha(0xFF101820, a * 110 / 255));
                 canvas.drawCircle(bx, by, r, fill);
                 stroke.setStrokeWidth(Math.max(2f, r * .03f));

@@ -51,9 +51,9 @@ function(rexglue_apply_target_settings target_name)
             target_link_options(${target_name} PRIVATE -Wl,--no-relax)
             target_compile_options(${target_name} PRIVATE -mcmodel=large)
         elseif(ANDROID)
-            # ARMv8.2: LSE atomics (the guest's lwarx/stwcx. become std::atomic), FP16 and RDM. Every
-            # phone able to run the game has it (Cortex-A55/A75 and later).
-            target_compile_options(${target_name} PRIVATE -march=armv8.2-a)
+            # Use armv8-a for compatibility with ARMv8.0 devices (e.g. Snapdragon 665 / Cortex-A73/A53)
+            # as well as newer ARMv8.2+ processors.
+            target_compile_options(${target_name} PRIVATE -march=armv8-a)
         elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
             target_compile_options(${target_name} PRIVATE -march=armv8-a)
         endif()

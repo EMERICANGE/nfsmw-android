@@ -12,6 +12,8 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ActivityNotFoundException;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -28,6 +30,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.documentfile.provider.DocumentFile;
+import androidx.core.content.FileProvider;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -43,18 +46,29 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_GAME_FOLDER = 41;
     private static final int REQUEST_STORAGE_ACCESS = 42;
     private static final int REQUEST_LEGACY_STORAGE = 43;
+    private static final int REQUEST_SAVE_REPORT = 44;
     private static final String TREE_URI = "tree_uri";
     static final String GAME_FOLDER_NAME = "nsfmw-androidevolved";
 
     private TextView importStatus;
     private Button selectFolder;
     private Button launchGame;
+    private Button sendReport;
+    private File pendingReport;
+    private boolean pendingGithub;
     private final ExecutorService importer = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        if (state != null) {
+            String name = state.getString("pending_report");
+            if (name != null && name.equals(new File(name).getName())) {
+                pendingReport = new File(new File(getCacheDir(), "reports"), name);
+                pendingGithub = state.getBoolean("pending_github");
+            }
+        }
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN |
@@ -170,6 +184,12 @@ public final class MainActivity extends Activity {
         optionsList.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(optionsList);
         right.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        sendReport = actionButton("Enviar crash o log", false);
+        sendReport.setOnClickListener(view -> chooseReportDestination());
+        LinearLayout.LayoutParams reportParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+        reportParams.topMargin = dp(8);
+        right.addView(sendReport, reportParams);
         refreshOptions();
         return screen;
     }
@@ -177,11 +197,160 @@ public final class MainActivity extends Activity {
     // ---- Shader library ------------------------------------------------------------------------------------
 
     private void play() {
-        if (ShaderBuilder.hasLibrary(sharedGameRoot())) {
+        launchGame.setEnabled(false);
+        Diagnostics.recordLaunch(this);
+        importer.execute(() -> {
+            String problem = "nativo".equals(GameOptions.get(this, GameOptions.RENDERER))
+                    ? Diagnostics.incompatibility() : null;
+            mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                launchGame.setEnabled(true);
+                if (problem != null) {
+                    new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                            .setTitle("Probar otro renderizador")
+                            .setMessage(problem + "\n\nPuedes probar el modo de compatibilidad experimental. Puede tener errores gráficos o funcionar más lento.")
+                            .setPositiveButton("Probar compatibilidad", (dialog, which) -> {
+                                GameOptions.set(this, GameOptions.RENDERER, "xenos");
+                                refreshOptions();
+                                playCompatibleGame();
+                            })
+                            .setNeutralButton("Enviar diagnóstico", (dialog, which) -> chooseReportDestination())
+                            .setNegativeButton("Volver", null).show();
+                } else {
+                    playCompatibleGame();
+                }
+            });
+        });
+    }
+
+    private void playCompatibleGame() {
+        if ("xenos".equals(GameOptions.get(this, GameOptions.RENDERER)) || ShaderBuilder.hasLibrary(sharedGameRoot())) {
             startActivity(new Intent(this, GameActivity.class));
         } else {
             buildShaders(true);
         }
+    }
+
+    // ---- Tester reports ------------------------------------------------------------------------------------
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        if (pendingReport != null) {
+            state.putString("pending_report", pendingReport.getName());
+            state.putBoolean("pending_github", pendingGithub);
+        }
+        super.onSaveInstanceState(state);
+    }
+
+    private void chooseReportDestination() {
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Enviar crash o log")
+                .setMessage("El informe incluye modelo, Android, GPU, ajustes y registros de esta app. Añade qué ocurrió antes de enviarlo.")
+                .setPositiveButton("Correo", (dialog, which) -> prepareReport(0))
+                .setNeutralButton("GitHub", (dialog, which) -> prepareReport(1))
+                .setNegativeButton("Guardar ZIP", (dialog, which) -> prepareReport(2)).show();
+    }
+
+    private void reportError(String message) {
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Diagnóstico").setMessage(message).setPositiveButton("Aceptar", null).show();
+    }
+
+    private void prepareReport(int destination) {
+        sendReport.setEnabled(false);
+        sendReport.setText("Preparando diagnóstico…");
+        importer.execute(() -> {
+            try {
+                File report = Diagnostics.createReport(this);
+                mainHandler.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    sendReport.setEnabled(true);
+                    sendReport.setText("Enviar crash o log");
+                    if (destination == 0) shareReportByEmail(report);
+                    else saveReport(report, destination == 1);
+                });
+            } catch (Exception error) {
+                mainHandler.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    sendReport.setEnabled(true);
+                    sendReport.setText("Enviar crash o log");
+                    reportError("No se pudo preparar el informe: " + error.getMessage());
+                });
+            }
+        });
+    }
+
+    private void shareReportByEmail(File report) {
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".reports", report);
+        Intent email = new Intent(Intent.ACTION_SEND);
+        email.setType("application/zip");
+        email.putExtra(Intent.EXTRA_EMAIL, new String[]{Diagnostics.EMAIL});
+        email.putExtra(Intent.EXTRA_SUBJECT, "NFSMW Android: " + Build.MODEL + " — diagnóstico");
+        email.putExtra(Intent.EXTRA_TEXT, Diagnostics.summary(this) + "\nQué ocurrió:\n\nPasos para reproducirlo:\n\nEdición del juego:\n\nAdjunto el diagnóstico.");
+        email.putExtra(Intent.EXTRA_STREAM, uri);
+        email.setClipData(ClipData.newUri(getContentResolver(), "Diagnóstico NFSMW", uri));
+        email.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivity(Intent.createChooser(email, "Enviar a " + Diagnostics.EMAIL)); }
+        catch (ActivityNotFoundException error) { saveReport(report, false); }
+    }
+
+    private void saveReport(File report, boolean github) {
+        pendingReport = report;
+        pendingGithub = github;
+        if (github) {
+            new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Reportar en GitHub")
+                    .setMessage("Primero guarda el ZIP. Después se abrirá el issue: describe el problema y adjunta el ZIP guardado.")
+                    .setPositiveButton("Guardar y abrir GitHub", (dialog, which) -> chooseReportFile())
+                    .setNegativeButton("Cancelar", (dialog, which) -> pendingReport = null).show();
+        } else chooseReportFile();
+    }
+
+    private void chooseReportFile() {
+        Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        save.addCategory(Intent.CATEGORY_OPENABLE);
+        save.setType("application/zip");
+        save.putExtra(Intent.EXTRA_TITLE, pendingReport.getName());
+        try { startActivityForResult(save, REQUEST_SAVE_REPORT); }
+        catch (ActivityNotFoundException error) {
+            pendingReport = null;
+            reportError("No hay una aplicación para guardar archivos. Prueba la opción Correo.");
+        }
+    }
+
+    private void finishReportSave(Uri destination) {
+        File report = pendingReport;
+        boolean github = pendingGithub;
+        pendingReport = null;
+        if (report == null || !report.isFile()) {
+            reportError("El informe ya no está disponible. Genera uno nuevo.");
+            return;
+        }
+        importer.execute(() -> {
+            try (InputStream input = new FileInputStream(report);
+                 java.io.OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
+                if (output == null) throw new IOException("No se pudo abrir el archivo de destino.");
+                byte[] buffer = new byte[16384];
+                for (int count; (count = input.read(buffer)) != -1;) output.write(buffer, 0, count);
+            } catch (Exception error) {
+                mainHandler.post(() -> {
+                    if (!isFinishing() && !isDestroyed()) reportError("No se pudo guardar el ZIP: " + error.getMessage());
+                });
+                return;
+            }
+            mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (github) {
+                    String body = "### Qué ocurrió\n\n### Pasos para reproducirlo\n\n### Edición del juego\n\n### Dispositivo\n"
+                            + Diagnostics.summary(this) + "\n### Diagnóstico\nAdjunta aquí el archivo **" + report.getName() + "** que acabas de guardar.\n";
+                    Uri issue = Uri.parse(Diagnostics.ISSUES).buildUpon()
+                            .appendQueryParameter("title", "[Android] " + Build.MODEL + ": ")
+                            .appendQueryParameter("body", body).build();
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, issue)); }
+                    catch (ActivityNotFoundException error) { reportError("ZIP guardado. Abre " + Diagnostics.ISSUES + " y adjúntalo al issue."); }
+                } else reportError("ZIP guardado. Puedes adjuntarlo a un issue o enviarlo a " + Diagnostics.EMAIL + ".");
+            });
+        });
     }
 
     /** Builds nfsmw_shaders.nfsp from the game files (a minute or two, only once). */
@@ -369,6 +538,11 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_SAVE_REPORT) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) finishReportSave(data.getData());
+            else pendingReport = null;
+            return;
+        }
         if (requestCode == REQUEST_STORAGE_ACCESS || requestCode == REQUEST_LEGACY_STORAGE) {
             if (hasStorageAccess()) prepareSharedGameFolder();
             else {
@@ -519,7 +693,8 @@ public final class MainActivity extends Activity {
                 deleteRecursively(previous);
                 mainHandler.post(() -> {
                     showSharedGameFolder(null);
-                    if (!ShaderBuilder.hasLibrary(sharedGameRoot())) buildShaders(false);
+                    if ("nativo".equals(GameOptions.get(this, GameOptions.RENDERER)) &&
+                            !ShaderBuilder.hasLibrary(sharedGameRoot())) buildShaders(false);
                 });
             } catch (Exception error) {
                 try { deleteRecursively(staging); } catch (IOException ignored) {}
