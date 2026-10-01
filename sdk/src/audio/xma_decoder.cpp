@@ -35,7 +35,7 @@ REXCVAR_DEFINE_BOOL(ffmpeg_verbose, false, "Audio", "Verbose FFmpeg output (debu
 REXCVAR_DEFINE_BOOL(audio_ffmpeg_simd, true, "Audio",
                     "Diagnostico: false = el decodificador XMA de FFmpeg usa solo codigo C, sin "
                     "NEON ni SSE (para comparar el audio)");
-REXCVAR_DECLARE(bool, audio_diag_prioridad_critica);  // definida en audio_system.cpp
+REXCVAR_DECLARE(bool, audio_diag_prioridad_critica);  // defined in audio_system.cpp
 /*
  * On by default only on the Switch, like the server priority and the frame wait: there the game's
  * audio server thread runs at 0x2D, below the GPU ring (0x2C), and the ring preempts it in the middle
@@ -220,7 +220,7 @@ MedidaXma g_medida_xma;
  * Marking is one atomic operation and walking them takes no lock, so the game thread pays almost
  * nothing to notify. The kick time is stored to measure the latency until the data is ready.
  */
-constexpr uint32_t kPalabrasPendientes = 10;  // 320 contextos / 32
+constexpr uint32_t kPalabrasPendientes = 10;  // 320 contexts / 32
 std::atomic<uint32_t> g_pendientes[kPalabrasPendientes];
 std::atomic<int64_t> g_pendiente_desde_ns{0};
 

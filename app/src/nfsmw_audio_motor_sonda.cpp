@@ -76,17 +76,17 @@ using nfsmw::audio_nativo::LeerFloat;
 constexpr uint32_t kTablaFlujos = 0x82A2AD38 + 772;  // pointers to the user streams, by index
 constexpr uint32_t kSnd = 0x82A2B1D0;  // +14 number of streams (byte), +48 number of voices (16 bits), +136 voices
 constexpr uint32_t kTamVoz = 132;      // voice: +0 handle, +4 first physical voice, +56 volume, +105 in use,
-                                       // +128 tono
+                                       // +128 pitch
 
 constexpr int64_t kHuecoNs = 50'000'000;               // 50 ms without refilling a buffer...
 constexpr uint64_t kOtrosMinimos = 3;                  // ...while other voices refill at least 3
 constexpr int64_t kActualizacionParadaNs = 100'000'000;
 constexpr int64_t kResumenNs = 10'000'000'000;
 constexpr int64_t kTrazaCadaNs = 100'000'000;          // one trace sample every 100 ms
-constexpr size_t kTraza = 64;                          // 6,4 s de traza
+constexpr size_t kTraza = 64;                          // 6.4 s of trace
 constexpr int64_t kTrazaAntesNs = 1'000'000'000;       // the trace of a stretch starts 1 s before
 constexpr int64_t kApagadoMinimoNs = 300'000'000;      // stretches with the Ac voice off that get logged
-constexpr int64_t kApagadoLargoNs = 4'000'000'000;     // aviso en marcha si no vuelve
+constexpr int64_t kApagadoLargoNs = 4'000'000'000;     // warning while ongoing if it does not come back
 constexpr int64_t kOlvidarNs = 60'000'000'000;         // an inactive synthesizer or engine is forgotten
 constexpr int32_t kPicoMudo = 16;                      // silent buffer: peak below 16 out of 32767
 constexpr uint32_t kMaxMuestras = 552;                 // buffer limit (sub_8220B0E0)
@@ -193,11 +193,11 @@ void AlRellenar(uint8_t* base, uint32_t bufer, uint32_t s) {
 // stream and the sound engine voice.
 struct Voz {
   uint32_t sint = 0;
-  uint32_t manejador = 0;    // [this+104] o [this+128]
-  int32_t volumen = 0;       // [this+136] o [this+140], 0..127
+  uint32_t manejador = 0;    // [this+104] or [this+128]
+  int32_t volumen = 0;       // [this+136] or [this+140], 0..127
   bool valida = false;       // the same check as sub_825DD8B0
   int32_t tono = 0;          // [voz+128]
-  float volumen_snd = -1.0f; // [voz fisica+56] (inferido de sub_825D93D0)
+  float volumen_snd = -1.0f; // [physical voice+56] (inferred from sub_825D93D0)
   uint32_t tasa = 0;         // [s+36]; 0 = the synthesizer has the voice stopped (sub_8220B6A0)
   uint32_t n = 0;            // [s+20], samples per buffer
   uint32_t pos = 0;          // [s+44], read pointer in the .gin
@@ -207,7 +207,7 @@ struct Voz {
   int32_t pasos = 0;         // [s+56]
   int32_t flujo = -1;        // [s+28]
   uint32_t voz_flujo = 0;    // [flujo+0]
-  int32_t en_cola = 0;       // [flujo+72], muestras encoladas
+  int32_t en_cola = 0;       // [flujo+72], queued samples
   int32_t arrastre = 0;      // [flujo+76]
   int32_t buferes_cola = 0;  // [flujo+52]
 };

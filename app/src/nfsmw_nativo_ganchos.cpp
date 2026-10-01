@@ -83,7 +83,7 @@ constexpr uint32_t kDispositivoConstantesVs = 0x780;
 constexpr uint32_t kDispositivoConstantesPs = 0x1780;
 
 std::atomic<uint64_t> g_mascara_grupo[kGruposEspejo];
-std::atomic<uint32_t> g_desplazamiento_grupo[kGruposEspejo];  // 0 = aun no se ha visto
+std::atomic<uint32_t> g_desplazamiento_grupo[kGruposEspejo];  // 0 = not seen yet
 
 struct Foto {
   std::atomic<uint64_t> secuencia{0};  // 0 while being written
@@ -114,7 +114,7 @@ int GrupoDe(uint32_t registro_base) {
  * ("[d3d_marcador] registro de dibujo: DIFERENCIA" in the log) and records go back to the queue.
  */
 constexpr uint64_t kComprobacionesDibujo = 20000;
-constexpr uint64_t kComprobarDibujoCada = 1024;  // potencia de 2
+constexpr uint64_t kComprobarDibujoCada = 1024;  // power of 2
 RegistroDibujo g_dibujo_en_curso;  // only the thread using D3D (the Draw* calls and their FlushState)
 bool g_dibujo_pendiente = false;
 uint64_t g_turno_dibujo = 0;
@@ -522,7 +522,7 @@ constexpr uint32_t kSucios28 = 0x28;
 constexpr uint32_t kSucios30 = 0x30;
 constexpr uint32_t kBloques = 0x28C0;      // D3D block byte (BeginTiling 825992F0, ZPass 825999D8...)
 constexpr uint8_t kBloquesMascara = 0x3F;  // 0x40 and 0x80 are set at device creation: not blocks
-constexpr uint32_t kTipoOclusion = 9;      // D3DQUERYTYPE_OCCLUSION, en consulta+4 (8258F810)
+constexpr uint32_t kTipoOclusion = 9;      // D3DQUERYTYPE_OCCLUSION, at consulta+4 (8258F810)
 constexpr uint32_t kMaxConsultas = 16;
 
 enum Que : uint32_t { kQueNada, kQueJuegoSi, kQueAnilloSi, kQueOclusion, kQueSinIdentidad, kQueModelo, kQues };

@@ -1067,15 +1067,15 @@ index 324a2b7..cfbfd21 100644
 + * The full explanation is in nvk_cmd_buffer.c, next to nvk_switch_set4.
 + */
 +struct nvk_switch_set4_cuentas {
-+   uint64_t enlaces_diferencia; /* enlaces con dinamicos por diferencias */
-+   uint64_t enlaces_completos;  /* enlaces con dinamicos como siempre */
-+   uint64_t escrituras_raiz;    /* flush_root de dynamic_buffers mandados */
-+   uint64_t dwords_raiz;        /* palabras de dynamic_buffers mandadas */
-+   uint64_t cbufs_sucios;       /* cbufs DYNAMIC_UBO ensuciados */
-+   uint64_t cbufs_ahorrados;    /* cbufs DYNAMIC_UBO que no hacia falta ensuciar */
-+   uint64_t dibujos;            /* dibujos con el camino nuevo activo */
-+   uint64_t comprobaciones;     /* cbufs comprobados por la guardia */
-+   uint64_t diferencias;        /* cbufs mal enlazados que vio la guardia */
++   uint64_t enlaces_diferencia; /* binds with dynamic descriptors, by differences */
++   uint64_t enlaces_completos;  /* binds with dynamic descriptors, as always */
++   uint64_t escrituras_raiz;    /* flush_root of dynamic_buffers sent */
++   uint64_t dwords_raiz;        /* dynamic_buffers words sent */
++   uint64_t cbufs_sucios;       /* DYNAMIC_UBO cbufs dirtied */
++   uint64_t cbufs_ahorrados;    /* DYNAMIC_UBO cbufs that did not need dirtying */
++   uint64_t dibujos;            /* draws with the new path active */
++   uint64_t comprobaciones;     /* cbufs checked by the guard */
++   uint64_t diferencias;        /* wrongly bound cbufs the guard saw */
 +};
 +
 +/* The app (nfsmw_nativo_dibujos.cpp) reads and writes this structure by its
@@ -1084,10 +1084,10 @@ index 324a2b7..cfbfd21 100644
 + */
 +struct nvk_switch_set4 {
 +   int32_t version;  /* 1 */
-+   int32_t pedido;   /* lo escribe la app: 1 si, 0 no; -1 no lo dice */
-+   int32_t entorno;  /* NVK_SWITCH_DYN_UBO_DELTA: -1 sin leer, 0 no, 1 si */
-+   int32_t apagado;  /* 1: la guardia vio una DIFERENCIA (para la sesion) */
-+   struct nvk_switch_set4_cuentas total; /* de los buferes terminados */
++   int32_t pedido;   /* written by the app: 1 yes, 0 no; -1 does not say */
++   int32_t entorno;  /* NVK_SWITCH_DYN_UBO_DELTA: -1 not read yet, 0 no, 1 yes */
++   int32_t apagado;  /* 1: the guard saw a DIFERENCIA (for the session) */
++   struct nvk_switch_set4_cuentas total; /* from the finished buffers */
 +};
 +
 +extern struct nvk_switch_set4 nvk_switch_set4;
@@ -1127,48 +1127,48 @@ index 324a2b7..cfbfd21 100644
 + * The full explanation is in nvk_cmd_buffer.c, next to nvk_switch_dibujo.
 + */
 +enum nvk_sw_parte {
-+   NVK_SW_P_DIBUJO = 0,    /* vkCmdDraw y vkCmdDrawIndexed enteros */
++   NVK_SW_P_DIBUJO = 0,    /* whole vkCmdDraw and vkCmdDrawIndexed */
 +   NVK_SW_P_PUSH_DESC,     /* nvk_cmd_buffer_flush_push_descriptors */
 +   NVK_SW_P_DINAMICO,      /* nvk_cmd_flush_gfx_dynamic_state */
-+   NVK_SW_P_TOQUE_SHADERS, /* medir_fallos: leer antes los shaders sucios */
++   NVK_SW_P_TOQUE_SHADERS, /* medir_fallos: read the dirty shaders beforehand */
 +   NVK_SW_P_SHADERS,       /* nvk_cmd_flush_gfx_shaders */
 +   NVK_SW_P_CBUFS,         /* nvk_cmd_flush_gfx_cbufs */
-+   NVK_SW_P_EMITIR,        /* la orden del dibujo en el pushbuf */
++   NVK_SW_P_EMITIR,        /* the draw command in the pushbuf */
 +   NVK_SW_P_PIPE_SHADERS,  /* vkCmdBindPipeline: nvk_cmd_bind_shaders */
-+   NVK_SW_P_PIPE_TOQUE,    /* medir_fallos: leer antes el estado del pipeline */
++   NVK_SW_P_PIPE_TOQUE,    /* medir_fallos: read the pipeline state beforehand */
 +   NVK_SW_P_PIPE_COPIA,    /* vkCmdBindPipeline: vk_dynamic_graphics_state_copy */
-+   NVK_SW_P_SETS,          /* vkCmdBindDescriptorSets de graficos entero */
-+   NVK_SW_P_SETS_RAIZ,     /* dentro: descriptores dinamicos a la tabla raiz */
-+   NVK_SW_P_SETS_ENSUCIAR, /* dentro: ensuciar cbufs */
-+   NVK_SW_P_RAIZ,          /* nvk_cmd_flush_gfx_root_desc, todas las llamadas */
-+   NVK_SW_P_TROZO,         /* nvk_cmd_buffer_new_push (trozo nuevo del pushbuf) */
++   NVK_SW_P_SETS,          /* whole graphics vkCmdBindDescriptorSets */
++   NVK_SW_P_SETS_RAIZ,     /* inside: dynamic descriptors to the root table */
++   NVK_SW_P_SETS_ENSUCIAR, /* inside: dirtying cbufs */
++   NVK_SW_P_RAIZ,          /* nvk_cmd_flush_gfx_root_desc, all calls */
++   NVK_SW_P_TROZO,         /* nvk_cmd_buffer_new_push (new pushbuf chunk) */
 +   NVK_SW_P_ENLACE_VB,     /* vkCmdBindVertexBuffers */
 +   NVK_SW_PARTES
 +};
 +
 +enum nvk_sw_cuenta {
-+   NVK_SW_C_DIBUJOS_MEDIDOS = 0, /* dibujos medidos por partes */
-+   NVK_SW_C_DWORDS_DIBUJO,     /* dwords de pushbuf de esos dibujos (flush y orden) */
-+   NVK_SW_C_DIN_CON_TRABAJO,   /* de esos, con algun bit dinamico sucio */
-+   NVK_SW_C_DIN_BITS,          /* bits dinamicos sucios que llevaban */
-+   NVK_SW_C_SHADERS_SUCIOS,    /* de esos, con shaders sucios */
-+   NVK_SW_C_CBUFS_REENLAZADOS, /* cbufs reenlazados en esos */
-+   NVK_SW_C_PIPES_MEDIDOS,     /* enlaces de pipeline medidos */
-+   NVK_SW_C_PIPES_SIN_EFECTO,  /* de esos, copias que no cambiaron NADA */
-+   NVK_SW_C_PIPES_BITS_NUEVOS, /* bits sucios nuevos que dejo la copia */
-+   NVK_SW_C_SETS_MEDIDOS,      /* enlaces de conjuntos medidos */
-+   NVK_SW_C_RAIZ,              /* subidas a la tabla raiz (todas) */
-+   NVK_SW_C_RAIZ_DWORDS,       /* sus dwords de datos (todas) */
-+   NVK_SW_C_TROZOS,            /* trozos nuevos del pushbuf (todos) */
++   NVK_SW_C_DIBUJOS_MEDIDOS = 0, /* draws measured per part */
++   NVK_SW_C_DWORDS_DIBUJO,     /* pushbuf dwords of those draws (flush and command) */
++   NVK_SW_C_DIN_CON_TRABAJO,   /* of those, with some dirty dynamic bit */
++   NVK_SW_C_DIN_BITS,          /* dirty dynamic bits they carried */
++   NVK_SW_C_SHADERS_SUCIOS,    /* of those, with dirty shaders */
++   NVK_SW_C_CBUFS_REENLAZADOS, /* cbufs rebound in those */
++   NVK_SW_C_PIPES_MEDIDOS,     /* pipeline binds measured */
++   NVK_SW_C_PIPES_SIN_EFECTO,  /* of those, copies that changed NOTHING */
++   NVK_SW_C_PIPES_BITS_NUEVOS, /* new dirty bits left by the copy */
++   NVK_SW_C_SETS_MEDIDOS,      /* set binds measured */
++   NVK_SW_C_RAIZ,              /* root table uploads (all) */
++   NVK_SW_C_RAIZ_DWORDS,       /* their data dwords (all) */
++   NVK_SW_C_TROZOS,            /* new pushbuf chunks (all) */
 +   NVK_SW_CUENTAS
 +};
 +
 +enum nvk_sw_mejora {
-+   NVK_SW_M_EMISION = 0, /* p02: cada orden entera de una vez (mismos bytes) */
-+   NVK_SW_M_CBUFS,       /* p03: cbufs sin trabajo repetido */
-+   NVK_SW_M_DINAMICO,    /* p04: estado dinamico por grupos sucios */
-+   NVK_SW_M_SET4_RAPIDO, /* p05: set 4 por el camino rapido */
-+   NVK_SW_M_PRECARGA,    /* p06: precarga de pipeline y shaders */
++   NVK_SW_M_EMISION = 0, /* p02: each whole command at once (same bytes) */
++   NVK_SW_M_CBUFS,       /* p03: cbufs without repeated work */
++   NVK_SW_M_DINAMICO,    /* p04: dynamic state by dirty groups */
++   NVK_SW_M_SET4_RAPIDO, /* p05: set 4 through the fast path */
++   NVK_SW_M_PRECARGA,    /* p06: pipeline and shader prefetch */
 +   NVK_SW_MEJORAS
 +};
 +
@@ -1184,16 +1184,16 @@ index 324a2b7..cfbfd21 100644
 +
 +struct nvk_sw_parte_total {
 +   uint64_t veces;
-+   uint64_t ticks; /* CNTPCT_EL0, a ticks_por_segundo (19,2 MHz en la Switch) */
++   uint64_t ticks; /* CNTPCT_EL0, at ticks_por_segundo (19.2 MHz on the Switch) */
 +};
 +
 +struct nvk_sw_mejora_estado {
-+   int32_t pedido;         /* lo escribe la app: 1 si, 0 no; -1 no lo dice (= si) */
-+   int32_t apagado;        /* 1: su guardia vio una DIFERENCIA (para la sesion) */
-+   uint64_t usos;          /* veces que se decidio por el camino nuevo */
-+   uint64_t validadas;     /* comprobaciones de la guardia que salieron iguales */
-+   uint64_t diferencias;   /* comprobaciones que salieron distintas */
-+   uint64_t sin_comprobar; /* comprobaciones que no se pudieron hacer */
++   int32_t pedido;         /* written by the app: 1 yes, 0 no; -1 does not say (= yes) */
++   int32_t apagado;        /* 1: its guard saw a DIFERENCIA (for the session) */
++   uint64_t usos;          /* times the new path was chosen */
++   uint64_t validadas;     /* guard checks that came out equal */
++   uint64_t diferencias;   /* checks that came out different */
++   uint64_t sin_comprobar; /* checks that could not be done */
 +};
 +
 +/* The app (nfsmw_nativo_dibujos.cpp) reads and writes this structure by its
@@ -1203,9 +1203,9 @@ index 324a2b7..cfbfd21 100644
 + */
 +struct nvk_switch_dibujo {
 +   int32_t version;      /* 1 */
-+   int32_t medir;        /* app: N > 0 potencia de 2 = medir 1 de cada N; si no, no se mide */
-+   int32_t medir_fallos; /* app: 1 = leer antes lo que se va a usar y medirlo aparte */
-+   int32_t entorno;      /* NVK_SWITCH_DIBUJO: -1 sin leer, 0 todo apagado, 1 si */
++   int32_t medir;        /* app: N > 0 power of 2 = measure 1 of every N; otherwise, not measured */
++   int32_t medir_fallos; /* app: 1 = read beforehand what is going to be used and measure it apart */
++   int32_t entorno;      /* NVK_SWITCH_DIBUJO: -1 not read yet, 0 all off, 1 yes */
 +   uint64_t ticks_por_segundo;
 +   struct nvk_sw_parte_total partes[NVK_SW_PARTES];
 +   uint64_t cuentas[NVK_SW_CUENTAS];
@@ -1225,15 +1225,15 @@ index 324a2b7..cfbfd21 100644
 +   uint64_t diferencias[NVK_SW_MEJORAS];
 +   uint64_t sin_comprobar[NVK_SW_MEJORAS];
 +   uint32_t turno[NVK_SW_TURNOS];
-+   uint32_t mascara_medir; /* N - 1, o UINT32_MAX si no se mide */
-+   uint32_t activas;       /* bit m: la mejora m va por el camino nuevo */
++   uint32_t mascara_medir; /* N - 1, or UINT32_MAX if not measured */
++   uint32_t activas;       /* bit m: improvement m takes the new path */
 +   bool medir_fallos;
-+   bool midiendo;          /* el dibujo en curso se mide por partes */
-+   bool midiendo_pipe;     /* el vkCmdBindPipeline en curso se mide */
-+   bool midiendo_sets;     /* el vkCmdBindDescriptorSets en curso se mide */
-+   uint32_t *dw_inicio;    /* pushbuf al empezar el dibujo medido */
++   bool midiendo;          /* the draw in progress is measured per part */
++   bool midiendo_pipe;     /* the vkCmdBindPipeline in progress is measured */
++   bool midiendo_sets;     /* the vkCmdBindDescriptorSets in progress is measured */
++   uint32_t *dw_inicio;    /* pushbuf when the measured draw started */
 +   const struct nvk_cmd_mem *mem_inicio;
-+   int8_t modo_emision;    /* p02: NVK_SW_DE_SIEMPRE, NVK_SW_RAPIDO o NVK_SW_COMPROBAR */
++   int8_t modo_emision;    /* p02: NVK_SW_DE_SIEMPRE, NVK_SW_RAPIDO or NVK_SW_COMPROBAR */
 +};
 +#endif
 +
@@ -3250,7 +3250,7 @@ index 00523fb..cee351b 100644
  };
  
 +#ifdef HAVE_SWITCH_PLATFORM
-+/* NFSMW: PRECARGA (ver vk_pipeline.h). */
++/* NFSMW: PRECARGA (see vk_pipeline.h). */
 +int32_t vk_switch_precarga = 0;
 +
 +static inline void

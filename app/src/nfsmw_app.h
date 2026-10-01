@@ -9,8 +9,8 @@
 #include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/ui/overlay/debug_overlay.h>
-#include <rex/system/kernel_state.h>  // VIGILANTE DE CUELGUES
-#include <rex/system/xthread.h>       // VIGILANTE DE CUELGUES
+#include <rex/system/kernel_state.h>  // HANG WATCHDOG
+#include <rex/system/xthread.h>       // HANG WATCHDOG
 
 #include <algorithm>
 #include <atomic>

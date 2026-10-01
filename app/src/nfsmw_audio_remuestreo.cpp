@@ -11,7 +11,7 @@
 // accesses. Each sample i, with the position in 16.16 (integer part in pos, fraction in frac < 65536), source
 // origen and step paso:
 //   s0 = origen[pos], s1 = origen[pos + 1]
-//   salida[i] = s0 + (s1 - s0) * (frac * K)       K = the float at 0x820AFD18
+//   output[i] = s0 + (s1 - s0) * (frac * K)       K = the float at 0x820AFD18
 //   acc = frac + paso; pos += acc >> 16; frac = acc & 0xFFFF
 //
 // nfsmw_audio_remuestreo_nativo: 0 = recompiled code; 1 = native; 2 = validate: computes the native result
@@ -62,7 +62,7 @@ struct Estado {
   uint32_t frac;
 };
 
-// The common loop. escribir(i, muestra) stores each sample as soon as it is computed, in the same order as the
+// The common loop. escribir(i, sample) stores each sample as soon as it is computed, in the same order as the
 // recompiled code (this matters if the destination overlaps the source).
 template <typename Escribir>
 Estado Bucle(uint8_t* base, int32_t n, uint32_t origen, uint32_t pos, uint32_t frac, uint32_t paso, float k,

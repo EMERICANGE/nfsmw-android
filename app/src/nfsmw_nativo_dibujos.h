@@ -187,7 +187,7 @@ struct PeticionDibujo {
    * up too often only causes extra work, never a wrong draw.
    */
   uint64_t generacion_fetch = 0;             // changes when 0x4800-0x48BF are written (fetch constants)
-  uint64_t generacion_encuadre = 0;          // viewport, tijera, recorte, modo de rasterizado
+  uint64_t generacion_encuadre = 0;          // viewport, scissor, clipping, rasterization mode
   // kVeg* flags (nfsmw_nativo_ganchos.h) of the record the draw comes with; 0 = no verdict from the game
   // (nfsmw_d3d_vegetacion_juego).
   uint16_t vegetacion_juego = 0;
@@ -201,9 +201,9 @@ struct EstadisticasDibujos {
   uint64_t subidas_textura = 0;
   uint64_t megas_subidos = 0;  // vertices, indices, constants and textures
   uint64_t megas_texturas = 0;  // texture images created (base level, no eviction)
-  uint64_t ms_pipelines = 0;  // creando pipelines, acumulado
+  uint64_t ms_pipelines = 0;  // creating pipelines, accumulated
   // Accumulated for "C6 contadores" (the system prints the differences per report).
-  uint64_t pases = 0;             // render passes empezados
+  uint64_t pases = 0;             // render passes started
   uint64_t envios_llenos = 0;     // submissions due to a full upload buffer
   uint64_t ns_envios_llenos = 0;  // inside those submissions, including the wait for the GPU
   uint64_t bytes_vertices = 0;
@@ -212,7 +212,7 @@ struct EstadisticasDibujos {
   uint64_t dedupe_bytes = 0;
   uint64_t dedupe_colisiones = 0;
   uint64_t bytes_indices = 0;
-  uint64_t samplers = 0;          // samplers preparados
+  uint64_t samplers = 0;          // samplers prepared
   uint64_t samplers_cache = 0;    // of those, resolved by the register cache
   uint64_t ns_pases = 0;          // inside TerminarPase + EmpezarPase on a pass change
   uint64_t ns_vertices = 0;       // copying vertices with byte swap
@@ -222,7 +222,7 @@ struct EstadisticasDibujos {
   uint64_t pases_por_generacion = 0;  // pass change due to a new command buffer
   uint64_t pases_por_destino = 0;     // pass change due to other render targets
   uint64_t pases_reanudados = 0;      // the same pass, closed earlier by a copy or a clear
-  uint64_t ns_render_pass = 0;        // en vkCmdBeginRenderPass + vkCmdEndRenderPass
+  uint64_t ns_render_pass = 0;        // inside vkCmdBeginRenderPass + vkCmdEndRenderPass
   uint64_t texels_pases = 0;          // area opened, summed over every pass opening
   // The same area, split by render target type (indices kGpuSombras..kGpuMenores).
   std::array<uint64_t, kGpuCategorias> texels_por_categoria{};

@@ -80,7 +80,7 @@ std::vector<uint8_t> CodificarPng(const rex::ui::RawImage& imagen) {
   std::vector<uint8_t> crudo;
   crudo.reserve(size_t(alto) * (size_t(ancho) * 3 + 1));
   for (uint32_t y = 0; y < alto; ++y) {
-    crudo.push_back(0);  // sin filtro
+    crudo.push_back(0);  // no filter
     const uint8_t* fila = imagen.data.data() + size_t(y) * imagen.stride;
     for (uint32_t x = 0; x < ancho; ++x) {
       crudo.push_back(fila[x * 4]);
@@ -117,8 +117,8 @@ std::vector<uint8_t> CodificarPng(const rex::ui::RawImage& imagen) {
   ihdr.push_back(8);  // bits per channel
   ihdr.push_back(2);  // RGB
   ihdr.push_back(0);  // deflate
-  ihdr.push_back(0);  // filtro adaptativo
-  ihdr.push_back(0);  // sin entrelazado
+  ihdr.push_back(0);  // adaptive filtering
+  ihdr.push_back(0);  // no interlace
   Chunk(png, "IHDR", ihdr);
   Chunk(png, "IDAT", zlib);
   Chunk(png, "IEND", {});

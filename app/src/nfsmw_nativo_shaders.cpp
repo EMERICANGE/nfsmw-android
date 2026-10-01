@@ -175,7 +175,7 @@ struct ShadersNativos::Datos {
   nfsmw::native::BibliotecaShaders biblioteca;
   std::vector<EntradaShader> entradas;
   std::unordered_map<const nfsmw::native::Shader*, uint32_t> por_shader;
-  // (vertices, palabras) -> entradas candidatas.
+  // (vertices, words) -> candidate entries.
   std::map<std::pair<bool, uint32_t>, std::vector<uint32_t>> candidatos;
   std::unordered_map<ClaveCruda, const EntradaShader*, HashClaveCruda> cache;
   std::vector<uint32_t> temporal;

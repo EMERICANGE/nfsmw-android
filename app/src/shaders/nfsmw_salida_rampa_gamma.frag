@@ -40,8 +40,8 @@ layout(set = 0, binding = 1) uniform sampler muestreador;
 layout(set = 0, binding = 2, std140) uniform Rampa {
   // Red, green and blue of each entry (10-bit value / 1023, with the single-channel postprocessing).
   vec4 entradas[256];
-  vec4 mezcla;   // saturacion, vibracion, 1 / gamma (kGraduacion)
-  vec4 efectos;  // vineta, lineas (kGraduacion)
+  vec4 mezcla;   // saturation, vibrance, 1 / gamma (kGraduacion)
+  vec4 efectos;  // vignette, scanlines (kGraduacion)
 } rampa;
 
 layout(location = 0) out vec4 color;

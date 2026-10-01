@@ -94,7 +94,7 @@ void GrabarSalida(const float* datos, int bytes, uint32_t canales) {
     u32(36 + bytes_datos);
     fichero.write("WAVEfmt ", 8);
     u32(16);
-    u16(3);  // flotante IEEE
+    u16(3);  // IEEE float
     u16(uint16_t(canales));
     u32(48000);
     u32(48000 * canales * 4);

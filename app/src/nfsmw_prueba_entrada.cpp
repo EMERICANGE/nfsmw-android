@@ -368,7 +368,7 @@ uint32_t ComandoJugador1(PPCContext& ctx, uint8_t* base, void (*funcion)(PPCCont
   const uint64_t r3 = ctx.r3.u64, r4 = ctx.r4.u64, r5 = ctx.r5.u64, r6 = ctx.r6.u64;
   const uint64_t r7 = ctx.r7.u64, r8 = ctx.r8.u64, r9 = ctx.r9.u64, r10 = ctx.r10.u64;
   const uint64_t lr = ctx.lr;
-  ctx.r3.u64 = 0;  // jugador 1
+  ctx.r3.u64 = 0;  // player 1
   funcion(ctx, base);
   const uint32_t resultado = ctx.r3.u32;
   ctx.r3.u64 = r3;

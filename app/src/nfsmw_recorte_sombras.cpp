@@ -136,7 +136,7 @@ REXCVAR_DEFINE_INT32(nfsmw_guardia_30_presupuesto_us, 31000, "NFSMW",
  *
  *     eView::GetPixelSize(pos, 35.0f) < view->PixelMinSize   ->  not drawn
  *
- * and `GetPixelSize` returns `radio * H / (distancia - radio)`. So the cutoff distance is
+ * and `GetPixelSize` returns `radius * H / (distance - radius)`. So the cutoff distance is
  *
  *     35 * (1 + H / PixelMinSize)
  *
@@ -428,7 +428,7 @@ REX_HOOK_RAW(sub_82443B18) {
  *
  *     eView::GetPixelSize(pos, 35.0f) < view->PixelMinSize
  *
- * with `GetPixelSize = radio * H / (distancia - radio)`. `PixelMinSize` is field +0x24 of the view and
+ * with `GetPixelSize = radius * H / (distance - radius)`. `PixelMinSize` is field +0x24 of the view and
  * `eView::eView()` sets it to 4 for every view. The scene view is view 1 (0x82A38070 + 1 * 112 =
  * 0x82A380E0), the same one nfsmw_recortes_carrera.cpp uses. It saves CPU and GPU at once because the
  * object never even reaches the draw list.

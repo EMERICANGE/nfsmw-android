@@ -195,7 +195,7 @@ std::atomic<uint64_t> g_bytes_ram{0};
 std::atomic<int64_t> g_ventanas_vivas{0};
 
 // Above this it does not pay off: the request is already large and the window would only add an extra copy.
-constexpr size_t kPeticionMaxFraccion = 4;  // pedido <= ventana/4
+constexpr size_t kPeticionMaxFraccion = 4;  // pedido <= window/4
 
 /* The read cache (see nfsmw_io_cache_mb). */
 constexpr size_t kBloqueCache = 256 * 1024;
@@ -206,7 +206,7 @@ struct BloqueCache {
 };
 
 std::mutex g_cache_mutex;
-std::unordered_map<uint64_t, BloqueCache> g_cache;   // clave: id de fichero << 32 | bloque
+std::unordered_map<uint64_t, BloqueCache> g_cache;   // key: file id << 32 | block
 std::map<uint64_t, uint64_t> g_cache_lru;            // use -> key, oldest first
 std::unordered_map<std::string, uint32_t> g_cache_ids;  // path -> id, so the key is exact
 uint64_t g_cache_bytes = 0;
@@ -305,7 +305,7 @@ bool LeerConCache(FileHandle* fh, uint32_t id, std::span<uint8_t> buffer, size_t
             break;
           }
           if (n == 0) {
-            break;  // fin de fichero
+            break;  // end of file
           }
           leidos += n;
         }
@@ -314,7 +314,7 @@ bool LeerConCache(FileHandle* fh, uint32_t id, std::span<uint8_t> buffer, size_t
         for (uint64_t k = b; k <= fin; ++k) {
           const size_t desde = static_cast<size_t>(k - b) * kBloqueCache;
           if (desde >= leidos) {
-            break;  // fin de fichero
+            break;  // end of file
           }
           const size_t n = std::min(kBloqueCache, leidos - desde);
           const uint64_t ck = (static_cast<uint64_t>(id) << 32) | k;
@@ -456,7 +456,7 @@ bool RangoElegible(size_t pedido) {
 constexpr uint64_t kBarridoMinimo = uint64_t(4) << 20;
 
 bool EsBarridoYAnotar(uint32_t id, uint64_t desplazamiento, uint32_t pedido) {
-  // Llamar con g_rangos_mutex cogido.
+  // Call with g_rangos_mutex held.
   auto it = g_rangos_ultimo_fin.find(id);
   const bool seguida = it != g_rangos_ultimo_fin.end() && it->second == desplazamiento;
   g_rangos_ultimo_fin[id] = desplazamiento + pedido;

@@ -86,7 +86,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_efecto_pasada_nativo, true, "NFSMW",
                     "4096) y se apaga sola si difiere; false = la original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
-REX_EXTERN(__imp__sub_82448E80);  // la original
+REX_EXTERN(__imp__sub_82448E80);  // the original
 REX_EXTERN(sub_8259BDC0);         // SetPixelShader through its hook (nfsmw_d3d_trace.cpp), like the original
 // Releasing the shader (8259_B9B8) and setting it (8259_C150): the originals, called directly, as the
 // generated code calls them. The name is assembled from parts on purpose: tools/llamadas_directas.py treats
@@ -382,13 +382,13 @@ uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
   if (uint32_t(viejo) != 0) {                           // cmplwi cr6,r3,0; beq loc_82448FA8
     camino |= kCaminoLiberar;
     ctx.lr = kVueltaLiberar;
-    L::Llamar(ctx, base, kLiberar);                     // bl 8259_B9B8: lo suelta
+    L::Llamar(ctx, base, kLiberar);                     // bl 8259_B9B8: releases it
   }
   ctx.r4.u64 = r28;                                     // loc_82448FA8: mr r4,r28
   E32(base, uint32_t(r29) + 20456, uint32_t(r28));      // stw r28,20456(r29)
   ctx.r3.u64 = r29;                                     // mr r3,r29
   ctx.lr = kVueltaVertices;
-  L::Llamar(ctx, base, kSombreadorVertices);            // bl 8259_C150: lo pone
+  L::Llamar(ctx, base, kSombreadorVertices);            // bl 8259_C150: sets it
 
   // --- The pixel shader ---
   const uint64_t r6 = L32(base, uint32_t(r25) + 76);    // lwz r6,76(r25)
@@ -737,7 +737,7 @@ std::atomic<uint64_t> g_ns_original{0}, g_muestras_original{0};
 std::atomic<uint64_t> g_comprobadas{0};                   // since startup, all without differences
 std::atomic<uint64_t> g_comprobadas_camino[kCaminos];
 std::atomic<uint64_t> g_saltadas{0};                      // guards not compared (unbounded areas, too many calls)
-std::atomic<uint32_t> g_raros_listos{0};                  // caminos raros con kMinimoRaro comprobadas
+std::atomic<uint32_t> g_raros_listos{0};                  // rare paths with kMinimoRaro calls checked
 std::atomic<bool> g_raros_abiertos{true};
 std::atomic<bool> g_apagado{false};
 std::atomic<int64_t> g_siguiente_ms{0};

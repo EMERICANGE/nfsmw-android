@@ -92,7 +92,7 @@ REX_EXTERN(sub_82452730);         // this file's hook: the loop calls through it
 // The hooks the original calls, by name (nfsmw_d3d_trace.cpp and nfsmw_d3d_registros_nativo.cpp).
 REX_EXTERN(sub_8258D968);  // SetStreamSource
 REX_EXTERN(sub_8258DA60);  // SetIndices
-REX_EXTERN(sub_826992F0);  // parametros de efecto
+REX_EXTERN(sub_826992F0);  // effect parameters
 REX_EXTERN(sub_82593C50);  // DrawIndexedVertices
 // The rest, as the generated code calls them (8244_EA48 through its sub_ alias, the others directly). The
 // name is built in pieces on purpose: tools/llamadas_directas.py treats any address that appears whole in
@@ -211,7 +211,7 @@ enum Que : uint32_t {
   kVistaD60 = 2,      // 8245_3D60
   kFlujo = 3,         // SetStreamSource
   kIndices = 4,       // SetIndices
-  kEfecto = 5,        // parametros de efecto
+  kEfecto = 5,        // effect parameters
   kDibujar = 6,       // DrawIndexedVertices
   kSegundo = 7,       // 8244_EDF8
   kIndirecta = 8,     // [[E]+20]
@@ -264,7 +264,7 @@ struct Reales {
 template <class L>
 uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
   uint32_t camino = 0;
-  // --- Prologo: mflr r12; stw r12,-8(r1); std r30,-24(r1); std r31,-16(r1); stwu r1,-112(r1) ---
+  // --- Prologue: mflr r12; stw r12,-8(r1); std r30,-24(r1); std r31,-16(r1); stwu r1,-112(r1) ---
   const uint64_t lr_entrada = ctx.lr;
   ctx.r12.u64 = lr_entrada;
   uint64_t r1 = ctx.r1.u64;
@@ -277,7 +277,7 @@ uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
     r1 = (r1 & 0xFFFFFFFF00000000ull) | ea;  // ctx.r1.u32 = ea: the high half is kept
   }
   const uint64_t r31 = ctx.r3.u64;  // mr r31,r3: the object
-  const uint64_t r30 = ctx.r4.u64;  // mr r30,r4: la vista
+  const uint64_t r30 = ctx.r4.u64;  // mr r30,r4: the view
   const uint32_t obj = uint32_t(r31);
   const uint64_t a0 = L32(base, obj + 0);   // lwz r11,0(r31): A
   const uint64_t x0 = L32(base, obj + 24);  // lwz r10,24(r31)
@@ -432,7 +432,7 @@ uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
     L::Llamar(ctx, base, kIndices);  // SetIndices, through its hook
     r1f = ctx.r1.u64;
   }
-  // --- loc_82452714: la vuelta ---
+  // --- loc_82452714: the return ---
   {
     const uint64_t r7f = L32(base, uint32_t(r27) + 24);  // lwz r7,24(r27)
     const uint64_t r6f = L32(base, uint32_t(r28) + 24);  // lwz r6,24(r28)
@@ -549,8 +549,8 @@ uint32_t NativaBucle(PPCContext& ctx, uint8_t* base) {
     E32(base, ea, uint32_t(r1));
     r1 = (r1 & 0xFFFFFFFF00000000ull) | ea;
   }
-  const uint64_t r27 = ctx.r4.u64;  // mr r27,r4: la lista
-  const uint64_t r28 = ctx.r3.u64;  // mr r28,r3: la vista
+  const uint64_t r27 = ctx.r4.u64;  // mr r27,r4: the list
+  const uint64_t r28 = ctx.r3.u64;  // mr r28,r3: the view
   const uint64_t r11a = r27 + 8;    // addi r11,r27,8
   AnticiparBloque(base, uint32_t(r11a));  // the game's dcbt r0,r11: the entries
   const uint64_t r11b = L32(base, uint32_t(r11a) + 4);  // lwz r11,4(r11): the index of the first one
@@ -910,7 +910,7 @@ std::atomic<uint64_t> g_ns_original{0}, g_muestras_original{0};
 std::atomic<uint64_t> g_comprobadas{0};                   // since startup, all without mismatches
 std::atomic<uint64_t> g_comprobadas_camino[kCaminos];
 std::atomic<uint64_t> g_saltadas{0};                      // guard runs not compared (unbounded regions, too many calls)
-std::atomic<uint32_t> g_raros_listos{0};                  // caminos raros con kMinimoRaro comprobadas
+std::atomic<uint32_t> g_raros_listos{0};                  // rare paths with kMinimoRaro calls checked
 std::atomic<bool> g_raros_abiertos{true};
 std::atomic<bool> g_apagado{false};
 // The loop

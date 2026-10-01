@@ -202,7 +202,7 @@ void Maximo(std::atomic<uint64_t>& destino, uint64_t valor) {
   }
 }
 
-uint32_t Leer32(const uint8_t* base, uint32_t direccion) {  // direccion < 0xE0000000: sin desplazamiento fisico
+uint32_t Leer32(const uint8_t* base, uint32_t direccion) {  // direccion < 0xE0000000: no physical offset
   uint32_t v = 0;
   std::memcpy(&v, base + direccion, sizeof(v));
   return __builtin_bswap32(v);

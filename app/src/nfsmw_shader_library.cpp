@@ -85,7 +85,7 @@ void Validar(Shader& s) {
   for (size_t i = 5; i < s.spirv.size();) {
     const uint32_t palabras = s.spirv[i] >> 16, op = s.spirv[i] & 65535;
     Exigir(palabras && palabras <= s.spirv.size() - i, "Instruccion SPIR-V truncada");
-    if (op == 15) {  // OpEntryPoint: modelo de ejecucion, id, nombre e interfaz.
+    if (op == 15) {  // OpEntryPoint: execution model, id, name and interface.
       Exigir(!entrada && palabras >= 5 && s.spirv[i+1] == (s.vertices ? 0u : 4u) &&
                  s.spirv[i+3] == 0x6e69616d && s.spirv[i+4] == 0,
              "La etapa o la entrada main de SPIR-V no coincide con el contenedor");

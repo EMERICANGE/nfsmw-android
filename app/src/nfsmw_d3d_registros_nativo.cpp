@@ -180,7 +180,7 @@ REX_HOOK_RAW(sub_825A2AA0) {
       Sumar(g_lentos, uint64_t(1));
       const uint32_t pila = ctx.r1.u32;
       ctx.r1.u64 = pila - 144;
-      Escribir32(base, pila - 144, pila);  // stwu r1,-144(r1): cadena de marcos
+      Escribir32(base, pila - 144, pila);  // stwu r1,-144(r1): frame chain
       ctx.r3.u64 = dispositivo;
       ctx.r4.u64 = escritura;
       ctx.r5.u64 = r;
@@ -359,7 +359,7 @@ constexpr uint64_t kPeriodo = 4096;           // then 1 of every kPeriodo (a pow
 // Like the other counters in the file: no atomic read-modify-write (A57 without LSE).
 std::atomic<bool> g_apagado{false};
 std::atomic<uint64_t> g_llamadas{0};
-std::atomic<uint64_t> g_nativas{0};      // ultimos 10 s
+std::atomic<uint64_t> g_nativas{0};      // last 10 s
 std::atomic<uint64_t> g_originales{0};   // last 10 s: misaligned stack or a read inside the frame
 std::atomic<uint64_t> g_comprobadas{0};  // since startup, all without differences
 std::atomic<int64_t> g_siguiente_ms{0};
@@ -635,7 +635,7 @@ inline bool Nativa(PPCContext& ctx, uint8_t* base) {
   }
   EscribirMarco(base, ctx.r1.u32, ctx.lr, k);
   ctx.r3.u64 = k.r3;
-  ctx.r12.u64 = uint32_t(ctx.lr);  // epilogo: lwz r12,-8(r1); mtlr r12
+  ctx.r12.u64 = uint32_t(ctx.lr);  // epilogue: lwz r12,-8(r1); mtlr r12
   ctx.lr = ctx.r12.u64;
   return true;
 }
@@ -861,9 +861,9 @@ struct Escritor {
 struct GrupoEfecto {
   uint32_t cuenta;    // 64-bit words of the mask ([this+288] or [this+292])
   uint32_t sucios;    // the group's dirty mask (this or [this+256])
-  uint32_t tabla;     // r28 o r27
+  uint32_t tabla;     // r28 or r27
   uint32_t listas;    // offset of list 0 within the table (0 or 32)
-  uint32_t entradas;  // [tabla+64] o [tabla+68]
+  uint32_t entradas;  // [tabla+64] or [tabla+68]
   uint32_t r23;
   uint32_t r24;
 };
@@ -986,9 +986,9 @@ bool EfectosNativo(Escritor& w, uint32_t self, uint64_t& vectores) {
 struct RecuentoTodo {
   std::atomic<uint64_t> nativas{0};      // calls done entirely in native code (checked ones included)
   std::atomic<uint64_t> con_listas{0};   // of those, with work in lists 2-7 (formerly left to the original)
-  std::atomic<uint64_t> vectores{0};     // constantes de coma flotante copiadas
-  std::atomic<uint64_t> enteros{0};      // entradas de constantes enteras
-  std::atomic<uint64_t> booleanos{0};    // entradas de constantes booleanas
+  std::atomic<uint64_t> vectores{0};     // floating-point constants copied
+  std::atomic<uint64_t> enteros{0};      // integer constant entries
+  std::atomic<uint64_t> booleanos{0};    // boolean constant entries
   std::atomic<uint64_t> texturas{0};     // SetTexture calls done in native code
   std::atomic<uint64_t> raras{0};        // texture releases (done by the original)
   std::atomic<uint64_t> varios{0};       // integers of 2-4 registers (vectors 2-4 from the original's stack)
@@ -1000,7 +1000,7 @@ constexpr uint32_t kComprobacionesTodo = 512;        // first calls of the full 
 constexpr uint64_t kPeriodoTodo = 4096;              // then 1 of every kPeriodoTodo
 std::atomic<bool> g_todo_apagado{false};             // a difference turns off only the full path
 std::atomic<bool> g_todo_pendiente{false};           // the last check was abandoned: check the next one
-std::atomic<uint32_t> g_todo_comprobadas{0};         // comprobaciones completas, sin diferencias
+std::atomic<uint32_t> g_todo_comprobadas{0};         // complete checks, without differences
 std::atomic<uint32_t> g_todo_comprobadas_listas{0};  // of those, with integers, booleans or textures
 std::atomic<uint64_t> g_todo_llamadas{0};
 
@@ -1163,7 +1163,7 @@ struct MemoriaCapa {
   static constexpr uint32_t kLimite = kHuecos / 2;  // bytes written; beyond this the check is abandoned
   uint8_t* base;
   PPCContext* ctx;
-  std::vector<uint32_t> direcciones = std::vector<uint32_t>(kHuecos, 0u);  // direccion + 1; 0 = libre
+  std::vector<uint32_t> direcciones = std::vector<uint32_t>(kHuecos, 0u);  // address + 1; 0 = free
   std::vector<uint8_t> valores = std::vector<uint8_t>(kHuecos, 0);
   uint32_t usados = 0;
   bool modo_vectorial = false;
@@ -1248,7 +1248,7 @@ inline void GuardarVector(uint8_t* destino, simde__m128i v) {
 struct GrupoTodo {
   uint32_t cuenta;    // address of the word count (this + 288 or + 292): reread on every word
   uint32_t sucios;    // dirty mask: this (group A) or [this+256] read on entry (group B)
-  uint32_t tabla;     // r28 (grupo A) o r27 (grupo B)
+  uint32_t tabla;     // r28 (group A) or r27 (group B)
   uint32_t listas;    // offset of list 0 in the table: 0 or 32
   uint32_t entradas;  // address of the entry pointer (table + 64 or + 68): reread on every word
   uint32_t r23;
@@ -1259,7 +1259,7 @@ template <typename M>
 struct Todo {
   M m;
   uint32_t self = 0;         // r3 on entry (r20 and r22 of the original)
-  uint32_t pila = 0;         // r1 al entrar
+  uint32_t pila = 0;         // r1 on entry
   uint32_t dispositivo = 0;  // r21 = [this+700]
   uint64_t r3 = 0;           // what the original would leave in r3
   bool toco_dispositivo = false;
@@ -1312,8 +1312,8 @@ template <typename M>
 void EntradaEntera(Todo<M>& c, const GrupoTodo& g, uint32_t e, bool ps) {
   M& m = c.m;
   const uint32_t w0 = m.L32(e + 0);                                // lwz r11,0(r31)
-  const uint32_t defecto = m.L8(e + (ps ? 12 : 13));               // lbz r10,13(r31) o 12(r31)
-  const uint32_t tabla_defecto = m.L32(g.tabla + 80);              // lwz r9,80(r28) o 80(r27)
+  const uint32_t defecto = m.L8(e + (ps ? 12 : 13));               // lbz r10,13(r31) or 12(r31)
+  const uint32_t tabla_defecto = m.L32(g.tabla + 80);              // lwz r9,80(r28) or 80(r27)
   const uint32_t t = (Rotl32<17>(w0) & 0x1FFF8u) + g.r23;
   const uint32_t idx = m.L32(t + 4);
   const uint32_t origen = (Rotl32<4>(idx) & 0xFFFF0u) + g.r24;
@@ -1325,7 +1325,7 @@ void EntradaEntera(Todo<M>& c, const GrupoTodo& g, uint32_t e, bool ps) {
   alignas(16) uint8_t vector[16];
   GuardarVector(vector, simde_mm_castps_si128(simde_mm_blend_ps(
                             simde_mm_castsi128_ps(v0), simde_mm_permute_ps(simde_mm_castsi128_ps(v13), 228), 7)));
-  const uint32_t wc = m.L32(e + (ps ? 8 : 4));                     // lwz r11,4(r31) o 8(r31)
+  const uint32_t wc = m.L32(e + (ps ? 8 : 4));                     // lwz r11,4(r31) or 8(r31)
   const uint32_t registro = Rotl32<20>(wc) & 0xFFu;                // rlwinm r4,r11,20,24,31
   const uint32_t cuenta = (Rotl32<12>(wc) & 3u) + 1;               // rlwinm r10,r11,12,30,31; addi r6,r10,1
   // The D3D function: per register, (byte 11 << 16) | (byte 7 << 8) | byte 3 of a 16-byte vector.
@@ -1366,8 +1366,8 @@ void EntradaBooleana(Todo<M>& c, const GrupoTodo& g, uint32_t e, bool ps) {
   m.ModoVectorial();
   alignas(16) uint8_t vector[16];
   GuardarVector(vector, rex::ppc::simde_mm_vctuxs(simde_mm_castsi128_ps(CargarVector(m, origen))));
-  const uint32_t wc = m.L32(e + (ps ? 8 : 4));                     // lwz r11,4(r31) o 8(r31)
-  uint32_t registro = m.L8(e + (ps ? 14 : 15));                    // lbz r4,15(r31) o 14(r31)
+  const uint32_t wc = m.L32(e + (ps ? 8 : 4));                     // lwz r11,4(r31) or 8(r31)
+  uint32_t registro = m.L8(e + (ps ? 14 : 15));                    // lbz r4,15(r31) or 14(r31)
   const uint32_t cuenta = (Rotl32<2>(wc) & 3u) + 1;                // rlwinm r11,r11,2,30,31; addi r6,r11,1
   // The D3D function: bit 0 of each word of the vector goes to bit (register & 31) of word
   // 2528 (VS) or 2532 (PS) + register / 32 of the device.
@@ -1462,7 +1462,7 @@ bool SetTextureNativo(Todo<M>& c, uint32_t hueco, uint32_t textura) {
     }
     r10 = (Rotl32<6>(r8d) & 0x3C0u) | (r10 & 0xFFFFFC3Fu);           // rlwimi r10,r8,6,22,25
     m.E32(fc + 16, r10);                                             // stw r10,16(r11)
-    const uint32_t h8 = hueco & 0xFFu;                               // srd r11,r4,r6 con r6 = hueco
+    const uint32_t h8 = hueco & 0xFFu;                               // srd r11,r4,r6 with r6 = hueco
     const uint64_t bit = (h8 & 0x40u) ? 0 : ((uint64_t(1) << 63) >> (h8 & 0x7Fu));
     m.E64(dispositivo + 32, bit | m.L64(dispositivo + 32));          // ld r10,16(r9); or; std r11,16(r9)
   }
@@ -1490,7 +1490,7 @@ bool SetTextureNativo(Todo<M>& c, uint32_t hueco, uint32_t textura) {
     uint8_t* const base = m.base;
     const uint64_t r1 = ctx.r1.u64;
     Escribir32(base, c.pila - 448, c.pila);              // stwu r1,-448(r1) of the original
-    Escribir32(base, c.pila - 448 - 128, c.pila - 448);  // stwu r1,-128(r1) de SetTexture
+    Escribir32(base, c.pila - 448 - 128, c.pila - 448);  // stwu r1,-128(r1) of SetTexture
     ctx.r1.u32 = c.pila - 448 - 128;
     ctx.r3.u64 = anterior;
     ctx.lr = 0x8258A7C4;                                 // the instruction after its bl
@@ -1506,7 +1506,7 @@ template <typename M>
 bool EntradaTextura(Todo<M>& c, const GrupoTodo& g, uint32_t e, bool ps) {
   M& m = c.m;
   const uint32_t w0 = m.L32(e + 0);                                  // lwz r11,0(r31)
-  const uint32_t wc = m.L32(e + (ps ? 8 : 4));                       // lwz r10,4(r31) o 8(r31)
+  const uint32_t wc = m.L32(e + (ps ? 8 : 4));                       // lwz r10,4(r31) or 8(r31)
   const uint32_t t = (Rotl32<17>(w0) & 0x1FFF8u) + g.r23;
   const uint32_t hueco = Rotl32<10>(wc) & 0xFFu;                     // rlwinm r4,r10,10,24,31
   const uint32_t idx = m.L32(t + 4);
@@ -1530,7 +1530,7 @@ bool Lista(Todo<M>& c, const GrupoTodo& g) {
       e += z * 16;
       mascara <<= z;
       const uint64_t invertida = ~mascara;
-      const uint32_t n = invertida ? uint32_t(__builtin_clzll(invertida)) : 64u;  // bits seguidos, 1..64
+      const uint32_t n = invertida ? uint32_t(__builtin_clzll(invertida)) : 64u;  // consecutive bits, 1..64
       const uint32_t fin = e + n * 16;
       mascara = n >= 64 ? 0 : (mascara << n);
       do {
@@ -1861,18 +1861,18 @@ constexpr uint32_t kMaxTramos = 160;
 constexpr uint64_t kComprobacionesJuego = 20000;
 constexpr uint64_t kComprobacionesAnillo = 20000;
 constexpr uint32_t kMinimoPorGrupo = 64;
-constexpr uint64_t kComprobarCada = 1024;  // potencia de 2
+constexpr uint64_t kComprobarCada = 1024;  // power of 2
 constexpr uint32_t kRelleno = 0x80000000u;  // type-2 packet 825A2C58 and 825A2B60 use to align their data
 
 struct Tramo {
-  uint32_t registro;  // primer registro
-  uint32_t cuenta;    // palabras
+  uint32_t registro;  // first register
+  uint32_t cuenta;    // words
   uint32_t origen;    // mirror in the device (guest address)
 };
 
 struct Volcado {
   Tramo tramos[kMaxTramos];
-  uint32_t n;         // tramos
+  uint32_t n;         // runs
   uint32_t palabras;  // run headers plus values
   uint32_t grupos;    // bit g: group g has something
   bool desbordado;    // should never happen (kMaxTramos); if it does, the game's path

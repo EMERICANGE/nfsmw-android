@@ -289,11 +289,11 @@ class ColaInformes {
 
   std::mutex mutex_;
   std::condition_variable aviso_;
-  std::deque<std::string> cola_;  // con mutex_
+  std::deque<std::string> cola_;  // with mutex_
   std::thread hilo_;              // created with mutex_ held
-  bool parar_ = false;            // con mutex_
+  bool parar_ = false;            // with mutex_
   bool sin_hilo_ = false;         // with mutex_: the thread could not be created
-  uint64_t perdidas_ = 0;         // con mutex_
+  uint64_t perdidas_ = 0;         // with mutex_
 };
 
 }  // namespace
@@ -838,7 +838,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   }
 
  private:
-  // --- Registros MMIO -------------------------------------------------------
+  // --- MMIO registers -------------------------------------------------------
 
   static uint32_t LeerMmio(void* ppc_context, void* contexto, uint32_t direccion) {
     (void)ppc_context;
@@ -1019,7 +1019,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
         const uint32_t base = direccion - 32;
         if (oclusion_base_ != 0) {
           uint64_t descartadas = 0;
-          destinos_->TerminarOclusion(oclusion_base_, descartadas);  // la anterior no llego a su Issue(END)
+          destinos_->TerminarOclusion(oclusion_base_, descartadas);  // the previous one did not reach its Issue(END)
           ++oclusion_contadores_[3];
         }
         if (bases_oclusion_.size() < 64) {
@@ -1343,7 +1343,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
       return;
     }
     const uint32_t cabecera = datos.Leer();
-    const uint32_t modo = cabecera & 0x0Fu;               // registros: 0 sin tramos, 1 aplicar, 2 comprobar
+    const uint32_t modo = cabecera & 0x0Fu;               // registers: 0 no spans, 1 apply, 2 check
     const uint32_t modo_dibujo = (cabecera >> 4) & 0x0Fu;  // phase 2b: 0 none, kDibujoAplicar, kDibujoComprobar
     const uint32_t secuencia = datos.Leer();
     uint32_t n = palabras - 2;  // draw record, span headers and values
@@ -1763,7 +1763,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
     return 0;
   }
 
-  // --- Paquetes PM4 -----------------------------------------------------------
+  // --- PM4 packets ------------------------------------------------------------
 
   // Consumes a whole packet, or leaves the position untouched if it is not complete yet.
   bool Paquete(Lector& lector, int profundidad) {
@@ -2032,7 +2032,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
           case 1: base = 0x4800; break;  // fetch
           case 2: base = 0x4900; break;  // bool
           case 3: base = 0x4908; break;  // loop
-          case 4: base = 0x2000; break;  // registros
+          case 4: base = 0x2000; break;  // registers
           default: break;
         }
         if (base != UINT32_MAX) {
@@ -2095,7 +2095,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
           case 1: base = 0x4800; break;  // fetch
           case 2: base = 0x4900; break;  // bool
           case 3: base = 0x4908; break;  // loop
-          case 4: base = 0x2000; break;  // registros
+          case 4: base = 0x2000; break;  // registers
           default: break;
         }
         if (base != UINT32_MAX) {
@@ -2207,7 +2207,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
         ProcesarMarcador(datos, palabras);
         break;
       default:
-        // Invalidaciones y demas: todavia no dibuja.
+        // Invalidations and the rest: it does not draw yet.
         break;
     }
   }
@@ -2880,7 +2880,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   //     position arithmetic): "DIFERENCIA" in the log and the cache turned off for the run. That load
   //     already uses the regular result.
   struct CargaInmediata {
-    uint64_t firma = 0;  // 0 = via vacia
+    uint64_t firma = 0;  // 0 = empty way
     uint32_t tamano = 0;
     std::vector<uint32_t> crudo;  // as it is in the ring (big-endian)
     std::vector<uint32_t> host;   // swapped: what gets identified and what the vertex input reads
@@ -3513,7 +3513,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
     }
   }
 
-  // --- Presentacion de prueba -------------------------------------------------
+  // --- Test presentation ------------------------------------------------------
 
   void Presentar() {
     const uint64_t swap = swaps_.fetch_add(1, std::memory_order_relaxed) + 1;
@@ -4628,14 +4628,14 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   std::unordered_set<uint64_t> variantes_vistas_;
   // Steps C3-C6: generations, so unchanged data is not uploaded again.
   uint64_t generacion_vs_ = 0;  // one per distinct VS microcode (CargarShaderCacheado)
-  // Cache de IM_LOAD (CargarShaderCacheado): 2 tipos x 128 conjuntos x 2 vias.
+  // IM_LOAD cache (CargarShaderCacheado): 2 types x 128 sets x 2 ways.
   struct CargaShader {
     uint32_t direccion_tipo = 0;
     uint32_t tamano = 0;
     std::vector<uint32_t> crudo;  // as it is in game memory
     std::vector<uint32_t> host;   // swapped: what gets identified and what the vertex input reads
     const EntradaShader* entrada = nullptr;
-    uint64_t huella = 0;      // XXH3 de host
+    uint64_t huella = 0;      // host XXH3
     uint64_t generacion = 0;  // from generaciones_microcodigo_, when this content was loaded
     uint64_t uso = 0;         // the least recently used way is the one replaced
     // The versions of its slot this content was checked against guest memory with
@@ -4654,7 +4654,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   static constexpr int kImAtajoAplicando = 1;
   static constexpr int kImAtajoApagado = 2;
   static constexpr uint64_t kImAtajoAMirar = 200000;
-  static constexpr uint64_t kImAtajoComprobarCada = 4096;  // potencia de 2
+  static constexpr uint64_t kImAtajoComprobarCada = 4096;  // power of 2
   int im_atajo_fase_ = kImAtajoSinEmpezar;
   uint64_t im_atajo_turno_ = 0;
   uint64_t im_atajo_comprobadas_ = 0;  // agreements with the memcmp since startup
@@ -4673,7 +4673,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   static constexpr int kInmAplicando = 1;
   static constexpr int kInmApagado = 2;
   static constexpr uint64_t kInmAMirar = 20000;
-  static constexpr uint64_t kInmComprobarCada = 1024;  // potencia de 2
+  static constexpr uint64_t kInmComprobarCada = 1024;  // power of 2
   std::array<std::array<std::array<CargaInmediata, kInmVias>, (size_t(1) << kInmBitsConjunto)>, 2> inm_cache_{};
   std::array<std::array<uint8_t, (size_t(1) << kInmBitsConjunto)>, 2> inm_ultima_{};  // way of the last hit
   int inm_fase_ = kInmSinEmpezar;
@@ -4823,7 +4823,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   std::string constantes_lista_texto_;
   std::unordered_set<uint32_t> constantes_lista_;
   std::unordered_map<uint32_t, Reloj::time_point> constantes_ultimo_;
-  // Prueba nfsmw_nativo_oclusion_alternar_s.
+  // Test nfsmw_nativo_oclusion_alternar_s.
   bool oclusion_prueba_iniciada_ = false;
   bool oclusion_prueba_fingida_ = false;
   Reloj::time_point oclusion_prueba_inicio_{};
@@ -4865,7 +4865,7 @@ class SistemaGraficoNativo final : public rex::system::IGraphicsSystem {
   bool diag_constantes_activo_ = false;
   std::unordered_set<uint32_t> texturas_volcadas_;  // nfsmw_nativo_diag_vertices_ps
   uint32_t trazas_ = 0;
-  uint32_t motivo_emparejado_ = 0;  // 0 emparejado, 1 sin registro, 2 registro incoherente
+  uint32_t motivo_emparejado_ = 0;  // 0 paired, 1 no record, 2 inconsistent record
   uint32_t objeto_vs_ = 0;           // objects of the paired record
   uint32_t objeto_ps_ = 0;
   // Ring identity for draws without a usable record (UsarIdentidadDelAnillo).

@@ -93,7 +93,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_escenario_nativo, true, "NFSMW",
 // it uses it.
 REXCVAR_DECLARE(int32_t, nfsmw_escenario_detalle);
 
-REX_EXTERN(__imp__sub_824C2850);  // la original
+REX_EXTERN(__imp__sub_824C2850);  // the original
 REX_EXTERN(sub_8243E7D8);         // GetVisibleState through its hook, like the original (itself native)
 // CreateWindRotMatrix and bMulMatrix, the originals. The name is assembled from parts on purpose:
 // tools/llamadas_directas.py treats any address that appears whole in app/src as hooked, and their calls
@@ -183,10 +183,10 @@ constexpr uint32_t kCero = 0x82061CE8;             // lfs f13,7400(0x82060000) o
 constexpr uint32_t kEscalaRotacion = 0x820AFF50;   // lfs f0,-176(0x820B0000) of the rotation: 1/8192
 constexpr uint32_t kModoVista = 0x82A2CEE4;        // lwz r11,-12572(0x82A30000): eGetCurrentViewMode()
 constexpr uint32_t kReservaActual = 0x82A2C3B4;    // eFrameMalloc: the free pointer
-constexpr uint32_t kReservaFin = 0x82A2C3B8;       //   y su final
+constexpr uint32_t kReservaFin = 0x82A2C3B8;       //   and its end
 constexpr uint32_t kReservaAgotada = 0x82A2C3C4;   // out of space: the flag
 constexpr uint32_t kReservaPerdida = 0x82A2C3C8;   // and the requested bytes
-constexpr uint32_t kVistas = 0x82A38070;           // addi r26,r11,-32656 con r11 = 0x82A40000
+constexpr uint32_t kVistas = 0x82A38070;           // addi r26,r11,-32656 with r11 = 0x82A40000
 constexpr uint32_t kVista1 = kVistas + 112;        // eGetView(1)
 constexpr uint32_t kVista2 = kVistas + 224;        // eGetView(2)
 constexpr uint32_t kMagia360 = 0xB60B60B7u;        // lis r4,-18933; ori r10,r4,24759: divide by 360
@@ -199,7 +199,7 @@ constexpr uint32_t kVueltaViento = 0x824C2C74;
 constexpr uint32_t kVueltaMultiplicar = 0x824C2C84;
 constexpr uint32_t kVueltaMarcador = 0x824C2CE8;
 
-// [inicio, inicio + n) toca la pila vigilada [pila - kPila, pila)?
+// [inicio, inicio + n) touches the watched stack [pila - kPila, pila)?
 [[gnu::always_inline]] inline bool EnPila(uint32_t inicio, uint32_t n, uint32_t pila) {
   return uint64_t(inicio) + n > uint64_t(pila) - kPila && uint64_t(inicio) < uint64_t(pila);
 }
@@ -258,7 +258,7 @@ inline bool Activo() {
 template <bool kGuardia>
 Salida Nativa(PPCContext& ctx, uint8_t* base) {
   const uint32_t yo = ctx.r3.u32;      // ScenerySectionHeader
-  const uint32_t numero = ctx.r4.u32;  // numero de instancia
+  const uint32_t numero = ctx.r4.u32;  // instance number
   const uint32_t cull = ctx.r5.u32;    // SceneryCullInfo (r25)
   const uint64_t estado = ctx.r6.u64;  // visibility_state (r26)
   const uint32_t pila = ctx.r1.u32;
@@ -296,7 +296,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     return {true, 0, camino};
   };
 
-  // --- Prologo ---
+  // --- Prologue ---
   ctx.r12.u64 = ctx.lr;             // mflr r12
   ctx.lr = kVueltaPrologo;          // bl __savegprlr_22
   ctx.fpscr.disableFlushMode();     // the one of "stfd f29,-112(r1)"
@@ -312,7 +312,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     const uint32_t fila = uint32_t(int32_t(int16_t(Leer16(base, inst + 28)))) << 7;  // lhz; extsh; rlwinm 7,0,24
     const uint32_t byte = Leer8(base, fila + uint32_t(seccion >> 3) + Leer32(base, yo + 48));  // srawi; add; lbzx
     if ((byte & (1u << (uint32_t(seccion) & 7u))) != 0) {  // slw r11,r4,r7; and; cmpwi; bne
-      return salir(kDescarte);                              // r3 = this, sin tocar
+      return salir(kDescarte);                              // r3 = this, untouched
     }
   }
 
@@ -326,13 +326,13 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
   if (((marcadas ^ 0xFFFFFF60u) & banderas_vista & 0x080000FFu) != 0) {  // xor; and; clrlwi 4; rlwinm 0,24,4
     return salir(kDescarte);
   }
-  // lhz r9,62(r30); extsh; x 72 (rlwinm, add, rlwinm); add r31,r11,r10 con r10 = [r3+24]
+  // lhz r9,62(r30); extsh; x 72 (rlwinm, add, rlwinm); add r31,r11,r10 with r10 = [r3+24]
   const uint32_t info = uint32_t(int32_t(int16_t(Leer16(base, inst + 62)))) * 72u + Leer32(base, yo + 24);
   if (EnPila(info, 72, pila)) {
     return a_la_original(kPorPila);
   }
 
-  // --- 3. Visibilidad parcial ---
+  // --- 3. Partial visibility ---
   uint64_t visibilidad = estado;               // r26
   if (int32_t(uint32_t(estado)) == 1) {        // cmpwi cr6,r26,1
     uint32_t caja[6];
@@ -351,7 +351,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     ctx.r6.s64 = 0;
     ctx.r5.s64 = ctx.r1.s64 + 112;
     ctx.r4.s64 = ctx.r1.s64 + 80;
-    ctx.r3.u64 = Leer32(base, cull + 128);     // lwz r3,128(r25): la vista
+    ctx.r3.u64 = Leer32(base, cull + 128);     // lwz r3,128(r25): the view
     ctx.lr = kVueltaVisible;
     sub_8243E7D8(ctx, base);                   // GetVisibleState
     visibilidad = ctx.r3.u64;                  // mr r26,r3
@@ -412,7 +412,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     }
     PPCRegister entero;
     entero.s64 = Fctiwz(tam);                                 // fctiwz f8,f12
-    Escribir32(base, marco - 16, entero.u32);                 // stfiwx f8,0,r11 con r11 = r1-16
+    Escribir32(base, marco - 16, entero.u32);                 // stfiwx f8,0,r11 with r11 = r1-16
     r3 = entero.u32;                                          // lwz r3,-16(r1)
   }
   if (int32_t(uint32_t(r3)) <= 1) {                           // cmpwi cr6,r3,1; ble
@@ -425,7 +425,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
   const int32_t pixeles = int32_t(uint32_t(r3));
   ctx.r3.u64 = r3;  // what remains in r3 if it is discarded from here
 
-  // --- 5. La malla (r28) ---
+  // --- 5. The mesh (r28) ---
   uint32_t modelo;
   if ((banderas_vista & 0x800u) != 0 || (banderas_vista & 0x1000u) != 0) {  // loc_824C2A90
     const uint32_t vista = Leer32(base, cull + 128);
@@ -478,10 +478,10 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
         const double f5 = double(px64);                                    // lfd f6,80(r1); fcfid f5,f6
         const double f4 = double(float(f5));                               // frsp f4,f5
         const double cociente = double(float(f4 / densidad));              // fdivs f0,f4,f0
-        if (!cerca) {                                                      // blt cr6 -> la buena
+        if (!cerca) {                                                      // blt cr6 -> the good one
           const double umbral_lod = Lfs(w_umbral);                         // lfs f13,-4396(r27)
           if (cociente < umbral_lod || std::isnan(cociente)) {             // blt / bso -> loc_824C2AC8
-            modelo = Leer32(base, info + 48);                              // la reducida
+            modelo = Leer32(base, info + 48);                              // the reduced one
           }
         }
       }
@@ -491,11 +491,11 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     return salir(kDescarte);
   }
 
-  // --- 6. SceneryDrawInfo sin matriz ---
+  // --- 6. SceneryDrawInfo without matrix ---
   if ((banderas & 0x200u) != 0) {
     const uint32_t tope = Leer32(base, cull + 144);
     const uint32_t actual = Leer32(base, cull + 140);
-    if (actual >= tope) {                                                   // cmplw; bge: lleno
+    if (actual >= tope) {                                                   // cmplw; bge: full
       return salir(kDescarte);
     }
     const uint64_t modelo_y_estado = uint64_t(modelo) + visibilidad;        // add r3,r28,r26
@@ -615,7 +615,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     ctx.r4.s64 = ctx.r1.s64 + 128;
     ctx.r6.u64 = matriz;
     ctx.lr = kVueltaViento;
-    NFSMW_ESCENARIO_VIENTO(ctx, base);                    // CreateWindRotMatrix(vista, r1+128, desfase, matriz)
+    NFSMW_ESCENARIO_VIENTO(ctx, base);                    // CreateWindRotMatrix(vista, r1+128, phase, matriz)
     ctx.r5.u64 = matriz;
     ctx.r4.s64 = ctx.r1.s64 + 128;
     ctx.r3.u64 = matriz;

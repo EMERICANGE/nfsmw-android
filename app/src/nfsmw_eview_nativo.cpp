@@ -402,7 +402,7 @@ struct Evento {
 };
 
 constexpr uint32_t kMaxEventos = 1024;  // 3 + one per drawn submesh
-constexpr uint32_t kPalabras = 9;       // enlace, [r28+64] y r1+84..112
+constexpr uint32_t kPalabras = 9;       // link, [r28+64] and r1+84..112
 constexpr uint32_t kPilaMuerta = 2048;  // below r1: GetVisibleState's frame (128) with a wide margin
 
 struct Sombra {
@@ -558,9 +558,9 @@ constexpr uint64_t kPeriodo = 4096;
 std::atomic<int8_t> g_activo{-1};
 std::atomic<bool> g_apagado{false};
 std::atomic<uint64_t> g_llamadas{0};
-std::atomic<uint64_t> g_nativas{0};           // ultimos 10 s
-std::atomic<uint64_t> g_originales{0};        // ultimos 10 s
-std::atomic<uint64_t> g_comprobadas{0};       // ultimos 10 s
+std::atomic<uint64_t> g_nativas{0};           // last 10 s
+std::atomic<uint64_t> g_originales{0};        // last 10 s
+std::atomic<uint64_t> g_comprobadas{0};       // last 10 s
 std::atomic<uint64_t> g_comprobadas_total{0};
 std::atomic<uint64_t> g_sin_comprobar{0};     // trace full or another thread checking (not differences)
 std::atomic<uint64_t> g_medidas{0};           // last 10 s: timed native calls (1 in 16)
@@ -741,7 +741,7 @@ void Apagar(const PPCContext& ctx, uint64_t n, const char* que, bool de_la_traza
     Repetir(ctx, base, false);  // paths 1 and 2: the original did not reach 8221_8AB8
   }
   g_traza_ctx.store(nullptr, std::memory_order_release);
-  // 4. Registros al volver.
+  // 4. Registers on return.
   const char* que = t.fallo;
   if (!que) {
     const uint64_t marco64 = t.marco64;

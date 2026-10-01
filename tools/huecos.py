@@ -128,7 +128,7 @@ def main():
     if faltan:
         print("  aviso: %d funciones sin medir (se ignoran)" % len(faltan))
 
-    # Calcular huecos
+    # Compute gaps
     huecos = []
     for i, a in enumerate(inicios[:-1]):
         n = tamanos.get(a)

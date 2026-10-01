@@ -204,7 +204,7 @@ bool ProtegerConPermisos(uint8_t* pagina, bool solo_lectura) {
         Proc(), reinterpret_cast<u64>(pagina), kPageSize, solo_lectura ? Perm_R : Perm_Rw);
     if (R_FAILED(rc)) {
         if (g_solo_lectura == SoloLectura::kSinProbar) {
-            g_solo_lectura = SoloLectura::kNo;  // no se vuelve a intentar
+            g_solo_lectura = SoloLectura::kNo;  // not tried again
         }
         return false;
     }
@@ -569,8 +569,8 @@ bool RexGmFaultIn(uint64_t window_address) {
                        static_cast<size_t>(window_address -
                                            reinterpret_cast<uint64_t>(s.views[vi].base));
     Chunk* c = ChunkAt(s, off);
-    if (!c) return false;                                       /* sin confirmar */
-    if (s.view_mapped.count({vi, c->offset}) != 0) return false; /* ya estaba */
+    if (!c) return false;                                       /* not committed */
+    if (s.view_mapped.count({vi, c->offset}) != 0) return false; /* already there */
     return MapChunkIntoView(s, vi, *c);
 }
 

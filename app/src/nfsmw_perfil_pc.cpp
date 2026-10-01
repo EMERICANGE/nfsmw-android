@@ -61,7 +61,7 @@ struct Hilo {
   DWORD id = 0;
   HANDLE h = nullptr;
   std::string nombre;
-  uint64_t tiempo_prev = 0;  // 100 ns de CPU (usuario + nucleo)
+  uint64_t tiempo_prev = 0;  // 100 ns of CPU (user + kernel)
   bool ocupado = false;
   uint64_t muestras = 0;
   double cpu_max = 0.0;
@@ -77,7 +77,7 @@ std::atomic<bool> g_parar{false};
 std::thread g_hilo;
 std::thread g_hilo_pilas;
 std::mutex g_volcado_mutex;
-int g_volcados = 0;  // con g_volcado_mutex
+int g_volcados = 0;  // with g_volcado_mutex
 
 std::string Utf8(const wchar_t* w) {
   if (!w || !*w) {
@@ -274,7 +274,7 @@ void Bucle(int desde_s, int duracion_s) {
     }
     if (temporizador) {
       LARGE_INTEGER plazo{};
-      plazo.QuadPart = -10000;  // 1 ms, relativo
+      plazo.QuadPart = -10000;  // 1 ms, relative
       SetWaitableTimer(temporizador, &plazo, 0, nullptr, nullptr, FALSE);
       WaitForSingleObject(temporizador, 20);
     } else {

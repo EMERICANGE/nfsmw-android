@@ -251,7 +251,7 @@ def info_xex(ruta):
         print()
         print("== Datos clave ==")
 
-        # Execution info -> title id, version, disco
+        # Execution info -> title id, version, disc
         title_id = None
         if 0x00040006 in opcionales:
             fh.seek(opcionales[0x00040006])
@@ -284,7 +284,7 @@ def info_xex(ruta):
             print("  Load address          : 0x%08X" % load_addr)
             print("  Tamano de imagen      : %s bytes" % f"{tam_imagen:,}")
 
-        # File format info -> compresion / cifrado
+        # File format info -> compression / encryption
         if 0x000003FF in opcionales:
             fh.seek(opcionales[0x000003FF])
             ffi = fh.read(8)

@@ -1,55 +1,55 @@
-# Audio en Android
+# Audio on Android
 
-La salida del juego convierte los seis canales Xbox a estéreo, a 48 kHz. La bomba
-SDL pide bloques de 256 muestras cada 5,33 ms y mantiene una reserva de 12 bloques
-(64 ms). La salida puede consumir varios bloques por petición sin imponer ese
-ritmo por ráfagas al servidor de audio del juego. El bloqueo de la cola se mantiene
-solo para retirar o devolver buffers, dejando que el productor la rellene durante
-la conversión y el envío a SDL.
+The game's output converts the six Xbox channels to stereo, at 48 kHz. The SDL
+pump requests blocks of 256 samples every 5.33 ms and keeps a reserve of 12 blocks
+(64 ms). The output can consume several blocks per request without imposing that
+bursty pace on the game's audio server. The queue lock is held
+only to take out or return buffers, which lets the producer refill the queue during
+the conversion and the submission to SDL.
 
-Los ajustes `audio_sdl_bomba = true` y `audio_sdl_bomba_cola = 12` son los valores
-predeterminados de Android. `audio_maxqframes` sigue en 12. La reserva agrega
-latencia y absorbe retrasos breves; cargas más largas todavía pueden agotar la cola.
-El registro `[audio] SDL en 10 s` cuenta bloques entregados y silencios por falta de
-datos. No detecta silencios que ya vengan dentro de una mezcla del juego.
+The settings `audio_sdl_bomba = true` and `audio_sdl_bomba_cola = 12` are the Android
+defaults. `audio_maxqframes` stays at 12. The reserve adds
+latency and absorbs short delays; longer loads can still drain the queue.
+The `[audio] SDL en 10 s` log line counts delivered blocks and silences caused by
+missing data. It does not detect silences that already come inside a game mix.
 
-La mezcla estéreo de Android conserva sus picos flotantes hasta el limitador.
-Recortar antes de limitar destruía esos picos y podía alterar el balance estéreo
-con volúmenes altos. El limitador mantiene ambos canales enlazados, limita a 0,97
-y recupera ganancia en unos 80 ms. La recuperación usa la frecuencia de la fuente,
-también en las películas de 44,1 kHz. Las otras salidas conservan el recorte previo
-que ya utilizaban.
+Android's stereo mix keeps its floating-point peaks until the limiter.
+Clipping before limiting destroyed those peaks and could alter the stereo balance
+at high volumes. The limiter keeps both channels linked, limits to 0.97
+and recovers gain in about 80 ms. The recovery uses the sample rate of the source,
+including in the 44.1 kHz movies. The other outputs keep the clipping
+they already used.
 
-Las películas tienen una pista SDL independiente, decodificada con FFmpeg. Se
-admiten WMA Pro y WMA v2: el archivo `ealogo` de la edición PAL española usa WMA v2,
-aunque las otras intros usan WMA Pro. Mientras la pista nativa suena se silencia
-la salida del mezclador del juego para evitar superposición y ruido. Se sigue
-consumiendo esa mezcla y devolviendo buffers. La salida del juego se restaura al
-vaciar la pista, destruir la película o transcurrir 800 ms sin pedir fotogramas.
-El registro indica cuándo se silencia y restaura.
+The movies have their own SDL track, decoded with FFmpeg. WMA Pro and
+WMA v2 are supported: the `ealogo` file of the Spanish PAL edition uses WMA v2,
+while the other intros use WMA Pro. While the native track is playing, the output
+of the game's mixer is muted to avoid overlap and noise. That mix is still
+consumed and its buffers returned. The game's output is restored when the
+track runs empty, when the movie is destroyed or after 800 ms without frame requests.
+The log shows when it is muted and restored.
 
-La prueba `tools/tests/audio_output_test.cpp` verifica la conversión de los canales
-Xbox, picos por encima del margen anterior, el balance estéreo tras limitar, el
-paso de sonidos suaves, la continuidad entre bloques y la recuperación a 44,1 y
-48 kHz. Se ejecutó en ARM64 Android; la compilación Release también pasó.
-Para comprobar la reproducción, escuchar una intro, saltar una cinemática y
-entrar a una carrera; revisar los contadores y la restauración de la salida.
+The test `tools/tests/audio_output_test.cpp` checks the conversion of the Xbox
+channels, peaks above the previous headroom, the stereo balance after limiting, that
+soft sounds pass through, continuity between blocks and recovery at 44.1 and
+48 kHz. It was run on ARM64 Android; the Release build also passed.
+To check playback, listen to an intro, skip a cutscene and
+start a race; review the counters and the restoring of the output.
 
-Las cabeceras WAVE del contenedor aportan tambi�n el bitrate y los bits de la
-fuente a FFmpeg. El logo EA usa WMA v2 a 192 kb/s: con el bitrate predeterminado,
-26 de sus 28 paquetes fallaban al decodificar.
+The container's WAVE headers also give FFmpeg the bitrate and the bit depth of the
+source. The EA logo uses WMA v2 at 192 kb/s: with the default bitrate,
+26 of its 28 packets failed to decode.
 
-La correcci�n de las intros est� en el enlace Android: `libmain` y `rexruntime`
-contienen cada una FFmpeg y sus tablas FFT privadas. Los s�mbolos C ya estaban
-ocultos, pero las funciones NEON en ensamblador se exportaban desde el runtime.
-As�, el reproductor inicializaba sus tablas y llamaba a funciones del runtime,
-que consultaban otras tablas a�n sin inicializar. Se ocultan los s�mbolos de
-ambos archivos est�ticos FFmpeg con `--exclude-libs` en las dos bibliotecas.
-Esto conserva NEON y evita depender del orden en que se reproduzcan sonidos.
+The fix for the intros is in the Android linking: `libmain` and `rexruntime`
+each contain FFmpeg and its private FFT tables. The C symbols were already
+hidden, but the NEON assembly functions were exported from the runtime.
+As a result, the player initialized its own tables and called functions of the runtime,
+which read other tables that were not initialized yet. The symbols of
+both static FFmpeg archives are hidden with `--exclude-libs` in the two libraries.
+This keeps NEON and avoids depending on the order in which sounds are played.
 
-`python tools/tests/android_ffmpeg_bindings_test.py <APK>` verifica que las dos
-bibliotecas no importen ni exporten DSP interno de FFmpeg. La prueba falla con
-el APK anterior y pasa con el corregido. En el S25 Ultra, la captura de los
-primeros cinco segundos de PSA y del logo EA coincide exactamente con la
-misma decodificaci�n fuera del juego (error m�ximo 0). El usuario confirm� que
-las intros ya suenan bien. Se retir� la captura temporal de audio del APK final.
+`python tools/tests/android_ffmpeg_bindings_test.py <APK>` checks that the two
+libraries neither import nor export FFmpeg's internal DSP. The test fails with
+the previous APK and passes with the fixed one. On the S25 Ultra, the capture of the
+first five seconds of the PSA and of the EA logo matches exactly the
+same decoding done outside the game (maximum error 0). The user confirmed that
+the intros now sound right. The temporary audio capture was removed from the final APK.

@@ -124,7 +124,7 @@ constexpr uint32_t kOffAncho = 28;
 constexpr uint32_t kOffAlto = 52;
 constexpr uint32_t kOffMsaa = 76;
 constexpr uint32_t kOffRects = 100;
-constexpr uint32_t kBytesPorModoRects = 64;  // 4 D3DRECT de 16 bytes
+constexpr uint32_t kBytesPorModoRects = 64;  // 4 D3DRECT of 16 bytes
 constexpr uint32_t kModoSinAa = 2;
 constexpr uint32_t kModo1080p = 4;  // its set becomes the 1920x1088 one
 constexpr uint32_t kAncho1080p = 1920;
@@ -138,9 +138,9 @@ constexpr uint32_t kGlobalAlto0 = 0x82A2CF6C;
 constexpr uint32_t kGlobalAncho1 = 0x82A2CF70;
 constexpr uint32_t kGlobalAlto1 = 0x82A2CF74;
 constexpr uint32_t kGlobalModoSalida = 0x82A2CF80;
-constexpr uint32_t kModoSalida1080p = 3;  // su tabla: 0 -> 640x480, 2 -> 1280x720, 3 -> 1920x1080
+constexpr uint32_t kModoSalida1080p = 3;  // its table: 0 -> 640x480, 2 -> 1280x720, 3 -> 1920x1080
 
-// Puntero global al renderizador (lis r11,-32093 / lwz -11860).
+// Global pointer to the renderer (lis r11,-32093 / lwz -11860).
 constexpr uint32_t kRenderizadorGlobal = 0x82A2D1AC;
 
 // Set descriptor that sub_8245D320 receives in r5.

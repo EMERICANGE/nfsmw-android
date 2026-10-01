@@ -1,85 +1,85 @@
-# Diagnosticos de testers (desde la compilacion 0.3.5)
+# Tester diagnostics (since build 0.3.5)
 
-El launcher incorpora **Enviar crash o log**. El telefono prepara un ZIP local
-con la version de la app, modelo, Android, GPU/Vulkan, ajustes del launcher,
-registros recientes de esta app y el historial de cierres que Android permite
-consultar. Si esta disponible, incluye la traza de un cierre nativo o ANR.
-Tambien conserva la ultima excepcion Java.
+The launcher includes **Enviar crash o log** (Send crash or log). The phone
+prepares a local ZIP with the app version, model, Android version, GPU/Vulkan,
+launcher settings, recent logs of this app and the crash history that Android
+lets apps query. When available, it includes the trace of a native crash or
+ANR. It also keeps the last Java exception.
 
-- **Correo** abre el selector para compartir el ZIP con el destinatario
-  `daniebatuani@gmail.com`, asunto y texto inicial. Selecciona tu app de correo,
-  describe lo sucedido y pulsa Enviar.
-- **GitHub** pide guardar el ZIP y abre un nuevo issue en
-  https://github.com/codepdbh/nfsmw-android/issues/new con los datos basicos
-  rellenados. Inicia sesion si es necesario, describe como reproducir el fallo
-  y adjunta el ZIP guardado antes de publicar el issue.
-- **Guardar ZIP** permite guardar el informe sin abrir correo ni GitHub.
+- **Correo** (Email) opens the share sheet for the ZIP with the recipient
+  `daniebatuani@gmail.com`, a subject and an initial text. Pick your email app,
+  describe what happened and tap Send.
+- **GitHub** asks you to save the ZIP and opens a new issue at
+  https://github.com/codepdbh/nfsmw-android/issues/new with the basic data
+  filled in. Sign in if needed, describe how to reproduce the failure and
+  attach the saved ZIP before posting the issue.
+- **Guardar ZIP** (Save ZIP) saves the report without opening email or GitHub.
 
-Si el juego se cierra, vuelve a abrir el launcher y usa el boton antes de
-intentar varias partidas nuevas. Si se queda colgado, cierra la app desde
-Android, vuelve a abrirla y genera el informe. Indica la edicion del juego y
-los pasos para reproducir el problema. El registro no siempre contiene una
-traza: depende de que Android la conserve y de como termino el proceso.
+If the game closes, open the launcher again and use the button before trying
+several new sessions. If it hangs, close the app from Android, open it again
+and generate the report. State the game edition and the steps to reproduce the
+problem. The log does not always contain a trace: it depends on whether Android
+keeps it and on how the process ended.
 
-Los registros se acotan conservando el principio y el final. La app no adjunta
-archivos del juego, partidas, identificadores del telefono ni registros de
-otras apps. El ZIP no se envia automaticamente. GitHub no recibe adjuntos
-desde un enlace: el tester adjunta el archivo en el formulario.
+The logs are trimmed, keeping their beginning and end. The app does not attach
+game files, saves, phone identifiers or logs of other apps. The ZIP is not sent
+automatically. GitHub does not accept attachments from a link: the tester
+attaches the file in the form.
 
-## Redmi Note 8 revisado
+## Redmi Note 8 review
 
-En el dispositivo conectado el 1 de octubre de 2026 se comprobaron:
+On the device connected on 1 October 2026, the following was checked:
 
-- GPU Adreno 610, controlador Qualcomm del 25/09/2020, Vulkan 1.1.128.
-- `shaderInt64 = false`; no anuncia `VK_EXT_descriptor_indexing` y faltan
+- Adreno 610 GPU, Qualcomm driver dated 25/09/2020, Vulkan 1.1.128.
+- `shaderInt64 = false`; it does not advertise `VK_EXT_descriptor_indexing`, and
   `runtimeDescriptorArray`, `descriptorBindingPartiallyBound`,
-  `descriptorBindingSampledImageUpdateAfterBind` y
-  `descriptorBindingUpdateUnusedWhilePending`.
-- Anuncia buffer device address como extension, pero la interfaz nativa del
-  SDK actualmente la habilita junto con el resto de funciones de Vulkan 1.2.
-- BC1, BC2, BC3, BC4 y BC5 no estan soportados como imagenes muestreadas.
-- El ejecutable y la biblioteca de shaders coinciden por SHA256 con la copia
-  PAL Espana utilizada en las pruebas anteriores.
-- El arranque llega a crear Vulkan, pero el renderer registra:
-  `C6: el dispositivo Vulkan no tiene shaderInt64: no se dibuja`.
-- El kernel 4.14 ignora `MAP_FIXED_NOREPLACE` y puede devolver otra direccion.
-  El runtime aceptaba esa direccion como una reserva fija correcta, dejando
-  protegida la pila guest reutilizada. Se corrige comprobando la direccion
-  devuelta, descartando la reserva desplazada y habilitando la region original
-  cuando ya esta reservada. La prueba nativa fallo antes y paso despues en
-  este telefono: commit fijo, colisiones y reutilizacion de paginas protegidas.
-- Una excepcion no atendida ahora sigue el cierre normal de Android; antes
-  el manejador retornaba y repetia la misma instruccion fallida sin terminar.
-  Se verificaron en el telefono los casos atendido, delegado y fatal.
+  `descriptorBindingSampledImageUpdateAfterBind` and
+  `descriptorBindingUpdateUnusedWhilePending` are missing.
+- It advertises buffer device address as an extension, but the SDK's native
+  interface currently enables it together with the rest of the Vulkan 1.2 features.
+- BC1, BC2, BC3, BC4 and BC5 are not supported as sampled images.
+- The executable and the shader library match, by SHA256, the PAL Spain copy
+  used in the earlier tests.
+- Startup gets as far as creating Vulkan, but the renderer logs (no shaderInt64,
+  so nothing is drawn): `C6: el dispositivo Vulkan no tiene shaderInt64: no se dibuja`.
+- Kernel 4.14 ignores `MAP_FIXED_NOREPLACE` and can return a different address.
+  The runtime accepted that address as a correct fixed reservation, which left
+  the reused guest stack protected. This is fixed by checking the returned
+  address, discarding the displaced reservation and enabling the original region
+  when it is already reserved. The native test failed before the fix and passed
+  after it on this phone: fixed commit, collisions and reuse of protected pages.
+- An unhandled exception now follows Android's normal crash path; before, the
+  handler returned and repeated the same faulting instruction without ending.
+  The handled, delegated and fatal cases were verified on the phone.
 
-Se conserva el cambio del usuario a `-march=armv8-a`: permite generar codigo
-para procesadores ARMv8.0, pero no resuelve las limitaciones del controlador.
-El launcher ahora comprueba las funciones necesarias para el renderizador
-nativo y ofrece **Probar compatibilidad** y acceso al informe. BC4/5 no se exigen
-en esta comprobacion, porque el Galaxy A55 probado admite BC1/2/3 y carece de
-BC4/5.
+The user's change to `-march=armv8-a` is kept: it allows generating code for
+ARMv8.0 processors, but it does not solve the driver's limitations.
+The launcher now checks the features required by the native renderer and
+offers **Probar compatibilidad** (Try compatibility) and access to the report.
+BC4/5 are not required in this check, because the tested Galaxy A55 supports
+BC1/2/3 and lacks BC4/5.
 
-## Probar el modo de compatibilidad
+## Trying the compatibility mode
 
-En el launcher selecciona **Renderizador → Compatibilidad · experimental**,
-o acepta **Probar compatibilidad** cuando se detecten funciones nativas
-ausentes. Pulsa **Jugar**. Este modo no necesita generar la biblioteca de
-shaders del renderizador nativo.
+In the launcher, select **Renderizador → Compatibilidad · experimental**
+(Renderer → Compatibility · experimental), or accept **Probar compatibilidad**
+when missing native features are detected. Tap **Jugar** (Play). This mode
+does not need to generate the native renderer's shader library.
 
-Utiliza el backend Xenos con descriptores convencionales, render targets FBO
-y conversion de las texturas BC no soportadas. Desactiva las sustituciones
-nativas de D3D, materiales, matrices, escenarios y render sin mosaico para
-conservar el camino original del juego. La compilacion de shaders es sincrona.
-Estas decisiones priorizan conseguir el arranque y pueden provocar pausas.
+It uses the Xenos backend with conventional descriptors, FBO render targets
+and conversion of the unsupported BC textures. It disables the native
+replacements for D3D, materials, matrices, scenery and rendering without tiling
+to keep the game's original path. Shader compilation is synchronous.
+These choices prioritize getting the game to start and can cause pauses.
 
-Con este modo y la correccion de memoria, el Redmi probado reproduce los
-videos de inicio y el usuario confirma que llega a conducir y que el coche
-gira con el joystick, aunque funciona con mucha lentitud. Tambien se observaron esperas prolongadas de la
-GPU y pantallas negras posteriores: el soporte sigue siendo experimental.
-No se ha validado todavia en una carrera completa ni en Helio G99/G200.
-Los testers de esos dispositivos deben adjuntar su ZIP indicando el modo
-utilizado y la ultima pantalla que funciono.
+With this mode and the memory fix, the tested Redmi plays the startup videos
+and the user confirms that it gets as far as driving and that the car steers
+with the joystick, although it runs very slowly. Long GPU waits and later
+black screens were also observed: support is still experimental.
+It has not been validated yet in a full race or on Helio G99/G200.
+Testers with those devices should attach their ZIP, stating the mode they
+used and the last screen that worked.
 
-El joystick tactil puede utilizarse incluso con **Inclinar** activado:
-mientras se mantiene el dedo, manda el joystick; al soltarlo vuelve la
-inclinacion. Esto corrige que el ajuste de inclinacion bloqueara el arrastre.
+The touch joystick can be used even with **Inclinar** (Tilt) enabled:
+while the finger is held down, the joystick is in control; on release, tilt
+takes over again. This fixes the tilt setting blocking the drag.

@@ -79,7 +79,7 @@ constexpr uint32_t kDeviceDumpEnd = 0x400;
 
 constexpr size_t kMaxDetail = 24;   // detailed calls per function
 constexpr size_t kMaxCallers = 12;  // distinct callers per function
-constexpr size_t kMaxShaders = 1024;  // objetos de shader recordados
+constexpr size_t kMaxShaders = 1024;  // remembered shader objects
 
 /*
  * The driver separates the virtual part from the physical one: PS at object+0x34 and
@@ -181,7 +181,7 @@ struct Detail {
   uint64_t lr;
   uint32_t r[8];  // r3..r10
   double f1;
-  uint32_t ret;  // r3 al volver
+  uint32_t ret;  // r3 on return
 };
 
 struct CallerCount {
@@ -220,7 +220,7 @@ struct ShaderSeen {
 };
 ShaderSeen g_shaders[kMaxShaders]{};
 size_t g_shader_count = 0;
-size_t g_shaders_volcados = 0;      // contenedores escritos a la SD
+size_t g_shaders_volcados = 0;      // containers written to the SD card
 size_t g_shaders_sin_contenedor = 0; // objects without a container inside
 
 uint32_t LoadGuestU32(const uint8_t* base, uint32_t address) {

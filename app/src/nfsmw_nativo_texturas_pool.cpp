@@ -184,7 +184,7 @@ bool PoolTexturas::Iniciar(const rex::ui::vulkan::VulkanDevice* dispositivo, int
   const uint32_t slabs_iniciales =
       uint32_t(std::min<uint64_t>(((uint64_t(mb_inicial) << 20) + slab_bytes_ - 1) / slab_bytes_, slabs_tope_));
 
-  activo_ = true;  // CrearSlab lo necesita puesto
+  activo_ = true;  // CrearSlab needs it set
   for (uint32_t i = 0; i < slabs_iniciales; ++i) {
     if (!CrearSlab(false)) {
       break;

@@ -208,7 +208,7 @@ constexpr uint32_t kConst480 = 0x8205E240;       // lfs f0,-7616(0x82060000)
 constexpr uint32_t kConst440 = 0x82062864;       // lfs f0,10340(0x82060000)
 constexpr uint32_t kConst460 = 0x828FCC78;       // lfs f31,-13192(0x82900000), for +460 and +464
 constexpr uint32_t kPunteroVector = 0x82A2C4F8;  // lwz r11,-15112(0x82A30000); addi r5,r11,48
-constexpr uint32_t kPunteroEnteros = 0x82A2D174; // lwz r11,-11916(0x82A30000); lhz 68 y 70
+constexpr uint32_t kPunteroEnteros = 0x82A2D174; // lwz r11,-11916(0x82A30000); lhz 68 and 70
 constexpr uint32_t kByte448 = 0x82A2D1A5;        // lbz r9,-11867(0x82A30000)
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -278,7 +278,7 @@ inline uint32_t EscritoraF2E0(Memoria<A>& m, uint32_t self, uint32_t puntero_man
   const uint8_t viejo = Leer8(base, sucio);                                  // lbzx r3,r9,r11
   const uint32_t palabra = Leer32(base, g.tabla + Entrada(mango) + 4);       // lwz r4,4(r6), before the stbx
   m.MarcarSucio(sucio, viejo, bit);                                          // stbx r7,r9,r11
-  m.Escribir32(Registro16(palabra) + g.destino, valor);                      // stwx r5,r10,r8 (sin alinear)
+  m.Escribir32(Registro16(palabra) + g.destino, valor);                      // stwx r5,r10,r8 (unaligned)
   return viejo;
 }
 
@@ -522,7 +522,7 @@ SalidaMaterial MaterialNativo(Memoria<A>& m, uint32_t self, uint32_t r1o, uint64
       const uint32_t efecto = Leer32(base, self + 28);
       const int16_t e = int16_t(Leer16(base, enteros + (i == 0 ? 68u : 70u)));
       m.Escribir64(hueco, uint64_t(int64_t(e)));                 // std r9,80(r1)
-      m.Escribir32(hueco, std::bit_cast<uint32_t>(float(e)));    // stfs f12,80(r1): exacto (|e| < 2^24)
+      m.Escribir32(hueco, std::bit_cast<uint32_t>(float(e)));    // stfs f12,80(r1): exact (|e| < 2^24)
       if constexpr (A) Apuntar(plan, base, k9360, efecto, mango, hueco);
       Escritora9360(m, efecto, mango, hueco, r1);
       r3 = efecto;
@@ -539,7 +539,7 @@ SalidaMaterial MaterialNativo(Memoria<A>& m, uint32_t self, uint32_t r1o, uint64
       r3 = efecto;
     }
   }
-  // Epilogo: addi r1,r1,128; lwz r12,-8(r1); mtlr r12 (y lfd f31 / ld r30 / ld r31, variables locales).
+  // Epilogue: addi r1,r1,128; lwz r12,-8(r1); mtlr r12 (and lfd f31 / ld r30 / ld r31, local variables).
   return {r3, Leer32(base, r1o - 8)};
 }
 

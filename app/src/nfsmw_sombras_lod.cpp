@@ -40,9 +40,9 @@
 //
 //  c) nfsmw_sombras_corte (PixelMinSize, vista+36) does target the right emitter (WorldModel::Render
 //     uses it, WorldModel.cpp:313), but the value falls six times short. The cutoff is
-//         distancia = 35 * (1 + H / PixelMinSize)          (eView.cpp:44-64, fixed radius 35)
+//         distance = 35 * (1 + H / PixelMinSize)           (eView.cpp:44-64, fixed radius 35)
 //     and with the numbers measured on the console (H of view 13 = 9,146.3; H of the scene = 790.6;
-//     PixelMinSize = ancho_destino * 0.009375, i.e. 15 in the map and 12 on screen):
+//     PixelMinSize = target_width * 0.009375, i.e. 15 in the map and 12 on screen):
 //         scene     (H 790.6  P 12)  -> culls at   2,341 units
 //         map       (H 9146.3 P 15)  -> culls at  21,376 units     9.1 times farther
 //         map with nfsmw_sombras_corte = 150 (P 22) -> culls at 14,583 units
@@ -217,8 +217,8 @@ namespace nfsmw::sombras_lod {
 namespace {
 
 // --- SceneryCullInfo (nfsmwdecomp, Scenery.hpp:123), as laid out on the 360 -------------------
-constexpr uint32_t kRegistroBytes = 208;      // sub_82440890: registro[i] = objeto + i*208
-constexpr uint32_t kOffContador = 2496;       // objeto+2496 = NumCullInfos (208 * 12)
+constexpr uint32_t kRegistroBytes = 208;      // sub_82440890: record[i] = object + i*208
+constexpr uint32_t kOffContador = 2496;       // object+2496 = NumCullInfos (208 * 12)
 constexpr uint32_t kOffVista = 128;           // +128 = pView
 constexpr uint32_t kOffMascara = 132;         // +132 = ExcludeFlags
 constexpr uint32_t kOffPrimerDibujo = 136;    // +136 = pFirstDrawInfo
@@ -240,7 +240,7 @@ constexpr uint32_t kVistaEscena = 1;
 constexpr uint32_t kVistaSombras1 = 13;
 constexpr uint32_t kVistaSombras2 = 14;
 
-// --- eModel / eSolid (nfsmwdecomp, Ecstasy.hpp:15 y 95) ---------------------------------------
+// --- eModel / eSolid (nfsmwdecomp, Ecstasy.hpp:15 and 95) -------------------------------------
 constexpr uint32_t kOffSolidEnModelo = 12;    // eModel+0x0C = eSolid*
 constexpr uint32_t kOffNumPolys = 0x14;       // eSolid+0x14 = NumPolys (int16)
 constexpr uint32_t kOffNombreSolido = 0xA0;   // eSolid+0xA0 = Name[64]
@@ -271,7 +271,7 @@ constexpr uint32_t kPixelMinSizeMax = 4096;   // the same sanity cap nfsmw_sombr
 // WorldModels with bones and 0x202000 those without. In the other passes it is called once and all
 // of the world lands in "mundo-resto", which there simply means "mundo".
 enum Emisor : uint8_t {
-  kEmisorMundoAnimado = 0,   // RenderWorldModels(vista, 0x200000): WorldModel con huesos
+  kEmisorMundoAnimado = 0,   // RenderWorldModels(vista, 0x200000): WorldModel with bones
   kEmisorMundoResto = 1,     // RenderWorldModels in any other case
   kEmisorEscenario = 2,      // StuffScenery
   kEmisorOtros = 3,          // the entity loop (cars) and everything else
@@ -301,7 +301,7 @@ constexpr uint32_t kSolidos = 128;
 constexpr uint32_t kSondeos = 4;
 constexpr uint32_t kNombreLargo = 28;
 struct Solido {
-  std::atomic<uint32_t> clave{0};   // puntero al eSolid; 0 = libre
+  std::atomic<uint32_t> clave{0};   // pointer to the eSolid; 0 = free
   std::atomic<uint32_t> dibujos{0};
   std::atomic<uint64_t> triangulos{0};
   char nombre[kNombreLargo + 1] = {0};
@@ -384,7 +384,7 @@ bool EsVistaDeSombras(uint32_t id) { return id == kVistaSombras1 || id == kVista
 double Distancia(double h, double px) { return kRadioDeReferencia * (1.0 + h / px); }
 
 // PixelMinSize that makes an object of radius 35 stop being drawn beyond `corte` units.
-// It is the exact inverse of eView::GetPixelSize (eView.cpp:44-64): px = radio * H / (d - radio).
+// It is the exact inverse of eView::GetPixelSize (eView.cpp:44-64): px = radius * H / (d - radius).
 double PixelMinSizeParaCorte(double h, double corte) {
   return (kRadioMundo * h) / (corte - kRadioMundo);
 }
@@ -394,7 +394,7 @@ int64_t AhoraMs() {
   return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
-// --- Contabilidad ------------------------------------------------------------------------------
+// --- Accounting --------------------------------------------------------------------------------
 
 void ApuntarSolido(const uint8_t* base, uint32_t solido, uint32_t triangulos) {
   const uint32_t inicio = (solido >> 4) % kSolidos;
@@ -644,7 +644,7 @@ REX_HOOK_RAW(sub_824FA010) {
                                                                             : kEmisorMundoResto;
   }
 
-  // --- la palanca ------------------------------------------------------------------------------
+  // --- the lever -------------------------------------------------------------------------------
   bool restaurar = false;
   uint32_t pmin_original = 0;
   const int32_t corte = REXCVAR_GET(nfsmw_sombras_mundo_corte);

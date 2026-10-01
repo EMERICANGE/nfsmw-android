@@ -196,7 +196,7 @@ struct Candidata {
  * exist returns an error and changes nothing, so it is enough to list them and let the check decide.
  */
 constexpr Candidata kCandidatas[] = {
-    {460, 0x92220008u, 1331},  // GPU 460,8 + EMC 1331,2: la buena
+    {460, 0x92220008u, 1331},  // GPU 460.8 + EMC 1331.2: the good one
     {460, 0x92220007u, 1600},  // GPU 460.8 + EMC 1600: raises the RAM clock
     {384, 0x00020004u, 1331},  // GPU 384 + EMC 1331,2
     {384, 0x00010000u, 1600},  // GPU 384 + EMC 1600

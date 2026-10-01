@@ -210,7 +210,7 @@ bool LeerInfoWmv(const std::string& ruta, InfoWmv& info) {
   return true;
 }
 
-// --- Audio WMA Pro de las peliculas ------------------------------------------------------------------------
+// --- WMA Pro audio of the movies ---------------------------------------------------------------------------
 
 struct AudioWmaPro::Estado {
   struct PaqueteAudio {
@@ -628,7 +628,7 @@ bool DescodificadorWmv3::Descodificar(const uint8_t* datos, size_t bytes, bool c
   return true;
 }
 
-// --- PeliculaWmv (diagnostico) ------------------------------------------------------------------------------
+// --- PeliculaWmv (diagnostic) -------------------------------------------------------------------------------
 
 struct PeliculaWmv::Estado {
   FicheroVfs fichero;

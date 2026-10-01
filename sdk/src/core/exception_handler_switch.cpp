@@ -236,7 +236,7 @@ __asm__(".text\n"
         "    str  x29, [x2], #8\n"
         "    ldr  x3, [x1], #8\n"
         "    str  x3, [x2], #8\n"
-        /* Top of this slot's stack: base + (ranura + 1) * 64 KB. */
+        /* Top of this slot's stack: base + (slot + 1) * 64 KB. */
         "    adrp x4, g_rex_exc_pilas\n"
         "    add  x4, x4, :lo12:g_rex_exc_pilas\n"
         "    add  x7, x7, #1\n"
@@ -733,7 +733,7 @@ void WriteBack(const Exception& ex, const HostThreadContext& tc, ThreadException
             RexSwitchPerfCount(3);
             RexResumeFromException(ctx);
           }
-          break;  // ni reintentable ni emulable: sigue a SEH y a fatal
+          break;  // neither retryable nor emulable: falls through to SEH and to fatal
         }
       }
       RexSwitchPerfCount(2);

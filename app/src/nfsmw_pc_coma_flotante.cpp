@@ -76,7 +76,7 @@ Sitio* BuscarOCrear(uint64_t rip) {
       }
     }
   }
-  return nullptr;  // tabla llena
+  return nullptr;  // table full
 }
 
 LONG CALLBACK ManejadorComaFlotante(EXCEPTION_POINTERS* info) {

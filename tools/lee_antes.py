@@ -15,7 +15,7 @@ for f in sorted(glob.glob(gen+'/nfsmw_recomp.*.cpp')):
             cur=None;continue
         s=ln.strip()
         if not s or s.startswith('//') or s.startswith('PPC') or s.startswith('uint') or s.startswith('REX_FUNC_PROLOGUE'): continue
-        if s.startswith('REX_STORE') and re.search(r',\s*(r|f)\d+\.(u64|f64)\);$',s) and ('ctx.r1.' in s): continue  # guardado de prologo
+        if s.startswith('REX_STORE') and re.search(r',\s*(r|f)\d+\.(u64|f64)\);$',s) and ('ctx.r1.' in s): continue  # prologue save
         s2=re.sub(r'compare<[^>]*>\([^;]*,\s*xer\)','',s)
         s2=re.sub(r'cr\d\.so = xer\.so;','',s2)
         mc=re.match(r'^(cr[0-7])\.compare',s)

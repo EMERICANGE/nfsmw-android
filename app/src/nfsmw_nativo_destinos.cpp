@@ -753,7 +753,7 @@ struct CopiaDestino {
 // It lives in a separate map and not in ImagenNativa because that structure belongs to another file.
 struct EstadoDestino {
   bool borrado_limpio = false;    // the content is exactly the last clear, with nothing on top
-  uint64_t valor_borrado = 0;     // color empaquetado, o profundidad+stencil
+  uint64_t valor_borrado = 0;     // packed color, or depth+stencil
   uint64_t dibujos_al_borrar = 0; // global draw counter at that moment
   uint32_t alto_usado = 0;        // the largest y1 the game has resolved from this render target
 };
@@ -793,7 +793,7 @@ constexpr uint8_t kVisibilidadAgua = 0;
 constexpr uint8_t kVisibilidadTestigo = 1;
 // Passes measured per work unit. In a race there are ~16 per frame including the resumed ones.
 constexpr uint32_t kEstadisticasPorRanura = 64;
-constexpr uint32_t kContadoresEstadistica = 3;  // vertices, primitivas recortadas y fragmentos
+constexpr uint32_t kContadoresEstadistica = 3;  // vertices, clipped primitives and fragments
 // Draws measured in a diagnostic frame (the scene has ~1200).
 constexpr uint32_t kEstadisticasDibujoPorRanura = 2048;
 constexpr uint32_t kEtiquetasShader = 512;
@@ -810,7 +810,7 @@ struct RanuraTrabajo {
   VkCommandBuffer subida = VK_NULL_HANDLE;
   VkFence fence = VK_NULL_HANDLE;
   bool pendiente = false;
-  uint64_t orden = 0;                        // numero de envio
+  uint64_t orden = 0;                        // submission number
   // Wall-clock time of the work, from vkQueueSubmit to the signaled fence. The GPU timestamps give
   // 30.5 ms per frame while the hardware's own counter says 99.7 % load on a 55 ms frame: either there is
   // work we do not mark or the timestamp scale is wrong. This bounds the truth from above (the CPU sees
@@ -836,7 +836,7 @@ struct ConsultaOclusionJuego {
   uint32_t base = 0;              // D3D counter structure
   uint64_t muestras = 0;          // sum of the spans read
   uint32_t tramos_pendientes = 0;  // recorded and not yet read
-  bool terminada = false;         // ya llego su Issue(END)
+  bool terminada = false;         // its Issue(END) has already arrived
   bool fallida = false;           // some span without room or not read: not published
 };
 
@@ -2821,7 +2821,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     return dibujos_ ? dibujos_->CopiasPendientes() : 0;
   }
 
-  // --- ContextoDestinos (piezas C3-C6) ---------------------------------------
+  // --- ContextoDestinos (parts C3-C6) ----------------------------------------
 
   VkCommandBuffer ComandosTrabajo() override {
     return Grabar() ? comandos_trabajo_ : VK_NULL_HANDLE;
@@ -3859,7 +3859,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     y0 = std::clamp(y0, arriba, abajo);
     x1 = std::clamp(x1, izquierda, derecha);
     y1 = std::clamp(y1, arriba, abajo);
-    // D3D9 alinea a 8 (kResolveAlignmentPixels).
+    // D3D9 aligns to 8 (kResolveAlignmentPixels).
     x0 &= ~int32_t(7);
     y0 &= ~int32_t(7);
     x1 = (x1 + 7) & ~int32_t(7);
@@ -5494,7 +5494,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       for (auto it = lecturas_por_destino_.begin(); it != lecturas_por_destino_.end();) {
         DestinoLectura& d = it->second;
         if (!d.copias) {
-          it = lecturas_por_destino_.erase(it);  // no ha vuelto a aparecer
+          it = lecturas_por_destino_.erase(it);  // it has not shown up again
           continue;
         }
         lista += fmt::format(" {:08X} {}x{} {}/{};", d.base, d.ancho, d.alto, d.copias - d.saltadas,
@@ -5869,7 +5869,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   std::chrono::steady_clock::time_point ultimo_aviso_mosaico_{};
   // Read-back of small resolved textures (nfsmw_nativo_leer_resueltas_texels).
   std::unordered_map<uint64_t, Lectura> lecturas_;
-  std::unordered_map<uint64_t, DestinoLectura> lecturas_por_destino_;  // informe C2 y cadencia
+  std::unordered_map<uint64_t, DestinoLectura> lecturas_por_destino_;  // C2 report and cadence
   std::chrono::steady_clock::time_point informe_lecturas_{};
   std::vector<LecturaPendiente> lecturas_pendientes_;  // recorded in the current submission
   uint64_t lecturas_hechas_ = 0;
@@ -6020,7 +6020,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   uint64_t intercambios_color_ = 0;  // color targets resolved without a copy
   // Copies and clears removed, and what they cost.
   std::unordered_map<const Imagen*, EstadoDestino> estado_destino_;
-  uint64_t borrados_saltados_ = 0;             // de color
+  uint64_t borrados_saltados_ = 0;             // color clears
   uint64_t borrados_saltados_profundidad_ = 0;
   uint64_t pixeles_borrados_saltados_ = 0;
   uint64_t borrados_inutiles_ = 0;             // clears wiped out by a swap with no draw in between
@@ -6028,7 +6028,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   uint64_t restauraciones_recortadas_ = 0;     // restores that did not copy the whole image
   uint64_t pixeles_restaurados_ = 0;           // the ones actually copied (so the report adds up)
   uint64_t pixeles_restaurar_ahorrados_ = 0;   // the ones not copied, due to useful area or swap
-  uint64_t prestamos_ = 0;                     // restauraciones hechas volviendo a intercambiar
+  uint64_t prestamos_ = 0;                     // restores done by swapping again
   uint64_t prestadas_leidas_ = 0;              // times a lent resolved texture was requested (must be 0)
   std::unordered_set<uint32_t> prestadas_;     // bases whose content is lent to the render target
   // nfsmw_nativo_sombra_minimo. State of the shadow map cycle and phase of the guard.
@@ -6084,14 +6084,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     VkImage origen_vk = VK_NULL_HANDLE;
     VkImage destino_vk = VK_NULL_HANDLE;
     VkImageCopy copia{};
-    uint64_t fotograma = 0;     // presentados_ al aplazarla
+    uint64_t fotograma = 0;     // presentados_ when it was deferred
     bool leida_muerta = false;  // the composite without blur already requested it
   };
   std::unordered_map<uint32_t, CopiaPendiente> pendientes_;
   std::unordered_map<uint32_t, uint64_t> ultima_lectura_viva_;    // per address, in presentados_
   std::unordered_map<uint32_t, uint64_t> ultima_lectura_muerta_;
   std::unordered_set<uint32_t> caducadas_;     // dropped copies: their texture lacks the last resolve
-  bool lecturas_profundidad_muertas_ = false;  // lo pone DibujosVulkan (LecturasDeProfundidadMuertas)
+  bool lecturas_profundidad_muertas_ = false;  // set by DibujosVulkan (LecturasDeProfundidadMuertas)
   bool perezosa_apagada_ = false;              // the guard saw a late read
   uint64_t perezosa_aplazadas_ = 0;
   uint64_t perezosa_copiadas_lectura_ = 0;
@@ -6104,7 +6104,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   static constexpr uint64_t kPerezosaFotogramas = 30;  // ~1 s: window for "requested" and "nobody samples it"
   // nfsmw_nativo_frontal_perezoso (see FrontalPendiente).
   std::unordered_map<uint32_t, FrontalPendiente> frontales_pendientes_;  // per texture address
-  std::vector<ImagenFrontal> frontales_imagenes_;                         // repuestos y retenidas
+  std::vector<ImagenFrontal> frontales_imagenes_;                         // spare and retained ones
   std::unordered_map<uint32_t, uint64_t> frontales_presentados_;  // address -> presentados_ at its last Swap
   std::unordered_map<uint32_t, uint64_t> frontales_leidos_;       // address -> last sampling by a draw
   std::unordered_set<uint32_t> frontales_caducados_;              // missing a copy that can no longer be made

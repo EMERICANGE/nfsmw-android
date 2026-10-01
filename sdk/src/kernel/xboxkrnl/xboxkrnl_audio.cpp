@@ -122,7 +122,7 @@ void EscribirVolcado(uint32_t cliente, std::vector<float> muestras) {
     u32(36 + bytes);
     fichero.write("WAVEfmt ", 8);
     u32(16);
-    u16(3);  // flotante IEEE
+    u16(3);  // IEEE float
     u16(6);
     u32(48000);
     u32(48000 * 6 * 4);

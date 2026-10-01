@@ -42,7 +42,7 @@ inline std::atomic<uint64_t> g_huellas_aplazadas{0};
 // 18-54 ms for space) and the texture checks stay under 8 MB: this shows where the ring's time goes. Only the
 // ring thread writes all of this.
 inline std::atomic<uint64_t> g_dibujos{0};             // draws read from the ring
-inline std::atomic<uint64_t> g_ns_anillo_trabajando{0};  // leyendo y ejecutando paquetes
+inline std::atomic<uint64_t> g_ns_anillo_trabajando{0};  // reading and executing packets
 inline std::atomic<uint64_t> g_ns_texturas{0};         // check, detile and prepare the textures in use
 inline std::atomic<uint64_t> g_texturas_subidas{0};    // textures that changed and are uploaded again
 inline std::atomic<uint64_t> g_bytes_subidos{0};

@@ -74,7 +74,7 @@ struct VolcadoXma {
 };
 
 std::mutex volcado_xma_mutex;
-std::map<std::pair<uint32_t, int>, VolcadoXma> volcados_xma;  // (contexto, 0 tramas / 1 salida)
+std::map<std::pair<uint32_t, int>, VolcadoXma> volcados_xma;  // (context, 0 frames / 1 output)
 uint32_t ficheros_volcados_xma = 0;
 uint32_t secuencia_volcados_xma = 0;
 uint32_t anotados_xma = 0;
@@ -519,7 +519,7 @@ void XmaContext::ClearLocked(XMA_CONTEXT_DATA* data) {
 }
 
 void XmaContext::ResetDecoderState() {
-  ReiniciarVolcadoXma(id());  // diagnostico audio_volcado_xma_s
+  ReiniciarVolcadoXma(id());  // diagnostic audio_volcado_xma_s
   // A freed or re-initialized context is a new logical stream, so the previous
   // wave's MDCT overlap-add tail must not survive into frame 0 of the next one.
   // avcodec_flush_buffers() cannot drop it: ff_xmaframes_decoder declares no

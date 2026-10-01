@@ -29,7 +29,7 @@ namespace nfsmw::nativo {
 // Vertex declaration element of the container (XenosRecomp shader.h).
 struct ElementoVertice {
   uint16_t instruccion = 0;  // index of the fetch instruction in the microcode
-  uint8_t uso = 0;           // DeclUsage: 0 posicion, 3 normal, 5 texcoord, 10 color...
+  uint8_t uso = 0;           // DeclUsage: 0 position, 3 normal, 5 texcoord, 10 color...
   uint8_t indice_uso = 0;
 };
 
@@ -37,21 +37,21 @@ struct ElementoVertice {
 // in pixel shaders.
 struct SamplerShader {
   uint16_t registro = 0;
-  uint16_t tipo = 0;  // D3DXPARAMETER_TYPE: 10-12 = 2D, 13 = 3D, 14 = cubo
+  uint16_t tipo = 0;  // D3DXPARAMETER_TYPE: 10-12 = 2D, 13 = 3D, 14 = cube
   // It is called SHADOWMAP_SAMPLER in the constant table: it is the shadow map sampling the library rewrites
   // (tfetch2DSombra and tfetch2DSombraMin). nfsmw_nativo_sombra_minimo.
   bool mapa_sombras = false;
 };
 
 struct EntradaShader {
-  const nfsmw::native::Shader* shader = nullptr;  // contenedor original y SPIR-V
+  const nfsmw::native::Shader* shader = nullptr;  // original container and SPIR-V
   bool vertices = false;
   uint32_t numero = 0;  // position in the library, for the reports
   std::vector<uint32_t> microcodigo;  // in host byte order, with the fetches masked
   uint64_t huella = 0;                // XXH3 of that masked microcode
   std::vector<ElementoVertice> elementos;
   std::vector<SamplerShader> samplers;
-  uint32_t salidas = 0;  // pixel shader: bits COLOR0..3 y DEPTH (PixelShaderOutputs)
+  uint32_t salidas = 0;  // pixel shader: bits COLOR0..3 and DEPTH (PixelShaderOutputs)
   // OpKill in the SPIR-V. XenosRecomp puts one in every pixel shader for the alpha test (guarded by
   // SPEC_CONSTANT_ALPHA_TEST), so it only really discards if there is more than one.
   uint32_t kills = 0;
@@ -64,8 +64,8 @@ struct EntradaShader {
 };
 
 struct EstadisticasShaders {
-  uint64_t cargas = 0;           // IM_LOAD recibidos
-  uint64_t distintos = 0;        // microcodigos distintos (con sus parches)
+  uint64_t cargas = 0;           // IM_LOAD received
+  uint64_t distintos = 0;        // distinct microcodes (with their patches)
   uint64_t identificados = 0;    // of the distinct ones
   uint64_t sin_identificar = 0;  // of the distinct ones
   uint64_t ambiguos = 0;         // distinct ones with more than one possible container

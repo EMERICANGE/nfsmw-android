@@ -39,8 +39,8 @@
 namespace rex::ui::switch_saltynx {
 namespace {
 
-constexpr uint32_t kMagicFps = 0x465053;          // «SPF»: bloque de NX-FPS
-constexpr uint32_t kMagicReverseNx = 0x5452584E;  // «NXRT» en little-endian
+constexpr uint32_t kMagicFps = 0x465053;          // "SPF": NX-FPS block
+constexpr uint32_t kMagicReverseNx = 0x5452584E;  // "NXRT" in little-endian
 constexpr size_t kTamanoCompartido = 0x1000;      // SaltyNX maps one page
 
 /* Resolution calls as the overlay reads them: width, height and how many times. */
@@ -81,7 +81,7 @@ struct BloqueFps {
 
 static_assert(sizeof(BloqueFps) == 174, "el overlay espera 174 bytes");
 
-/* struct Shared de ReverseNX-RT (9 bytes). */
+/* struct Shared from ReverseNX-RT (9 bytes). */
 struct BloqueReverseNx {
   uint32_t magic;
   bool en_base;

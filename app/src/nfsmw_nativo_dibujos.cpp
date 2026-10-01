@@ -313,7 +313,7 @@ static_assert(sizeof(NvkSwitchSet4) == 16 + 9 * 8, "NvkSwitchSet4 tiene que medi
 extern "C" {
 struct NvkSwParte {
   uint64_t veces;
-  uint64_t ticks;  // CNTPCT_EL0, a ticks_por_segundo
+  uint64_t ticks;  // CNTPCT_EL0, at ticks_por_segundo
 };
 struct NvkSwMejora {
   int32_t pedido;  // written by the app: 1 yes, 0 no
@@ -1112,9 +1112,9 @@ constexpr uint32_t kRegConstantesVs = 0x4000;
 constexpr uint32_t kRegConstantesPs = 0x4400;
 constexpr uint32_t kRegFetch = 0x4800;
 constexpr uint32_t kRegBooleanos = 0x4900;
-constexpr uint32_t kRegistrosConstantes = 0x400;  // 256 constantes x 4
+constexpr uint32_t kRegistrosConstantes = 0x400;  // 256 constants x 4
 
-constexpr uint32_t kCapacidadMonton[4] = {4096, 16, 64, 512};  // 2D, 3D, cubo, samplers
+constexpr uint32_t kCapacidadMonton[4] = {4096, 16, 64, 512};  // 2D, 3D, cube, samplers
 // Work slots. The ones actually used are chosen by nfsmw_nativo_ranuras_trabajo; this is the room reserved
 // for them, and it has to match the array in nfsmw_nativo_destinos.cpp.
 constexpr size_t kRanurasDeTrabajo = 3;
@@ -1128,7 +1128,7 @@ constexpr VkDeviceSize kTamanoCompartidas = VkDeviceSize(4) << 20;  // per work 
 // vkGetPipelineCacheData data.
 constexpr const char* kCarpetaCache = "cache";
 constexpr const char* kFicheroPipelines = "nfsmw_nativo_pipelines.bin";
-constexpr uint32_t kMagiaFicheroPipelines = 0x4350464Eu;  // "NFPC" en little-endian
+constexpr uint32_t kMagiaFicheroPipelines = 0x4350464Eu;  // "NFPC" in little-endian
 constexpr uint32_t kVersionFicheroPipelines = 1;
 constexpr size_t kCabeceraFicheroPipelines = 2 * sizeof(uint32_t) + 2 * sizeof(uint64_t);
 // The two files used by earlier versions, next to the NRO: if the new one does not exist yet they are read
@@ -1137,7 +1137,7 @@ constexpr const char* kFicheroCacheViejo = "nfsmw_nativo_pipelines.bin";
 constexpr const char* kFicheroListaVieja = "nfsmw_nativo_pipelines_lista.bin";
 // The pipeline prewarm list. It holds no game data: state keys, formats and fingerprints. A header of four
 // uint32 ("NFPL", version, record size and record count) followed by the records (RegistroPipeline).
-constexpr uint32_t kMagiaListaPipelines = 0x4C50464Eu;  // "NFPL" en little-endian
+constexpr uint32_t kMagiaListaPipelines = 0x4C50464Eu;  // "NFPL" in little-endian
 constexpr uint32_t kVersionListaPipelines = 1;
 constexpr size_t kCabeceraLista = 4 * sizeof(uint32_t);
 constexpr size_t kMaxRegistrosLista = 4096;
@@ -1555,14 +1555,14 @@ int32_t DesplazamientoMosaico3D(int32_t x, int32_t y, int32_t z, uint32_t pitch,
   return direccion;
 }
 
-// USAGE_LOCATIONS de XenosRecomp (shader_recompiler.cpp).
+// USAGE_LOCATIONS from XenosRecomp (shader_recompiler.cpp).
 int32_t UbicacionDeUso(uint8_t uso, uint8_t indice) {
   switch (uso) {
-    case 0:  // posicion
+    case 0:  // position
       return indice == 0 ? 0 : (indice == 1 ? 15 : -1);
     case 3:  // normal
       return indice == 0 ? 1 : -1;
-    case 6:  // tangente
+    case 6:  // tangent
       return indice == 0 ? 2 : -1;
     case 7:  // binormal
       return indice == 0 ? 3 : -1;
@@ -1570,9 +1570,9 @@ int32_t UbicacionDeUso(uint8_t uso, uint8_t indice) {
       return indice < 4 ? 4 + indice : (indice < 8 ? 12 + (indice - 4) : -1);
     case 10:  // color
       return indice == 0 ? 8 : (indice == 1 ? 11 : -1);
-    case 2:  // indices de mezcla
+    case 2:  // blend indices
       return indice == 0 ? 9 : -1;
-    case 1:  // pesos de mezcla
+    case 1:  // blend weights
       return indice == 0 ? 10 : -1;
     default:
       return -1;
@@ -1817,7 +1817,7 @@ struct AtributoVertices {
 };
 
 struct EnlaceVertices {
-  uint32_t ranura;   // fetch constant de vertices (0-95)
+  uint32_t ranura;   // vertex fetch constant (0-95)
   uint32_t zancada;  // bytes
 };
 
@@ -2200,7 +2200,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     if (!r || !p.vs) {
       return false;
     }
-    // --- Tipo de primitiva ---------------------------------------------------
+    // --- Primitive type ------------------------------------------------------
     const uint32_t modo_edram = r[gr::XE_GPU_REG_RB_MODECONTROL] & 0x7;
     if (modo_edram != uint32_t(xenos::EdramMode::kColorDepth) && modo_edram != 5) {
       return Rechazar(1, "modo EDRAM sin color ni profundidad");
@@ -2294,7 +2294,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     Etapa(0, marca);
     std::chrono::steady_clock::time_point t_indices_185 = marca;  // C6 subetapas 15-18
 
-    // --- Destinos --------------------------------------------------------------
+    // --- Render targets --------------------------------------------------------
     const uint32_t pitch = r[gr::XE_GPU_REG_RB_SURFACE_INFO] & 0x3FFF;
     const uint32_t mascara_registro =
         modo_edram == uint32_t(xenos::EdramMode::kColorDepth) ? r[gr::XE_GPU_REG_RB_COLOR_MASK] : 0;
@@ -2448,7 +2448,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
       return true;
     }
     const uint32_t control_profundidad = r[gr::XE_GPU_REG_RB_DEPTHCONTROL];
-    if (control_profundidad & 0x3) {  // stencil o z
+    if (control_profundidad & 0x3) {  // stencil or z
       const uint32_t info = r[gr::XE_GPU_REG_RB_DEPTH_INFO];
       claves[4] = (uint64_t(1) << 62) | (uint64_t(info & 0xFFF) << 24) |
                   (uint64_t((info >> 16) & 0x1) << 16) | pitch;
@@ -2491,13 +2491,13 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     }
 
     CortarSubetapa(15, t_indices_185);  // render targets and discards
-    // --- Rango de vertices e indices --------------------------------------------
+    // --- Vertex and index range -------------------------------------------------
     const uint32_t desplazamiento = r[gr::XE_GPU_REG_VGT_INDX_OFFSET] & 0xFFFFFF;
     const bool reinicio = admite_reinicio && ((modo_sc >> 21) & 0x1);
     // Depth bias as in the emulation with host render targets (GetPreferredFacePolygonOffset,
     // graphics/util/draw.cpp:92-118).
     float escala_sesgo = 0.0f, desplazamiento_sesgo = 0.0f;
-    if (tipo >= 4) {  // poligonos
+    if (tipo >= 4) {  // polygons
       if (((modo_sc >> 11) & 0x1) && !(modo_sc & 0x1)) {
         escala_sesgo = Flotante(r[gr::XE_GPU_REG_PA_SU_POLY_OFFSET_FRONT_SCALE]);
         desplazamiento_sesgo = Flotante(r[gr::XE_GPU_REG_PA_SU_POLY_OFFSET_FRONT_OFFSET]);
@@ -3053,7 +3053,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     CopiaComposicionTratada(ps, r, bytes_ps);  // nfsmw_tratamiento_visual (see the function)
 
     Etapa(4, marca);
-    // --- Viewport, tijera y constantes compartidas ---------------------------------------
+    // --- Viewport, scissor and shared constants ------------------------------------------
     /*
      * The framing (viewport, ndc and scissor), cached (nfsmw_nativo_encuadre_cache).
      *
@@ -3440,7 +3440,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
         EmitirCieloAplazado(cmd, opaco_en_todos ? kCieloPorSinZ : kCieloPorMezcla);
       }
     }
-    // --- Grabar ---------------------------------------------------------------------------------
+    // --- Recording ------------------------------------------------------------------------------
     if (es_cielo && lee_reflejo) {
       nfsmw::reflejo_demanda::AnotarVisible(false);  // the deferred sky is not measured
     }
@@ -4488,7 +4488,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
       case VK_PRIMITIVE_TOPOLOGY_PATCH_LIST:
         return 3;
       default:
-        return 2;  // triangulos: lista, tira y abanico
+        return 2;  // triangles: list, strip and fan
     }
   }
 
@@ -4516,7 +4516,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
       d &= ~0x74u;  // without a Z test, write and function do not count
     }
     if (!(d & 0x1)) {
-      d &= 0x77u;  // sin estencil no cuentan sus funciones ni sus operaciones
+      d &= 0x77u;  // without stencil, its functions and operations do not count
     } else if (!((d >> 7) & 0x1)) {
       d &= 0x000FFFF7u;  // without its own back face state, the back copies the front
     }
@@ -6115,7 +6115,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
    * path.
    */
   struct LecturaHuella {  // one LeerNivel call, reading from the snapshot
-    uint64_t origen = 0;  // desplazamiento en instantaneas_
+    uint64_t origen = 0;  // offset in instantaneas_
     uint64_t fila_bytes = 0;
     size_t destino = 0;  // offset in the texture data
     uint32_t pitch_bloques = 0;
@@ -6139,7 +6139,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     size_t bytes_datos = 0;
     uint8_t* destino = nullptr;  // its space in the upload buffer; nullptr for comparison jobs
     uint64_t epoca = 0;          // epoca_subida_ of that buffer
-    uint32_t lectura_inicio = 0;  // su plan: lecturas_huella_[lectura_inicio, lectura_inicio + lecturas)
+    uint32_t lectura_inicio = 0;  // its plan: lecturas_huella_[lectura_inicio, lectura_inicio + lecturas)
     uint32_t lecturas = 0;
     uint32_t bytes_bloque = 1;
     uint32_t log2_bloque = 0;
@@ -6149,7 +6149,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     uint32_t ancho = 0;
     uint32_t alto = 0;
     uint32_t formato = 0;
-    bool rapido = false;           // mosaico_rapido_ al planear
+    bool rapido = false;           // mosaico_rapido_ at planning time
     bool comprobar_orden = false;  // the fast byte swap guard checks this texture
     bool comparar = false;         // observing phase (or 1 in kComprobarHuellaUnaDeCada): only returns its hashes
     bool aviso_niveles = false;    // collected without differences: the "niveles comprobados ... todos iguales" line
@@ -6170,9 +6170,9 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     uint64_t datos = 0;
     bool anotada = false;
   };
-  static constexpr size_t kLecturasPorTextura = 6 * 16;  // capas x niveles de mip
+  static constexpr size_t kLecturasPorTextura = 6 * 16;  // layers x mip levels
   static constexpr uint32_t kLecturasHuella = 8192;       // reads planned between two collections
-  static constexpr uint64_t kColaHuellas = 256;           // potencia de 2
+  static constexpr uint64_t kColaHuellas = 256;           // power of 2
   static constexpr uint32_t kTrabajoHuellaPublicado = 0xFFFFFFFFu;  // in Textura::huella_trabajo
   static constexpr int32_t kTrabajoPendiente = 1;
   static constexpr int32_t kTrabajoEnHilo = 2;
@@ -6785,7 +6785,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
         continue;
       }
       if (t.epoca != epoca_subida_) {
-        diferencia = true;  // se vuelve a subir entera (huellas_sospechosas_)
+        diferencia = true;  // it is uploaded again in full (huellas_sospechosas_)
         detalle = fmt::format("DIFERENCIA: los datos de la textura {:08X} fueron a otro bufer de subida (epoca {} "
                               "frente a {})",
                               t.direccion, t.epoca, epoca_subida_);
@@ -9772,7 +9772,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     // maximum mip level; the bias is not even part of the key). Each new value is logged once.
     {
       const uint32_t aniso = (f[3] >> 25) & 0x7;
-      const int32_t sesgo = int32_t(f[4] << 10) >> 22;  // lod_bias: 10 bits con signo, 5 fraccionarios
+      const int32_t sesgo = int32_t(f[4] << 10) >> 22;  // lod_bias: 10 signed bits, 5 fractional
       const uint32_t mip_max = (f[4] >> 6) & 0xF;
       const uint32_t indice_sesgo = uint32_t(sesgo + 512);
       if (!((aniso_vistos_ >> aniso) & 1u) || !sesgos_vistos_[indice_sesgo] || !((mip_max_vistos_ >> mip_max) & 1u)) {
@@ -10909,7 +10909,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
       d &= ~0x74u;  // without a Z test, write and function do not count
     }
     if (!(d & 0x1)) {
-      d &= 0x77u;  // sin estencil no cuentan sus funciones ni sus operaciones
+      d &= 0x77u;  // without stencil, its functions and operations do not count
     } else if (!((d >> 7) & 0x1)) {
       d &= 0x000FFFF7u;  // without its own back face state, the back copies the front
     }
@@ -11058,7 +11058,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     uint32_t escribe_z = 0;    // depthWriteEnable
     uint32_t funcion_z = 0;    // VkCompareOp
     uint32_t estencil = 0;     // stencilTestEnable
-    uint32_t delante[4] = {};  // failOp, passOp, depthFailOp (VkStencilOp) y compareOp (VkCompareOp)
+    uint32_t delante[4] = {};  // failOp, passOp, depthFailOp (VkStencilOp) and compareOp (VkCompareOp)
     uint32_t detras[4] = {};   // the same for the back face
     uint32_t n_colores = 0;                    // phase 2: the pass's color targets, compacted as in PipelineDe
     VkBool32 mezcla_activa[4] = {};            // blendEnable
@@ -11229,7 +11229,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
         std::memcpy(g.detras, d.detras, sizeof(g.detras));
       }
     }
-    if (modo & kEds3) {  // fase 2
+    if (modo & kEds3) {  // phase 2
       const uint32_t n = d.n_colores;
       if (!n) {
         if (todo) {
@@ -12144,7 +12144,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::mutex copias_mutex_;
   std::condition_variable copias_cv_;
   std::condition_variable copias_hechas_cv_;
-  bool copias_parar_ = false;  // con copias_mutex_
+  bool copias_parar_ = false;  // under copias_mutex_
   std::thread copias_hilo_;
   uint64_t copias_en_linea_ = 0;
   uint64_t esperas_copias_ = 0;
@@ -12258,9 +12258,9 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   // direct cache in front of pipelines_ (nfsmw_nativo_pipelines_directa).
   struct CasillaPipeline {
     ClavePipeline clave{};
-    VkPipeline pipeline = VK_NULL_HANDLE;  // VK_NULL_HANDLE = casilla vacia
+    VkPipeline pipeline = VK_NULL_HANDLE;  // VK_NULL_HANDLE = empty slot
   };
-  static constexpr size_t kCasillasPipeline = 256;  // potencia de 2; 256 x 88 bytes = 22 KB contiguos
+  static constexpr size_t kCasillasPipeline = 256;  // power of 2; 256 x 88 bytes = 22 KB contiguous
   std::array<CasillaPipeline, kCasillasPipeline> casillas_pipeline_{};
   bool pipelines_directa_ = true;           // the cvar, once per frame
   bool pipelines_directa_apagada_ = false;  // the guard saw a difference
@@ -12273,7 +12273,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   static constexpr uint64_t kPipelinesAComprobar = 200000;
   // nfsmw_nativo_contar_cambios_pipeline (ContarCambioPipeline and InformeCambiosPipeline).
   enum : uint32_t {
-    kCambioEnlaces = 0,        // vkCmdBindPipeline de Dibujar contados
+    kCambioEnlaces = 0,        // counted vkCmdBindPipeline calls from Dibujar
     kCambioTrasPase,           // of those, the first of a pass (EmpezarPase forgets the bound pipeline)
     kCambioPrimero,            // no previous key in the buffer (new buffer or after the deferred sky)
     kCambioIdentica,           // the same key: only after EmpezarPase
@@ -12346,13 +12346,13 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     kEdsFuncionZ,
     kEdsEstencil,
     kEdsEstencilOps,
-    kEdsMezclaActiva,  // fase 2
-    kEdsEcuacion,      // fase 2
-    kEdsMascara,       // fase 2
+    kEdsMezclaActiva,  // phase 2
+    kEdsEcuacion,      // phase 2
+    kEdsMascara,       // phase 2
     kEdsTodo,          // times everything is set (not a call)
     kEdsN
   };
-  PFN_vkCmdSetCullMode set_cara_ = nullptr;  // nucleo de Vulkan 1.3 (CargarEstadoDinamico)
+  PFN_vkCmdSetCullMode set_cara_ = nullptr;  // Vulkan 1.3 core (CargarEstadoDinamico)
   PFN_vkCmdSetFrontFace set_frente_ = nullptr;
   PFN_vkCmdSetPrimitiveTopology set_topologia_ = nullptr;
   PFN_vkCmdSetPrimitiveRestartEnable set_reinicio_ = nullptr;
@@ -12451,7 +12451,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::vector<uint8_t> temporal_;
   std::vector<uint32_t, SinInicializar<uint32_t>> indices_;
   std::vector<uint32_t, SinInicializar<uint32_t>> convertidos_;
-  std::vector<uint16_t, SinInicializar<uint16_t>> indices16_;  // camino rapido: 16 bits sin convertir
+  std::vector<uint16_t, SinInicializar<uint16_t>> indices16_;  // fast path: 16 bits, unconverted
   // IndicesDe16 (nfsmw_nativo_indices_neon). Ring only.
   int32_t indices_neon_ = -1;  // -1 cvar not read, 0 plain loop, 1 NEON
   uint64_t indices_neon_dibujos_ = 0;
@@ -12466,7 +12466,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   float sesgo_grabado_[2] = {};  // depth bias: constant and slope
   float sesgo_avisado_[2] = {};
   uint32_t avisos_sesgo_ = 0;
-  std::string omitir_texto_;  // nfsmw_nativo_diag_omitir_ps ya leido
+  std::string omitir_texto_;  // nfsmw_nativo_diag_omitir_ps already read
   std::unordered_set<uint32_t> omitir_ps_;
   uint32_t stencil_grabado_[2] = {};  // RB_STENCILREFMASK for front and back
   bool stencil_grabado_valido_ = false;
@@ -12592,7 +12592,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     uint32_t indices = 0;
     uint32_t primer_indice = 0;
     uint32_t vmin = 0;
-    uint32_t cuenta = 0;               // sin indices
+    uint32_t cuenta = 0;               // no indices
     uint32_t ps_mas_uno = 0;           // for the diagnostic per-draw query
     uint32_t categoria = 0;
     uint64_t dibujos_al_aplazar = 0;   // position in the pass when it was deferred
@@ -12742,7 +12742,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
     uint32_t monton = 0;
     uint32_t ranura = 0;
   };
-  static constexpr uint64_t kColaEnlaces = 256;  // potencia de 2
+  static constexpr uint64_t kColaEnlaces = 256;  // power of 2
   static constexpr uint64_t kEnlacesAComprobar = 64;
   static constexpr int32_t kEnlacesSinDecidir = -1;
   static constexpr int32_t kEnlacesApagado = 0;
@@ -12752,16 +12752,16 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::mutex enlaces_mutex_;
   std::condition_variable enlaces_cv_;         // there are requests or a stop request (the thread waits on it)
   std::condition_variable enlaces_hechos_cv_;  // the thread finished one (the ring waits on it)
-  uint64_t enlaces_pedidos_ = 0;       // con enlaces_mutex_
-  uint64_t enlaces_hechos_ = 0;        // con enlaces_mutex_
-  uint64_t enlaces_recogidos_ = 0;     // con enlaces_mutex_
-  bool enlaces_durmiendo_ = false;     // con enlaces_mutex_
-  bool enlaces_esperando_ = false;     // con enlaces_mutex_
-  bool enlaces_parar_ = false;         // con enlaces_mutex_
-  bool enlaces_prioridad_ok_ = true;   // con enlaces_mutex_
-  uint64_t ns_enlaces_hilo_ = 0;       // con enlaces_mutex_
-  uint64_t ns_enlace_peor_ = 0;        // con enlaces_mutex_
-  uint64_t enlaces_cola_llena_ = 0;    // con enlaces_mutex_
+  uint64_t enlaces_pedidos_ = 0;       // under enlaces_mutex_
+  uint64_t enlaces_hechos_ = 0;        // under enlaces_mutex_
+  uint64_t enlaces_recogidos_ = 0;     // under enlaces_mutex_
+  bool enlaces_durmiendo_ = false;     // under enlaces_mutex_
+  bool enlaces_esperando_ = false;     // under enlaces_mutex_
+  bool enlaces_parar_ = false;         // under enlaces_mutex_
+  bool enlaces_prioridad_ok_ = true;   // under enlaces_mutex_
+  uint64_t ns_enlaces_hilo_ = 0;       // under enlaces_mutex_
+  uint64_t ns_enlace_peor_ = 0;        // under enlaces_mutex_
+  uint64_t enlaces_cola_llena_ = 0;    // under enlaces_mutex_
   std::thread enlaces_hilo_;
   int32_t enlaces_prioridad_ = 0x2D;  // written by the ring before creating the thread
   // Ring thread only:
@@ -12799,12 +12799,12 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::condition_variable huellas_hechos_cv_;  // the thread finished one (the ring waits on it)
   uint64_t huellas_publicados_ = 0;   // under huellas_mutex_ (only the ring writes it)
   uint64_t huellas_tomados_ = 0;      // under huellas_mutex_: the thread has looked up to here
-  uint64_t huellas_hechos_ = 0;       // con huellas_mutex_
-  bool huellas_durmiendo_ = false;    // con huellas_mutex_
-  bool huellas_esperando_ = false;    // con huellas_mutex_
-  bool huellas_parar_ = false;        // con huellas_mutex_
-  bool huellas_prioridad_ok_ = true;  // con huellas_mutex_
-  bool huellas_nucleo_ok_ = true;     // con huellas_mutex_
+  uint64_t huellas_hechos_ = 0;       // under huellas_mutex_
+  bool huellas_durmiendo_ = false;    // under huellas_mutex_
+  bool huellas_esperando_ = false;    // under huellas_mutex_
+  bool huellas_parar_ = false;        // under huellas_mutex_
+  bool huellas_prioridad_ok_ = true;  // under huellas_mutex_
+  bool huellas_nucleo_ok_ = true;     // under huellas_mutex_
   int huellas_nucleo_real_ = -1;      // under huellas_mutex_: where the thread ran when starting
   std::thread huellas_hilo_;
   int32_t huellas_prioridad_ = 0x2E;  // written by the ring before creating the thread
@@ -12946,10 +12946,10 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::array<uint64_t, kGpuCategorias> triangulos_por_categoria_{};
   std::array<uint64_t, kGpuCategorias> pases_por_categoria_{};
   uint64_t ns_render_pass_ = 0;
-  // Prueba nfsmw_nativo_omitir_sombras_alternar_s.
+  // Test nfsmw_nativo_omitir_sombras_alternar_s.
   std::chrono::steady_clock::time_point inicio_sombras_ = std::chrono::steady_clock::now();
   bool sombras_omitidas_ = false;
-  // Diagnostico nfsmw_nativo_diag_vertices_repetidos.
+  // Diagnostic nfsmw_nativo_diag_vertices_repetidos.
   struct VerticesVistos {
     uint64_t fotograma = UINT64_MAX;
     uint64_t huella = 0;
@@ -12991,7 +12991,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::array<CacheSampler, 4096> cache_fetch_{};
   uint64_t samplers_cache_fetch_ = 0;
   uint64_t fetch_fallos_choque_ = 0;      // The slot held another fetch constant
-  uint64_t fetch_fallos_vacia_ = 0;       // casilla sin usar todavia
+  uint64_t fetch_fallos_vacia_ = 0;       // slot not used yet
   uint64_t fetch_fallos_generacion_ = 0;  // same fetch, but generacion_texturas_ changed
   uint64_t fetch_fallos_caducada_ = 0;    // same fetch, but the texture is due for a check (valido_hasta)
   std::array<uint64_t, 6> fetch_informe_previos_{};
@@ -13026,7 +13026,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::vector<uint8_t> escrito_lista_;
   std::vector<uint8_t> lista_leida_;
   bool ficheros_viejos_ = false;  // the two older files were read: deleted when the new one is written
-  uint64_t ns_pipelines_ = 0;  // creando pipelines (informe C6)
+  uint64_t ns_pipelines_ = 0;  // creating pipelines (C6 report)
   std::unordered_set<uint32_t> avisados_;
   // Pipeline prewarm (BuclePrecalentado). lista_archivo_ and estado_lista_ are sized before the thread
   // starts and never change size; the thread writes estado_lista_[i] before publishing
@@ -13036,7 +13036,7 @@ class DibujosVulkanImpl final : public DibujosVulkan {
   std::unordered_map<uint64_t, size_t> indice_lista_;   // XXH3 of the key -> index (SIZE_MAX: from this session)
   std::vector<RegistroPipeline> lista_sesion_;          // this session's new ones
   uint32_t lista_sin_guardar_ = 0;
-  std::vector<uint8_t> escritor_lista_;                 // con escritor_mutex_
+  std::vector<uint8_t> escritor_lista_;                 // under escritor_mutex_
   std::thread precalentado_hilo_;
   const ShadersNativos* biblioteca_precalentado_ = nullptr;
   uint32_t precalentado_eds_ = 0;

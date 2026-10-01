@@ -282,7 +282,7 @@ enum TrozoPintado : size_t {
    * preemption, there is a wait in there, and to find which one the stretch is split into four.
    */
   kTrozoGrabarDescriptor,    // the vkUpdateDescriptorSets of the game image
-  kTrozoGrabarIntermedias,   // crear/recrear imagenes intermedias y sus framebuffers
+  kTrozoGrabarIntermedias,   // create/recreate intermediate images and their framebuffers
   /*
    * And `efectos` takes all of `grabar` (mean 5.9-38.5 ms, peaks of 103). It is split in two:
    * the composition pipeline (check / wait / destroy / create) and the actual recording. The

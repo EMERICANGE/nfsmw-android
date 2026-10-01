@@ -57,7 +57,7 @@ namespace rex::ui::switch_sysclk {
 namespace {
 
 constexpr unsigned kModulos = 3;   // CPU, GPU, MEM
-constexpr unsigned kPerfiles = 5;  // portatil, +cargando, +cargando USB, +cargador oficial, sobremesa
+constexpr unsigned kPerfiles = 5;  // handheld, +charging, +charging USB, +official charger, docked
 constexpr unsigned kPerfilSobremesa = 4;
 constexpr unsigned kPerfilPortatil = 0;
 
@@ -68,7 +68,7 @@ constexpr unsigned kPerfilPortatil = 0;
  * "Fake Handheld" to mean anything they have to be forced.
  */
 constexpr uint32_t kPortatilDeSerieHz[kModulos] = {0u, 307200000u, 1331200000u};
-constexpr uint64_t kPerfilGlobal = 0xA111111111111111ull;  // GLOBAL_PROFILE_ID de sys-clk
+constexpr uint64_t kPerfilGlobal = 0xA111111111111111ull;  // GLOBAL_PROFILE_ID from sys-clk
 
 constexpr uint32_t kOrdenPerfiles = 5;   // SysClkIpcCmd_GetProfiles
 constexpr uint32_t kOrdenOverride = 8;   // SysClkIpcCmd_SetOverride
@@ -240,7 +240,7 @@ bool Abrir() {
       Aviso("[relojes] no encuentro ningun sysmodule de relojes conocido (probados: sys:clk, hoc:clk, "
             "hocclk, sysclk, clk:sys, sys:oc): no hay a quien pedirselo");
     }
-    g_intentos = 5;  // no volver a preguntar
+    g_intentos = 5;  // do not ask again
     return false;
   }
   const Result rc = smGetService(&g_servicio, elegido);

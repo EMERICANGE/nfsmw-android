@@ -1,4 +1,4 @@
-// nfsmw - cinematicas WMV3 descodificadas con FFmpeg (ver nfsmw_video_nativo.cpp)
+// nfsmw - WMV3 cutscenes decoded with FFmpeg (see nfsmw_video_nativo.cpp)
 
 #pragma once
 

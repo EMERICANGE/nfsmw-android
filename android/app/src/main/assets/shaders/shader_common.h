@@ -3,51 +3,51 @@
 
 #define SPEC_CONSTANT_R11G11B10_NORMAL  (1 << 0)
 #define SPEC_CONSTANT_ALPHA_TEST        (1 << 1)
-// NFSMW (16/09): las constantes llegan por UBO dinamico (banco de constantes en Maxwell) en vez de
-// leerse por puntero de 64 bits. Bit alto para no chocar con los de UNLEASHED_RECOMP.
+// NFSMW (16/09): constants arrive through a dynamic UBO (a constant bank on Maxwell) instead of being
+// read through a 64-bit pointer. High bit so as not to clash with the UNLEASHED_RECOMP ones.
 #define SPEC_CONSTANT_CONSTANTES_UBO    (1 << 8)
-// 18/09 (build 164): el desplazamiento del tfetch se divide por 1/tamano de las constantes compartidas en vez
-// de preguntarselo a la textura. Una consulta de tamano es otra operacion de la unidad de texturas, y en la
-// biblioteca hay 160 para 435 muestreos.
+// 18/09 (build 164): the tfetch offset is scaled with 1/size taken from the shared constants instead of
+// querying the texture for its size. A size query is another texture unit operation, and the library has
+// 160 of them for 435 samples.
 #define SPEC_CONSTANT_INV_TAMANO_TEX    (1 << 9)
-// 20/09: PCF BARATO. Los shaders que muestrean el mapa de sombras lo hacen con un patron 3x3 a medio
-// texel: nueve muestreos por pixel. En p_000101 -el humo y la salpicadura de las ruedas, que son
-// rectangulos de PANTALLA COMPLETA- son once, y ese solo dibujo es el 21 % de la escena. Con este bit
-// los ocho desplazamientos exteriores se ponen a cero: los nueve muestreos quedan identicos, DXC los
-// funde en uno y la sombra pasa de filtrada 3x3 a un solo texel. Se pierde suavidad de borde.
+// 20/09: CHEAP PCF. The shaders that sample the shadow map use a 3x3 pattern at half-texel offsets:
+// nine samples per pixel. In p_000101 (the smoke and the wheel spray, which are FULL-SCREEN
+// rectangles) there are eleven, and that single draw is 21 % of the scene. With this bit the eight
+// outer offsets are set to zero: the nine samples become identical, DXC merges them into one and
+// the shadow goes from 3x3 filtered to a single texel. Edge smoothness is lost.
 #define SPEC_CONSTANT_PCF_BARATO        (1 << 15)
-/* 20/09: LA FUNCION DE LA PRUEBA DE ALFA, ESPECIALIZADA (bits 16-18).
+/* 20/09: THE ALPHA TEST FUNCTION, SPECIALIZED (bits 16-18).
  *
- * g_AlphaFunction venia de las constantes compartidas, o sea en tiempo de ejecucion, asi que
- * alphaTestValue era un switch de 7 casos: ~8 ramas en TODOS los pixel shaders que hacen prueba de
- * alfa. En p_000131 -el mundo lejano, el 45 % de los fragmentos de la escena- eran 12 ramas para 1
- * muestreo y 14 operaciones. Y no hacia ninguna falta: la app ya conoce la funcion al crear el
- * pipeline (sale de RB_COLORCONTROL, que ya esta en la clave), asi que con tres bits mas el
- * compilador se queda con la unica comparacion que toca y tira las otras seis. La salida es
- * identica bit a bit. */
-/* 20/09 (tarde): EL DESENFOQUE RADIAL DE LA COMPOSICION FINAL.
+ * g_AlphaFunction used to come from the shared constants, that is, at run time, so
+ * alphaTestValue was a 7-case switch: ~8 branches in ALL the pixel shaders that do alpha
+ * testing. In p_000131 (the distant world, 45 % of the scene's fragments) that was 12 branches for 1
+ * sample and 14 operations. And it was not needed at all: the app already knows the function when it
+ * creates the pipeline (it comes from RB_COLORCONTROL, which is already in the key), so with three
+ * more bits the compiler keeps the one comparison that applies and drops the other six. The output
+ * is bit-identical. */
+/* 20/09 (afternoon): THE RADIAL BLUR OF THE FINAL COMPOSITION.
  *
- * p_000139 es el VisualTreatment de carrera: UN cuadrilatero a pantalla completa, 1280x720 exactos,
- * sin sobredibujo, con DOCE muestreos. Son 2,8-3,2 ms reales, el 72-80 % de todo el posproceso.
+ * p_000139 is the race VisualTreatment: ONE full-screen quad, exactly 1280x720, no overdraw,
+ * with TWELVE samples. It takes 2.8-3.2 ms real, 72-80 % of all the post-processing.
  *
- * De esos doce, SIETE son taps de DIFFUSEMAP desplazados (mas uno de HEIGHTMAP que solo alimenta el
- * factor): el desenfoque radial de velocidad. Se mezclan con `r5*factor + r3`, donde r3 es el tap
- * central, asi que con factor 0 la salida es EXACTAMENTE el tap central y los ocho muestreos
- * quedan muertos: DXC y el driver los borran al especializar.
+ * Of those twelve, SEVEN are offset DIFFUSEMAP taps (plus one HEIGHTMAP tap that only feeds the
+ * factor): the radial speed blur. They are blended with `r5*factor + r3`, where r3 is the center
+ * tap, so with factor 0 the output is EXACTLY the center tap and the eight samples are left
+ * dead: DXC and the driver remove them when specializing.
  *
- * Se pierde el desenfoque de los bordes al acelerar y con el NOS. La imagen queda mas nitida. */
+ * The edge blur when accelerating and with the NOS is lost. The image is sharper. */
 #define SPEC_CONSTANT_SIN_DESENFOQUE    (1 << 19)
-/* 25/09 (build 184): EL MAPA DE SOMBRAS DEL MUNDO COMO MINIMO DE DOS TEXTURAS (nfsmw_nativo_sombra_minimo).
+/* 25/09 (build 184): THE WORLD SHADOW MAP AS THE MINIMUM OF TWO TEXTURES (nfsmw_nativo_sombra_minimo).
  *
- * El juego resuelve el mismo mapa de 1600x1600 dos veces: sin coches (lo muestrea la carroceria) y con los coches
- * dibujados encima (lo muestrea el mundo). El renderizador dibuja ahora los coches sobre un destino borrado a 1,0, sin
- * copiar debajo el mundo, y los shaders que muestrean el mapa con coches se quedan con el minimo de las dos texturas:
- * con la prueba de profundidad LESS/LEQUAL del juego, min(mundo, coches) es exactamente lo que deja dibujar los coches
- * encima. La segunda textura llega en la palabra del indice 3D del mismo registro (el mapa de sombras es 2D: esa
- * palabra no se usa). Con el bit apagado el codigo es el de tfetch2DSombra. */
+ * The game resolves the same 1600x1600 map twice: without cars (sampled by the car body) and with the cars
+ * drawn on top (sampled by the world). The renderer now draws the cars onto a render target cleared to 1.0, without
+ * copying the world underneath, and the shaders that sample the map with cars take the minimum of the two textures:
+ * with the game's LESS/LEQUAL depth test, min(world, cars) is exactly what drawing the cars on top produces. The
+ * second texture arrives in the 3D index word of the same register (the shadow map is 2D: that word is unused).
+ * With the bit off the code is that of tfetch2DSombra. */
 #define SPEC_CONSTANT_SOMBRA_MINIMO     (1 << 23)
-/* La app sabe que la biblioteca trae tfetch2DSombraMin porque esta constante aparece en el SPIR-V de los shaders que la
- * usan (OpConstant) y en ningun otro sitio. La constante de especializacion no llega nunca a este valor (bits 24-30). */
+/* The app knows the library has tfetch2DSombraMin because this constant appears in the SPIR-V of the shaders that
+ * use it (OpConstant) and nowhere else. The specialization constant never reaches this value (bits 24-30). */
 #define NFSMW_MARCA_SOMBRA_MINIMO       0x5E3B1A84u
 #define SPEC_CONSTANT_ALPHA_FUNC_SHIFT  16
 #define SPEC_CONSTANT_ALPHA_FUNC_MASK   (7 << 16)
@@ -74,9 +74,9 @@ struct PushConstants
 
 [[vk::push_constant]] ConstantBuffer<PushConstants> g_PushConstants;
 
-// NFSMW (16/09): los mismos bloques del bufer de subida, tambien como UBO dinamicos del conjunto 4.
-// Con -fvk-use-dx-layout cada float4 ocupa 16 bytes contiguos, asi que cualquier palabra de 4 bytes del
-// bloque compartido es un componente: v[B / 16][(B % 16) / 4], y asuint la lee sin tocar un bit.
+// NFSMW (16/09): the same blocks of the upload buffer, also as dynamic UBOs in set 4.
+// With -fvk-use-dx-layout each float4 takes 16 contiguous bytes, so any 4-byte word of the
+// shared block is a component: v[B / 16][(B % 16) / 4], and asuint reads it without changing a bit.
 struct NfsmwBloqueVs { float4 v[256]; };
 struct NfsmwBloquePs { float4 v[224]; };
 struct NfsmwBloqueCompartidas { float4 v[23]; };
@@ -91,16 +91,16 @@ struct NfsmwBloqueCompartidas { float4 v[23]; };
 #define g_SwappedTexcoords         (NFSMW_UBO ? NFSMW_COMPARTIDA_UINT(260) : vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 260))
 #define g_HalfPixelOffset          (NFSMW_UBO ? float2(NFSMW_COMPARTIDA_FLOAT(264), NFSMW_COMPARTIDA_FLOAT(268)) : vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 264))
 #define g_AlphaThreshold           (NFSMW_UBO ? NFSMW_COMPARTIDA_FLOAT(272) : vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 272))
-// NFSMW: funcion de la prueba de alfa (RB_COLORCONTROL.alpha_func): 0 nunca, 1 <, 2 ==, 3 <=,
-// 4 >, 5 !=, 6 >=, 7 siempre.
+// NFSMW: alpha test function (RB_COLORCONTROL.alpha_func): 0 never, 1 <, 2 ==, 3 <=,
+// 4 >, 5 !=, 6 >=, 7 always.
 #define g_AlphaFunction            (NFSMW_UBO ? NFSMW_COMPARTIDA_UINT(276) : vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 276))
-// NFSMW: posicion al espacio de recorte del host, como ndc_scale/ndc_offset de
-// la emulacion (graphics/util/draw.cpp). (1, 1) y (0, 0) en los dibujos normales;
-// con el recorte del Xenos desactivado pasa de pixeles a NDC.
+// NFSMW: position to host clip space, like ndc_scale/ndc_offset in the
+// emulation (graphics/util/draw.cpp). (1, 1) and (0, 0) for normal draws;
+// with Xenos clipping disabled it converts from pixels to NDC.
 #define g_NdcScale                 (NFSMW_UBO ? float2(NFSMW_COMPARTIDA_FLOAT(280), NFSMW_COMPARTIDA_FLOAT(284)) : vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 280))
 #define g_NdcOffset                (NFSMW_UBO ? float2(NFSMW_COMPARTIDA_FLOAT(288), NFSMW_COMPARTIDA_FLOAT(292)) : vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 288))
-// NFSMW: de donde sale cada componente de la entrada de vertices de esa ubicacion
-// (el D3D parchea el swizzle del fetch segun la declaracion). 0xFFF = tal cual.
+// NFSMW: where each component of the vertex input at that location comes from
+// (D3D patches the fetch swizzle according to the declaration). 0xFFF = as is.
 #define g_InputRemap(LOC)          (NFSMW_UBO ? NFSMW_COMPARTIDA_UINT(296 + (LOC) * 4) : vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 296 + (LOC) * 4))
 
 [[vk::constant_id(0)]] const uint g_SpecConstants = 0;
@@ -139,10 +139,10 @@ uint2 getTexture2DDimensions(Texture2D<float4> texture)
 float4 tfetch2D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset, float2 invSize)
 {
     Texture2D<float4> texture = g_Texture2DDescriptorHeap[resourceDescriptorIndex];
-    // 18/09 (build 164): con el bit puesto, el tamano viene por constante y no hay que preguntarselo a la
-    // textura. Es la misma cuenta con el mismo numero: el renderizador escribe 1/tamano de la imagen del host.
-    // Con un ternario, DXC evalua las dos ramas y la consulta de tamano se queda igual: hace falta un if con
-    // [branch] para que la rama muerta desaparezca al especializar el pipeline.
+    // 18/09 (build 164): with the bit set, the size comes from a constant and the texture does not have to
+    // be queried. It is the same computation with the same number: the renderer writes 1/size of the host image.
+    // With a ternary, DXC evaluates both branches and the size query stays: an if with [branch] is needed
+    // for the dead branch to disappear when the pipeline is specialized.
     float2 desplazamiento;
     [branch] if (g_SpecConstants() & SPEC_CONSTANT_INV_TAMANO_TEX)
         desplazamiento = offset * invSize;
@@ -197,10 +197,10 @@ float h1(float a)
     return 1.0f + w3(a) / (w2(a) + w3(a)) + 0.5f;
 }
 
-// 20/09: el muestreo del MAPA DE SOMBRAS. El traductor emite tfetch2D para todo; el paso de
-// reescritura de la biblioteca cambia a esta funcion las llamadas cuyo muestreador es SHADOWMAP_SAMPLER,
-// que son las unicas que queremos poder abaratar. Con el bit puesto, todos los muestreos del 3x3 caen
-// en el mismo texel y el compilador se queda con uno solo.
+// 20/09: SHADOW MAP sampling. The translator emits tfetch2D for everything; the library rewrite
+// step changes the calls whose sampler is SHADOWMAP_SAMPLER to this function, since those are the only
+// ones we want to be able to make cheaper. With the bit set, all the 3x3 samples land on the same
+// texel and the compiler keeps only one.
 float4 tfetch2DSombra(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset, float2 invSize)
 {
     [branch] if (g_SpecConstants() & SPEC_CONSTANT_PCF_BARATO)
@@ -208,11 +208,11 @@ float4 tfetch2DSombra(uint resourceDescriptorIndex, uint samplerDescriptorIndex,
     return tfetch2D(resourceDescriptorIndex, samplerDescriptorIndex, texCoord, offset, invSize);
 }
 
-// 25/09 (build 184): el mapa de sombras con el minimo de su pareja (nfsmw_nativo_sombra_minimo). El paso de la biblioteca
-// cambia a esta funcion todas las llamadas al mapa de sombras y le pasa el indice 3D de ese mismo registro, que es donde
-// la app pone la pareja: el mapa del mundo (o la propia textura, que da el mismo texel, mientras la app vigila). Las dos
-// se muestrean igual (mismo sampler puntual, mismas coordenadas y desplazamientos), asi que el minimo es por texel. La
-// primera comparacion es la marca de la biblioteca: no se cumple nunca y el driver la borra al especializar.
+// 25/09 (build 184): the shadow map with the minimum of its pair (nfsmw_nativo_sombra_minimo). The library step
+// changes all shadow map calls to this function and passes it the 3D index of that same register, which is where
+// the app puts the pair: the world map (or the texture itself, which gives the same texel, while the app is checking).
+// Both are sampled the same way (same point sampler, same coordinates and offsets), so the minimum is per texel.
+// The first comparison is the library marker: it is never true and the driver removes it when specializing.
 float4 tfetch2DSombraMin(uint resourceDescriptorIndex, uint parejaDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset, float2 invSize)
 {
     [branch] if (g_SpecConstants() == NFSMW_MARCA_SOMBRA_MINIMO)
@@ -292,7 +292,7 @@ float4 tfetchTexcoord(uint swappedTexcoords, float4 value, uint semanticIndex)
     return (swappedTexcoords & (1ull << semanticIndex)) != 0 ? value.yxwz : value;
 }
 
-// NFSMW: 3 bits por componente: 0-3 = componente del dato, 4 = 0, 5 = 1, 7 = el mismo.
+// NFSMW: 3 bits per component: 0-3 = data component, 4 = 0, 5 = 1, 7 = unchanged.
 float4 remapInput(float4 value, uint code)
 {
     if (code == 0xFFF)
@@ -312,7 +312,7 @@ float4 remapInput(float4 value, uint code)
     return result;
 }
 
-// NFSMW: prueba de alfa del Xenos con su funcion de comparacion. Positivo si el pixel pasa.
+// NFSMW: Xenos alpha test with its comparison function. Positive if the pixel passes.
 float alphaTestValue(float alpha)
 {
     bool pass = true;

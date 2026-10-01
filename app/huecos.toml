@@ -24,7 +24,7 @@
 # ============================================================================
 [functions]
 
-# --- Funciones sueltas (thunks y similares) ---
+# --- Standalone functions (thunks and similar) ---
 "0x820E20D0" = { }   # 40 bytes, after 0x820E20A8
 "0x820E2128" = { }   # 8 bytes, after 0x820E20F8
 "0x820E9238" = { }   # 8 bytes, after 0x820E9220
@@ -799,7 +799,7 @@
 "0x8212F6A8" = { }
 "0x8212F6B0" = { }
 "0x8212F6B8" = { }
-# (20 entradas nuevas)
+# (20 new entries)
 
 # 56-byte gap at 0x823EB7F0. Proven to contain several
 # functions: the game already crashed inside it at 0x823eb7f8, 0x823eb808.
@@ -809,7 +809,7 @@
 "0x823EB810" = { }
 "0x823EB818" = { }
 "0x823EB820" = { }
-# (5 entradas nuevas)
+# (5 new entries)
 
 # 200-byte gap at 0x824B1600. Proven to contain several
 # functions: the game already crashed inside it at 0x824b1640.
@@ -837,4 +837,4 @@
 "0x824B16B0" = { share_registers = true }
 "0x824B16B8" = { }
 "0x824B16C0" = { }
-# (23 entradas nuevas)
+# (23 new entries)

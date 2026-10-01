@@ -358,7 +358,7 @@ void GuardarPgm(const std::string& nombre, const uint8_t* plano, int paso, int a
   std::fclose(f);
 }
 
-// --- Pelicula en curso ---------------------------------------------------------------------------------
+// --- Current movie -------------------------------------------------------------------------------------
 
 struct Pelicula {
   uint32_t obj = 0;
@@ -417,7 +417,7 @@ void ResumenFinal(const Pelicula& p) {
               p.ruta, p.obj, p.fotogramas, p.nativos, p.rechazados, p.repetidos, p.peor_max_y, p.peor_media_y);
 }
 
-// Con g_peli_m tomado.
+// With g_peli_m held.
 Pelicula& PeliculaDe(const uint8_t* base, uint32_t obj) {
   if (g_peli && g_peli->obj == obj) {
     return *g_peli;

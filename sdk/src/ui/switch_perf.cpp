@@ -63,7 +63,7 @@ const char* RexSwitchLogDir(void);
  */
 size_t RexGmCommittedBytes(void);
 size_t RexGmMappedBytes(void);
-/* 0 = sin probar, 1 = permisos (paginas vigiladas legibles), 2 = desmapeo. */
+/* 0 = untested, 1 = permissions (watched pages readable), 2 = unmapping. */
 int RexGmModoProteccion(void);
 Result __real_threadCreate(Thread* t, ThreadFunc entry, void* arg, void* stack_mem,
                            size_t stack_sz, int prio, int cpuid);
@@ -151,8 +151,8 @@ std::atomic<u64> g_counters[kCounterCount];
  * before the constructors.
  */
 enum : unsigned {
-  kFenceConsulta,     // nvFenceWait con espera 0
-  kFenceEspera,       // nvFenceWait con espera
+  kFenceConsulta,     // nvFenceWait with a 0 wait
+  kFenceEspera,       // nvFenceWait with a wait
   kKickoff,           // nvGpuChannelKickoff
   kNvMapCacheada,     // nvMapCreate with CPU cache
   kNvMapSinCache,     // nvMapCreate without CPU cache
@@ -162,7 +162,7 @@ enum : unsigned {
   kQueueBuffer,       // nwindowQueueBuffer
   kDequeueBuffer,     // bqDequeueBuffer
   kSleep0,            // svcSleepThread(0)
-  kSleepCeder,        // svcSleepThread(-1 o -2)
+  kSleepCeder,        // svcSleepThread(-1 or -2)
   kSleepCorto,        // up to 1 ms
   kSleepLargo,        // over 1 ms
   kLlamadasCount,
