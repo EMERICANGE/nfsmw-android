@@ -156,7 +156,7 @@ public final class GameActivity extends SDLActivity
         try {
             nativeSetStretch(stretch);
         } catch (UnsatisfiedLinkError e) {
-            Log.w(TAG, "libmain no cargada", e);
+            Log.w(TAG, "libmain not loaded", e);
         }
     }
 
@@ -296,7 +296,7 @@ public final class GameActivity extends SDLActivity
         bar.setBackground(bg);
 
         TextView hint = new TextView(this);
-        hint.setText("Toca un control para elegirlo · arrástralo para moverlo · pellizca para cambiar su tamaño");
+        hint.setText(R.string.editor_hint);
         hint.setTextColor(0xCCFFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         hint.setGravity(Gravity.CENTER);
@@ -304,12 +304,12 @@ public final class GameActivity extends SDLActivity
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.addView(toolButton("Tamaño −", v -> controls.resizeSelected(1f / 1.12f)));
-        row.addView(toolButton("Tamaño +", v -> controls.resizeSelected(1.12f)));
-        row.addView(toolButton("Mostrar / ocultar", v -> controls.toggleSelectedVisible()));
-        row.addView(toolButton("Ajustes", v -> showSettings()));
-        row.addView(toolButton("Restablecer", v -> confirmReset()));
-        Button done = toolButton("Listo", v -> controls.setEditing(false));
+        row.addView(toolButton(getString(R.string.size_down), v -> controls.resizeSelected(1f / 1.12f)));
+        row.addView(toolButton(getString(R.string.size_up), v -> controls.resizeSelected(1.12f)));
+        row.addView(toolButton(getString(R.string.show_hide), v -> controls.toggleSelectedVisible()));
+        row.addView(toolButton(getString(R.string.settings), v -> showSettings()));
+        row.addView(toolButton(getString(R.string.reset), v -> confirmReset()));
+        Button done = toolButton(getString(R.string.done), v -> controls.setEditing(false));
         ((GradientDrawable) done.getBackground()).setColor(0xFFE07B00);
         row.addView(done);
         bar.addView(row);
@@ -339,10 +339,10 @@ public final class GameActivity extends SDLActivity
 
     private void confirmReset() {
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Restablecer controles")
-                .setMessage("¿Volver a la posición y el tamaño originales de todos los controles?")
-                .setPositiveButton("Restablecer", (d, w) -> controls.resetLayout())
-                .setNegativeButton("Cancelar", null)
+                .setTitle(R.string.reset_controls_title)
+                .setMessage(R.string.reset_controls_message)
+                .setPositiveButton(R.string.reset, (d, w) -> controls.resetLayout())
+                .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
@@ -351,29 +351,29 @@ public final class GameActivity extends SDLActivity
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(20), dp(8), dp(20), dp(8));
 
-        panel.addView(toggle("Imagen estirada a toda la pantalla", controls.stretch, on -> {
+        panel.addView(toggle(getString(R.string.setting_stretch), controls.stretch, on -> {
             controls.stretch = on;
             applyStretch(on);
         }));
-        panel.addView(toggle("Vibrar al pulsar", controls.haptics, on -> controls.haptics = on));
-        panel.addView(toggle("Ocultar los controles al usar un mando", controls.hideWithGamepad,
+        panel.addView(toggle(getString(R.string.setting_haptics), controls.haptics, on -> controls.haptics = on));
+        panel.addView(toggle(getString(R.string.setting_hide_with_gamepad), controls.hideWithGamepad,
                 on -> controls.hideWithGamepad = on));
-        panel.addView(toggle("Dirección inclinando el teléfono", controls.tiltSteering, on -> {
+        panel.addView(toggle(getString(R.string.setting_tilt), controls.tiltSteering, on -> {
             controls.tiltSteering = on;
             updateTiltListener();
         }));
-        panel.addView(slider("Sensibilidad de la inclinación", 50, 250,
+        panel.addView(slider(getString(R.string.setting_tilt_sensitivity), 50, 250,
                 Math.round(controls.tiltSensitivity * 100), v -> controls.tiltSensitivity = v / 100f));
-        panel.addView(slider("Opacidad de los controles", 15, 100,
+        panel.addView(slider(getString(R.string.setting_opacity), 15, 100,
                 Math.round(controls.opacity * 100), v -> {
                     controls.opacity = v / 100f;
                     controls.invalidate();
                 }));
 
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Ajustes de los controles")
+                .setTitle(R.string.controls_settings_title)
                 .setView(panel)
-                .setPositiveButton("Cerrar", (d, w) -> controls.save())
+                .setPositiveButton(R.string.close, (d, w) -> controls.save())
                 .setOnDismissListener(d -> controls.save())
                 .show();
     }
@@ -406,11 +406,11 @@ public final class GameActivity extends SDLActivity
         SeekBar bar = new SeekBar(this);
         bar.setMax(max - min);
         bar.setProgress(Math.max(0, Math.min(max - min, value - min)));
-        title.setText(label + ": " + value + " %");
+        title.setText(getString(R.string.slider_value, label, value));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                title.setText(label + ": " + (progress + min) + " %");
+                title.setText(getString(R.string.slider_value, label, progress + min));
                 onValue.set(progress + min);
             }
 
@@ -452,7 +452,7 @@ public final class GameActivity extends SDLActivity
             }
             prefs.edit().putString("settings_sha256", bundledHash).apply();
         } catch (IOException | NoSuchAlgorithmException e) {
-            Log.w(TAG, "No se pudo instalar " + SETTINGS, e);
+            Log.w(TAG, "Could not install " + SETTINGS, e);
         }
     }
 

@@ -98,14 +98,14 @@ final class ShaderBuilder {
 
             @Override
             public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
-                finish(null, "el compilador de shaders se cerró (memoria insuficiente)");
+                finish(null, activity.getString(R.string.shader_compiler_closed));
                 return true;
             }
         });
         // It must be attached to run at full speed; 1x1 and behind everything.
         ViewGroup root = activity.findViewById(android.R.id.content);
         root.addView(web, 0, new FrameLayout.LayoutParams(1, 1));
-        web.loadUrl("https://" + HOST + "/shaders/index.html");
+        web.loadUrl("https://" + HOST + "/shaders/index.html?lang=" + activity.getString(R.string.shader_language));
     }
 
     void cancel() {
@@ -226,7 +226,7 @@ final class ShaderBuilder {
                     out.getFD().sync();
                 }
                 if (!temp.renameTo(target)) {
-                    throw new IOException("no se pudo guardar " + LIBRARY);
+                    throw new IOException(activity.getString(R.string.cannot_save_library, LIBRARY));
                 }
                 Log.i(TAG, "[shaders] " + LIBRARY + " " + bytes.length + " bytes, SHA-256 " + sha256 +
                         (edition.isEmpty() ? "" : " (" + edition + ")"));

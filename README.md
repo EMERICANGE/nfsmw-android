@@ -23,8 +23,8 @@ This project brings to Android the recompilation work of [nfsmw-nx](https://gith
 
 1. Download `NFSMW-Android-Evolved-v0.3.5.apk` from [Releases](https://github.com/codepdbh/nfsmw-android/releases/latest) and open it on the phone. If Android asks, allow **Install unknown apps** for the browser or file manager you are using.
 2. Install the APK and open **Need for Speed Most Wanted**. Grant the file access the app asks for; on Android 11 or later the **All files access** setting appears. Then go back to the launcher.
-3. Copy `default.xex`, `NFS/` and `Movies/` directly into `Internal storage/nsfmw-androidevolved/`. You can also tap **Elegir carpeta del juego** (Choose game folder) and select the extracted folder that contains those three items; the app copies it to that location.
-4. Check that the launcher marks the files as available and tap **Jugar** (Play). In **Nativo** (Native) mode, the first launch generates `nfsmw_shaders.nfsp` from your copy and shows the progress; wait for it to finish. It can take several minutes. If the GPU lacks the required features, the launcher offers **Probar compatibilidad** (Try compatibility). You can also select **Renderizador → Compatibilidad · experimental** (Renderer → Compatibility · experimental); this mode does not need that library.
+3. Copy `default.xex`, `NFS/` and `Movies/` directly into `Internal storage/nsfmw-androidevolved/`. You can also tap **Choose game folder** and select the extracted folder that contains those three items; the app copies it to that location.
+4. Check that the launcher marks the files as available and tap **PLAY**. In **Native** mode, the first launch generates `nfsmw_shaders.nfsp` from your copy and shows the progress; wait for it to finish. It can take several minutes. If the GPU lacks the required features, the launcher offers **Try compatibility**. You can also select **Renderer → Compatibility · experimental**; this mode does not need that library.
 5. The game opens in landscape. Later launches in native mode use the generated library. On phones that support that mode you can start with 1280×720 and 60 FPS. Compatibility mode may have glitches, pauses or freezes and does not guarantee playable performance.
 
 The folder must end up like this:
@@ -43,7 +43,7 @@ Do not download or share game files. The shader library is generated on the devi
 
 Install the new APK over the previous one, **without uninstalling it or clearing the app data**. The releases published in this repository use the same signature, and the update keeps your saves and settings. If you already have the game files and the shaders, there is no need to import or generate them again.
 
-### If Jugar (Play) does not appear
+### If PLAY does not appear
 
 - Check the file permission and open the app again.
 - Check that `default.xex` is directly inside `nsfmw-androidevolved/`, next to `NFS/` and `Movies/`. Avoid an extra folder such as `nsfmw-androidevolved/Need for Speed Most Wanted/default.xex`.
@@ -52,17 +52,17 @@ Install the new APK over the previous one, **without uninstalling it or clearing
 
 ## Launcher, settings and controls
 
-In the launcher you can change the internal resolution, FPS limit, antialiasing, shadows, car and asphalt reflections, sky glow and image filter. The app also saves control settings and the screen format.
+The launcher is in English, or in Spanish when the phone's language is Spanish. In it you can change the internal resolution, FPS limit, antialiasing, shadows, car and asphalt reflections, sky glow and image filter. The app also saves control settings and the screen format.
 
 The game opens in landscape. The touch overlay includes steering, action buttons, START, brake and accelerator. From the controls editor you can move and resize buttons, hide them and adjust their opacity. Bluetooth and USB controllers are also supported.
 
-Since v0.3.5, the joystick also responds to your finger when **Inclinar** (Tilt) is enabled: when you let go, tilt steering takes over again. Compatibility mode keeps the game's original graphics path; some settings specific to the native renderer do not apply to it.
+Since v0.3.5, the joystick also responds to your finger when **Steer by tilting the phone** is enabled: when you let go, tilt steering takes over again. Compatibility mode keeps the game's original graphics path; some settings specific to the native renderer do not apply to it.
 
 ## Compatibility and reports in v0.3.5
 
-This version adds **Renderizador → Compatibilidad · experimental**, which managed to play the intros and get as far as driving on the Redmi Note 8 that was tested. It fixes a memory reservation that caused crashes on that phone's old kernel. Slowness and GPU waits remain; a full race and Helio G99/G200 support have not been verified yet.
+This version adds **Renderer → Compatibility · experimental**, which managed to play the intros and get as far as driving on the Redmi Note 8 that was tested. It fixes a memory reservation that caused crashes on that phone's old kernel. Slowness and GPU waits remain; a full race and Helio G99/G200 support have not been verified yet.
 
-The **Enviar crash o log** (Send crash or log) button lets you share a ZIP by email to `daniebatuani@gmail.com`, save it, or open an issue on GitHub. On GitHub you must attach the ZIP to the form. See [the tester guide](docs/android-testers.md).
+The **Send crash or log** button lets you share a ZIP by email to `daniebatuani@gmail.com`, save it, or open an issue on GitHub. On GitHub you must attach the ZIP to the form. See [the tester guide](docs/android-testers.md).
 
 ## Graphics in v0.3.4
 

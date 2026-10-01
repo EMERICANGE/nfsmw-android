@@ -1,19 +1,19 @@
 # Tester diagnostics (since build 0.3.5)
 
-The launcher includes **Enviar crash o log** (Send crash or log). The phone
+The launcher includes **Send crash or log**. The phone
 prepares a local ZIP with the app version, model, Android version, GPU/Vulkan,
 launcher settings, recent logs of this app and the crash history that Android
 lets apps query. When available, it includes the trace of a native crash or
 ANR. It also keeps the last Java exception.
 
-- **Correo** (Email) opens the share sheet for the ZIP with the recipient
+- **Email** opens the share sheet for the ZIP with the recipient
   `daniebatuani@gmail.com`, a subject and an initial text. Pick your email app,
   describe what happened and tap Send.
 - **GitHub** asks you to save the ZIP and opens a new issue at
   https://github.com/codepdbh/nfsmw-android/issues/new with the basic data
   filled in. Sign in if needed, describe how to reproduce the failure and
   attach the saved ZIP before posting the issue.
-- **Guardar ZIP** (Save ZIP) saves the report without opening email or GitHub.
+- **Save ZIP** saves the report without opening email or GitHub.
 
 If the game closes, open the launcher again and use the button before trying
 several new sessions. If it hangs, close the app from Android, open it again
@@ -55,15 +55,15 @@ On the device connected on 1 October 2026, the following was checked:
 The user's change to `-march=armv8-a` is kept: it allows generating code for
 ARMv8.0 processors, but it does not solve the driver's limitations.
 The launcher now checks the features required by the native renderer and
-offers **Probar compatibilidad** (Try compatibility) and access to the report.
+offers **Try compatibility** and access to the report.
 BC4/5 are not required in this check, because the tested Galaxy A55 supports
 BC1/2/3 and lacks BC4/5.
 
 ## Trying the compatibility mode
 
-In the launcher, select **Renderizador → Compatibilidad · experimental**
-(Renderer → Compatibility · experimental), or accept **Probar compatibilidad**
-when missing native features are detected. Tap **Jugar** (Play). This mode
+In the launcher, select **Renderer → Compatibility · experimental**, or
+accept **Try compatibility** when missing native features are detected.
+Tap **PLAY**. This mode
 does not need to generate the native renderer's shader library.
 
 It uses the Xenos backend with conventional descriptors, FBO render targets
@@ -80,6 +80,6 @@ It has not been validated yet in a full race or on Helio G99/G200.
 Testers with those devices should attach their ZIP, stating the mode they
 used and the last screen that worked.
 
-The touch joystick can be used even with **Inclinar** (Tilt) enabled:
+The touch joystick can be used even with **Steer by tilting the phone** enabled:
 while the finger is held down, the joystick is in control; on release, tilt
 takes over again. This fixes the tilt setting blocking the drag.

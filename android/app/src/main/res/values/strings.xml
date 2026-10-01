@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher texts. English is the default; values-es has the Spanish ones. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
+    <!-- Main screen -->
+    <string name="subtitle">Xbox 360 · recompiled for Android</string>
+    <string name="game_files_title">GAME FILES</string>
+    <string name="play">PLAY</string>
+    <string name="choose_game_folder">Choose game folder</string>
+    <string name="change_game_folder">Change game folder</string>
+    <string name="graphics_options_title">GRAPHICS OPTIONS</string>
+    <string name="graphics_options_note">Applied when the game starts.</string>
+    <string name="send_report">Send crash or log</string>
+    <string name="image_format">Image format</string>
+    <string name="image_stretched">Stretched to the full screen</string>
+    <string name="image_original">Original 16:9</string>
+    <string name="check_nfs_folder">NFS folder</string>
+    <string name="check_movies_folder">Movies folder</string>
+    <string name="check_shaders">Native renderer shaders</string>
+    <string name="check_shaders_on_play">generated when you tap PLAY</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+
+    <!-- Renderer check before playing -->
+    <string name="renderer_problem_title">Try another renderer</string>
+    <string name="renderer_problem_message">%1$s\n\nYou can try the experimental compatibility mode. It may have graphics glitches or run more slowly.</string>
+    <string name="try_compatibility">Try compatibility</string>
+    <string name="send_diagnostics">Send diagnostics</string>
+    <string name="back">Back</string>
+    <string name="incompatible_driver">The driver of %1$s does not offer the features the native renderer needs.\n\nDevice Vulkan: %2$s\n\nLowering the resolution does not fix this incompatibility. You can send the diagnostics to help us study support.</string>
+    <string name="this_gpu">this GPU</string>
+    <string name="not_available">not available</string>
+
+    <!-- Shader library -->
+    <string name="generating_shaders">Generating the native renderer\'s shaders (first time only)…</string>
+    <string name="shaders_failed">Could not generate the shaders: %1$s</string>
+    <string name="shader_compiler_closed">the shader compiler closed (out of memory)</string>
+    <string name="cannot_save_library">could not save %1$s</string>
+    <!-- Language of the shader builder page (assets/shaders/build.js). -->
+    <string name="shader_language">en</string>
+
+    <!-- Game folder -->
+    <string name="game_location">Internal storage/%1$s</string>
+    <string name="choose_folder_hint">Choose the extracted game folder (with default.xex, NFS and Movies). It will be copied to Internal storage/%1$s.</string>
+    <string name="storage_permission_denied">Allow storage access to use Internal storage/%1$s.</string>
+    <string name="storage_access_needed">To use Internal storage/%1$s, allow the file access that Android asks for.</string>
+    <string name="folder_permission_failed">Could not keep the folder permission: %1$s</string>
+    <string name="checking_game">Checking the game in internal storage...</string>
+    <string name="moving_game">Moving the game to Internal storage/%1$s...</string>
+    <string name="copying_game">Copying the game to Internal storage/%1$s...</string>
+    <string name="copied_mib">Copied %1$d MiB...</string>
+    <string name="moved_mib">Moved %1$d MiB...</string>
+    <string name="game_moved">Game moved from private storage.</string>
+    <string name="copy_check_failed">The copy did not pass the file check.</string>
+    <string name="folder_prepare_failed">Could not prepare the game folder: %1$s</string>
+    <string name="import_error">Import error: %1$s</string>
+    <string name="cannot_open_folder">Could not open the selected folder.</string>
+    <string name="folder_needs_files">The folder must contain default.xex, NFS and Movies.</string>
+    <string name="invalid_path">The game folder contains an invalid path.</string>
+    <string name="invalid_name">The game folder contains an invalid name.</string>
+    <string name="file_outside_import">A file is trying to get out of the import folder.</string>
+    <string name="cannot_create">Could not create %1$s</string>
+    <string name="cannot_create_game_folder">Could not create a game folder.</string>
+    <string name="cannot_read">Could not read %1$s</string>
+    <string name="cannot_delete">Could not delete %1$s</string>
+
+    <!-- Tester reports -->
+    <string name="report_message">The report includes the model, Android version, GPU, settings and logs of this app. Add what happened before sending it.</string>
+    <string name="report_email">Email</string>
+    <string name="report_save_zip">Save ZIP</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="preparing_report">Preparing diagnostics…</string>
+    <string name="report_failed">Could not prepare the report: %1$s</string>
+    <string name="email_subject">NFSMW Android: %1$s — diagnostics</string>
+    <string name="email_text">%1$s\nWhat happened:\n\nSteps to reproduce it:\n\nGame edition:\n\nThe diagnostics are attached.</string>
+    <string name="report_clip_label">NFSMW diagnostics</string>
+    <string name="send_to">Send to %1$s</string>
+    <string name="github_title">Report on GitHub</string>
+    <string name="github_message">First save the ZIP. Then the issue will open: describe the problem and attach the saved ZIP.</string>
+    <string name="github_save_open">Save and open GitHub</string>
+    <string name="github_issue_body">### What happened\n\n### Steps to reproduce it\n\n### Game edition\n\n### Device\n%1$s\n### Diagnostics\nAttach the file **%2$s** that you just saved here.\n</string>
+    <string name="no_file_app">There is no app to save files. Try the Email option.</string>
+    <string name="report_gone">The report is no longer available. Create a new one.</string>
+    <string name="cannot_open_destination">Could not open the destination file.</string>
+    <string name="zip_save_failed">Could not save the ZIP: %1$s</string>
+    <string name="zip_saved_open_issues">ZIP saved. Open %1$s and attach it to the issue.</string>
+    <string name="zip_saved">ZIP saved. You can attach it to an issue or send it to %1$s.</string>
+    <string name="unknown_version">unknown</string>
+    <string name="report_summary">NFSMW Android Evolved %1$s\nPhone: %2$s %3$s\nAndroid: %4$s (API %5$d)\nGPU: %6$s\nVulkan: %7$s\n</string>
+    <string name="cannot_create_report">Could not create the report.</string>
+    <string name="report_details">Date: %1$s\nABI: %2$s\nTotal RAM: %3$d\nAvailable RAM: %4$d\nLast launch attempt: %5$d\n\nOptions:\n</string>
+    <string name="report_arguments">\nEffective arguments:\n</string>
+    <string name="report_describe">\nDescribe what happened, how to reproduce it and the game edition.\n</string>
+
+    <!-- Graphics options (GameOptions) -->
+    <string name="opt_renderer">Renderer</string>
+    <string name="opt_renderer_native">Native</string>
+    <string name="opt_renderer_compat">Compatibility · experimental</string>
+    <string name="opt_resolution">Internal resolution</string>
+    <string name="opt_resolution_640">640x360 · maximum performance</string>
+    <string name="opt_resolution_1024">1024x576 · performance</string>
+    <string name="opt_resolution_1280">1280x720 · balanced</string>
+    <string name="opt_resolution_1920">1920x1080 · maximum quality</string>
+    <string name="opt_fps">FPS limit</string>
+    <string name="opt_fps_30">30 FPS · saves battery</string>
+    <string name="opt_fps_60" translatable="false">60 FPS</string>
+    <string name="opt_fps_90" translatable="false">90 FPS · experimental</string>
+    <string name="opt_fps_120" translatable="false">120 FPS · experimental</string>
+    <string name="opt_antialiasing" translatable="false">Antialiasing</string>
+    <string name="opt_antialiasing_off">Off</string>
+    <string name="opt_antialiasing_fxaa" translatable="false">FXAA</string>
+    <string name="opt_shadows">Shadows</string>
+    <string name="opt_shadows_every_frame">Every frame</string>
+    <string name="opt_shadows_every_2">Every 2 frames · more performance</string>
+    <string name="opt_car_reflections">Car reflections</string>
+    <string name="opt_car_reflections_high">High</string>
+    <string name="opt_car_reflections_medium">Medium</string>
+    <string name="opt_car_reflections_low">Low · more performance</string>
+    <string name="opt_road_reflection">Wet asphalt reflection</string>
+    <string name="opt_road_reflection_on">On</string>
+    <string name="opt_road_reflection_off">Off · more performance</string>
+    <string name="opt_sky">Sky glow</string>
+    <string name="opt_sky_original">Original (Xbox 360)</string>
+    <string name="opt_sky_natural">Natural</string>
+    <string name="opt_sky_soft">Soft</string>
+    <string name="opt_volume">Game volume</string>
+    <string name="opt_volume_normal">Normal</string>
+    <string name="opt_volume_high">High</string>
+    <string name="opt_volume_very_high">Very high</string>
+    <string name="opt_volume_max">Maximum · may clip</string>
+    <string name="opt_filter">Image filter</string>
+    <string name="opt_filter_none">No filter</string>
+    <string name="opt_filter_cinema">Cinema</string>
+    <string name="opt_filter_vivid">Vivid</string>
+    <string name="opt_filter_warm">Warm</string>
+    <string name="opt_filter_cold">Cold</string>
+    <string name="opt_filter_sepia">Sepia</string>
+    <string name="opt_filter_noir">Black and white</string>
+    <string name="opt_filter_crt" translatable="false">CRT</string>
+
+    <!-- In-game controls editor (GameActivity) -->
+    <string name="editor_hint">Tap a control to select it · drag it to move it · pinch to resize it</string>
+    <string name="size_down">Size −</string>
+    <string name="size_up">Size +</string>
+    <string name="show_hide">Show / hide</string>
+    <string name="settings">Settings</string>
+    <string name="reset">Reset</string>
+    <string name="done">Done</string>
+    <string name="reset_controls_title">Reset controls</string>
+    <string name="reset_controls_message">Return every control to its original position and size?</string>
+    <string name="controls_settings_title">Control settings</string>
+    <string name="close">Close</string>
+    <string name="setting_stretch">Image stretched to the full screen</string>
+    <string name="setting_haptics">Vibrate on press</string>
+    <string name="setting_hide_with_gamepad">Hide the controls when using a controller</string>
+    <string name="setting_tilt">Steer by tilting the phone</string>
+    <string name="setting_tilt_sensitivity">Tilt sensitivity</string>
+    <string name="setting_opacity">Controls opacity</string>
+    <string name="slider_value">%1$s: %2$d%%</string>
+
+    <!-- Touch pad labels (TouchControlsView) -->
+    <string name="pad_steering">STEERING</string>
+    <string name="pad_gas">GAS</string>
+    <string name="pad_brake">BRAKE</string>
+    <string name="pad_handbrake">E-BRAKE</string>
+    <string name="pad_nitro">NITRO</string>
+    <string name="pad_camera">CAMERA</string>
+    <string name="pad_look">LOOK</string>
+    <string name="pad_tilt">TILT</string>
+    <string name="pad_hidden">HIDDEN</string>
+</resources>
