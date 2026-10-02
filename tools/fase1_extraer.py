@@ -30,9 +30,9 @@ XDVDFS_MAGIC = b"MICROSOFT*XBOX*MEDIA"
 
 # Known offsets where the game partition starts, by disc type.
 KNOWN_BASES = [
-    (0x00000000, "particion cruda / imagen ya recortada"),
-    (0x0FD90000, "XGD2 (la mayoria de juegos de 360)"),
-    (0x02080000, "XGD3 (titulos tardios)"),
+    (0x00000000, "raw partition / image already trimmed"),
+    (0x0FD90000, "XGD2 (most 360 games)"),
+    (0x02080000, "XGD3 (late titles)"),
     (0x18300000, "XGD1 (Xbox original)"),
 ]
 
@@ -77,13 +77,13 @@ def detectar_base(fh, limite_scan=1 << 30):
             if abs_off % SECTOR == 0 and abs_off >= 32 * SECTOR:
                 base = abs_off - 32 * SECTOR
                 if _magic_at(fh, base):
-                    return base, "detectado por barrido (offset no estandar)"
+                    return base, "found by scanning (non-standard offset)"
             idx = buf.find(XDVDFS_MAGIC, idx + 1)
         pos += CHUNK
 
     raise SystemExit(
-        "No se encontro un sistema de archivos XDVDFS en la imagen.\n"
-        "Comprueba que es un ISO de Xbox 360 y no un CCI/GOD/ZAR comprimido."
+        "No XDVDFS file system was found in the image.\n"
+        "Check that it is an Xbox 360 ISO and not a compressed CCI/GOD/ZAR."
     )
 
 
@@ -92,9 +92,9 @@ def leer_descriptor(fh, base):
     fh.seek(base + 32 * SECTOR)
     vd = fh.read(SECTOR)
     if len(vd) < SECTOR or vd[:20] != XDVDFS_MAGIC:
-        raise SystemExit("Descriptor de volumen invalido.")
+        raise SystemExit("Invalid volume descriptor.")
     if vd[0x7EC:0x7EC + 20] != XDVDFS_MAGIC:
-        print("  aviso: falta el magic de cierre en 0x7EC (imagen truncada?)",
+        print("  warning: the closing magic at 0x7EC is missing (truncated image?)",
               file=sys.stderr)
     sector_raiz, tam_raiz = struct.unpack_from("<II", vd, 0x14)
     return sector_raiz, tam_raiz
@@ -142,7 +142,7 @@ def recorrer(fh, base, sector, tam, prefijo=""):
     fh.seek(base + sector * SECTOR)
     tabla = fh.read(tam)
     if len(tabla) < tam:
-        print("  aviso: tabla de directorio truncada en %s" % (prefijo or "/"),
+        print("  warning: directory table truncated at %s" % (prefijo or "/"),
               file=sys.stderr)
 
     vistos = set()
@@ -166,7 +166,7 @@ def extraer(fh, base, entrada, destino):
             trozo = fh.read(min(1 << 20, restante))
             if not trozo:
                 raise SystemExit(
-                    "Fin de archivo inesperado leyendo %s. Imagen incompleta?"
+                    "Unexpected end of file while reading %s. Incomplete image?"
                     % entrada["nombre"])
             out.write(trozo)
             restante -= len(trozo)
@@ -208,8 +208,8 @@ CLAVES_XEX = {
     0x00E10402: "Exports by name",
 }
 
-COMPRESION = {0: "ninguna", 1: "basica", 2: "normal (LZX)", 3: "delta"}
-CIFRADO = {0: "ninguno", 1: "normal (AES-128)"}
+COMPRESION = {0: "none", 1: "basic", 2: "normal (LZX)", 3: "delta"}
+CIFRADO = {0: "none", 1: "normal (AES-128)"}
 
 
 def _u32(buf, off):
@@ -221,21 +221,21 @@ def info_xex(ruta):
         cab = fh.read(0x1000)
         if cab[:4] != b"XEX2":
             raise SystemExit(
-                "%s no empieza con el magic 'XEX2'. No es un ejecutable de "
-                "Xbox 360 (o esta cifrado con otro formato)." % ruta)
+                "%s does not start with the 'XEX2' magic. It is not an Xbox 360 "
+                "executable (or it is encrypted with another format)." % ruta)
 
         flags_modulo = _u32(cab, 0x04)
         off_pe = _u32(cab, 0x08)
         off_seguridad = _u32(cab, 0x10)
         n_opt = _u32(cab, 0x14)
 
-        print("== Cabecera XEX2 ==")
-        print("  archivo               : %s (%s bytes)"
+        print("== XEX2 header ==")
+        print("  file                  : %s (%s bytes)"
               % (ruta, f"{os.path.getsize(ruta):,}"))
         print("  module flags          : 0x%08X" % flags_modulo)
-        print("  offset datos PE       : 0x%08X" % off_pe)
+        print("  PE data offset        : 0x%08X" % off_pe)
         print("  offset security info  : 0x%08X" % off_seguridad)
-        print("  cabeceras opcionales  : %d" % n_opt)
+        print("  optional headers      : %d" % n_opt)
 
         # The optional headers can extend past the 0x1000 bytes read.
         fh.seek(0x18)
@@ -249,7 +249,7 @@ def info_xex(ruta):
         base_img = opcionales.get(0x00010201)
 
         print()
-        print("== Datos clave ==")
+        print("== Key data ==")
 
         # Execution info -> title id, version, disc
         title_id = None
@@ -266,9 +266,9 @@ def info_xex(ruta):
                 print("  Version               : %d.%d.%d.%d"
                       % ((version >> 28) & 0xF, (version >> 16) & 0xFFF,
                          (version >> 8) & 0xFF, version & 0xFF))
-                print("  Disco                 : %d de %d" % (disco_n, disco_tot))
+                print("  Disc                  : %d of %d" % (disco_n, disco_tot))
         else:
-            print("  Title ID              : (sin execution info)")
+            print("  Title ID              : (no execution info)")
 
         if base_img is not None:
             print("  Image base address    : 0x%08X" % base_img)
@@ -282,7 +282,7 @@ def info_xex(ruta):
             tam_imagen = _u32(si, 0x004)
             load_addr = _u32(si, 0x110)
             print("  Load address          : 0x%08X" % load_addr)
-            print("  Tamano de imagen      : %s bytes" % f"{tam_imagen:,}")
+            print("  Image size            : %s bytes" % f"{tam_imagen:,}")
 
         # File format info -> compression / encryption
         if 0x000003FF in opcionales:
@@ -290,10 +290,10 @@ def info_xex(ruta):
             ffi = fh.read(8)
             if len(ffi) == 8:
                 _tam, cif, comp = struct.unpack(">IHH", ffi)
-                print("  Cifrado               : %s (%d)"
-                      % (CIFRADO.get(cif, "desconocido"), cif))
-                print("  Compresion            : %s (%d)"
-                      % (COMPRESION.get(comp, "desconocida"), comp))
+                print("  Encryption            : %s (%d)"
+                      % (CIFRADO.get(cif, "unknown"), cif))
+                print("  Compression           : %s (%d)"
+                      % (COMPRESION.get(comp, "unknown"), comp))
 
         # Other useful fields stored inline
         if 0x00010001 in opcionales:
@@ -317,14 +317,14 @@ def info_xex(ruta):
                                    if n and all(32 <= c < 127 for c in n)]
                         if nombres:
                             print()
-                            print("== Modulos importados (%d) ==" % st_num)
+                            print("== Imported modules (%d) ==" % st_num)
                             for n in nombres:
                                 print("  " + n)
             except (OSError, struct.error):
                 pass
 
         print()
-        print("== Cabeceras opcionales presentes ==")
+        print("== Optional headers present ==")
         for clave in sorted(opcionales):
             nombre = CLAVES_XEX.get(clave, "")
             print("  0x%08X  %-24s valor/offset 0x%08X"
@@ -332,14 +332,14 @@ def info_xex(ruta):
 
         print()
         if title_id == 0x454107D9:
-            print("  >> Title ID coincide con Need for Speed: Most Wanted (2005). Correcto.")
+            print("  >> The Title ID matches Need for Speed: Most Wanted (2005). Correct.")
         elif title_id is not None:
-            print("  >> OJO: el Title ID esperado para NFSMW 2005 es 454107D9.")
-            print("     Este XEX es 0x%08X. Comprueba que dumpeaste el juego correcto." % title_id)
+            print("  >> WARNING: the expected Title ID for NFSMW 2005 is 454107D9.")
+            print("     This XEX is 0x%08X. Check that you dumped the right game." % title_id)
 
         print()
-        print("Copia esta salida a docs/xex_info.txt: vas a necesitar el base")
-        print("address cada vez que declares una direccion en el TOML.")
+        print("Copy this output to docs/xex_info.txt: you will need the base")
+        print("address every time you declare an address in the TOML.")
 
 
 # ---------------------------------------------------------------------------
@@ -362,13 +362,13 @@ def buscar_iso():
 
     if not candidatos:
         raise SystemExit(
-            "No se indico ningun archivo y no hay ningun .iso en:\n"
+            "No file was given and there is no .iso in:\n"
             "  %s\n"
-            "Pasa la ruta como argumento:\n"
-            "  python tools/fase1_extraer.py \"D:/ruta/al/juego.iso\" --listar" % raiz)
+            "Pass the path as an argument:\n"
+            "  python tools/fase1_extraer.py \"D:/path/to/game.iso\" --listar" % raiz)
 
     if len(candidatos) > 1:
-        msg = "Hay varios .iso; indica cual quieres:\n"
+        msg = "There are several .iso files; say which one you want:\n"
         for c in candidatos:
             msg += "  %s\n" % c
         raise SystemExit(msg)
@@ -378,25 +378,25 @@ def buscar_iso():
 
 def main():
     p = argparse.ArgumentParser(
-        description="Extrae un ISO de Xbox 360 y vuelca la info del XEX.")
+        description="Extracts an Xbox 360 ISO and dumps the XEX info.")
     p.add_argument("entrada", nargs="?", default=None,
-                   help="ruta al .iso, o a un .xex si usas --info. Si se omite, busca un unico .iso en la carpeta del proyecto.")
+                   help="path to the .iso, or to a .xex with --info. If omitted, it looks for a single .iso in the project folder.")
     p.add_argument("-o", "--salida", default="assets/game_root",
-                   help="carpeta destino de la extraccion (por defecto: assets/game_root)")
+                   help="destination folder of the extraction (default: assets/game_root)")
     p.add_argument("--listar", action="store_true",
-                   help="solo listar el contenido, sin extraer nada")
+                   help="only list the contents, without extracting anything")
     p.add_argument("--solo-xex", action="store_true",
-                   help="extraer unicamente default.xex (y el .xexp si existe)")
+                   help="extract only default.xex (and the .xexp if there is one)")
     p.add_argument("--info", action="store_true",
-                   help="la entrada es un .xex: volcar su cabecera y salir")
+                   help="the input is a .xex: dump its header and exit")
     args = p.parse_args()
 
     if args.entrada is None:
         args.entrada = buscar_iso()
-        print("ISO encontrado automaticamente: %s\n" % args.entrada)
+        print("ISO found automatically: %s\n" % args.entrada)
 
     if not os.path.exists(args.entrada):
-        raise SystemExit("No existe el archivo: %s" % args.entrada)
+        raise SystemExit("The file does not exist: %s" % args.entrada)
 
     if args.info or args.entrada.lower().endswith(".xex"):
         info_xex(args.entrada)
@@ -404,18 +404,18 @@ def main():
 
     with open(args.entrada, "rb") as fh:
         base, desc = detectar_base(fh)
-        print("Particion de juego en offset 0x%08X  (%s)" % (base, desc))
+        print("Game partition at offset 0x%08X  (%s)" % (base, desc))
 
         sector_raiz, tam_raiz = leer_descriptor(fh, base)
-        print("Directorio raiz: sector %d, %s bytes\n" % (sector_raiz, f"{tam_raiz:,}"))
+        print("Root directory: sector %d, %s bytes\n" % (sector_raiz, f"{tam_raiz:,}"))
 
         entradas = list(recorrer(fh, base, sector_raiz, tam_raiz))
         if not entradas:
-            raise SystemExit("El sistema de archivos esta vacio. Imagen corrupta?")
+            raise SystemExit("The file system is empty. Corrupt image?")
 
         n_arch = sum(1 for _, e in entradas if not e["dir"])
         total = sum(e["tam"] for _, e in entradas if not e["dir"])
-        print("%d archivos, %d directorios, %s bytes en total\n"
+        print("%d files, %d directories, %s bytes in total\n"
               % (n_arch, len(entradas) - n_arch, f"{total:,}"))
 
         if args.listar:
@@ -432,7 +432,7 @@ def main():
                          if not e["dir"] and
                          (r.lower().endswith(".xex") or r.lower().endswith(".xexp"))]
             if not objetivos:
-                raise SystemExit("No hay ningun .xex en la imagen.")
+                raise SystemExit("There is no .xex in the image.")
 
         hechos = 0
         for ruta, e in objetivos:
@@ -442,16 +442,16 @@ def main():
             extraer(fh, base, e, destino)
             hechos += 1
             if hechos % 50 == 0:
-                print("  ... %d archivos" % hechos)
-        print("\n%d archivos extraidos en %s" % (hechos, args.salida))
+                print("  ... %d files" % hechos)
+        print("\n%d files extracted to %s" % (hechos, args.salida))
 
     xex = os.path.join(args.salida, "default.xex")
     if os.path.exists(xex):
         print()
         info_xex(xex)
     else:
-        print("\nAviso: no aparecio un default.xex en la raiz. Revisa el listado "
-              "con --listar para ver donde esta el ejecutable.")
+        print("\nWarning: no default.xex showed up in the root. Check the listing "
+              "with --listar to see where the executable is.")
 
 
 if __name__ == "__main__":
