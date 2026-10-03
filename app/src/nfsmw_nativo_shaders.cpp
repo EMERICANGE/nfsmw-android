@@ -23,7 +23,7 @@
  * created several times (see docs/toolchain.md). Same fingerprint values; on AArch64, the same LDR.
  */
 #if defined(XXH_IMPLEM_13a8737387)
-#error "xxhash.h ya se ha incluido con su implementacion antes de este punto: XXH_FORCE_MEMORY_ACCESS 0 llegaria tarde"
+#error "xxhash.h was already included with its implementation before this point: XXH_FORCE_MEMORY_ACCESS 0 would come too late"
 #endif
 #undef XXH_FORCE_MEMORY_ACCESS
 #define XXH_FORCE_MEMORY_ACCESS 0
@@ -72,16 +72,16 @@ bool NombreEs(const Contenedor& c, size_t posicion, const char* nombre) {
 // read.
 const char* Leer(const nfsmw::native::Shader& shader, EntradaShader& e) {
   const Contenedor c{shader.original};
-  if (!c.Hay(0, 24)) return "contenedor demasiado corto";
+  if (!c.Hay(0, 24)) return "container too short";
   const uint32_t virtuales = c.U32(4);
   const uint32_t fisicos = c.U32(8);
   const uint32_t tabla = c.U32(16);
   const uint32_t cabecera = c.U32(20);
   if (!fisicos || (fisicos % 4) || !c.Hay(virtuales, fisicos)) {
-    return "microcodigo fuera del contenedor";
+    return "microcode outside the container";
   }
   if (cabecera >= virtuales || size_t(cabecera) + (shader.vertices ? 40 : 32) > virtuales) {
-    return "cabecera del shader fuera de la parte virtual";
+    return "shader header outside the virtual part";
   }
 
   e.vertices = shader.vertices;
@@ -96,7 +96,7 @@ const char* Leer(const nfsmw::native::Shader& shader, EntradaShader& e) {
     const uint32_t cantidad = c.U32(cabecera + 28);
     const size_t comienzo = size_t(cabecera) + 40 + size_t(previos) * 4;
     if (cantidad > 64 || previos > 1024 || comienzo + size_t(cantidad) * 4 > virtuales) {
-      return "elementos de vertices fuera de la parte virtual";
+      return "vertex elements outside the virtual part";
     }
     for (uint32_t i = 0; i < cantidad; ++i) {
       const uint32_t valor = c.U32(comienzo + size_t(i) * 4);
@@ -105,7 +105,7 @@ const char* Leer(const nfsmw::native::Shader& shader, EntradaShader& e) {
       elemento.uso = uint8_t((valor >> 12) & 0xF);
       elemento.indice_uso = uint8_t((valor >> 16) & 0xF);
       if ((size_t(elemento.instruccion) + 1) * 3 > e.microcodigo.size()) {
-        return "elemento de vertices apunta fuera del microcodigo";
+        return "vertex element points outside the microcode";
       }
       e.elementos.push_back(elemento);
       for (size_t j = 0; j < 3; ++j) {
@@ -113,17 +113,17 @@ const char* Leer(const nfsmw::native::Shader& shader, EntradaShader& e) {
       }
     }
   } else {
-    if (!c.Hay(cabecera + 24, 8)) return "cabecera de pixel shader corta";
+    if (!c.Hay(cabecera + 24, 8)) return "pixel shader header too short";
     e.salidas = c.U32(cabecera + 28);
   }
 
   // Constant table: only the samplers (register and type).
-  if (!tabla || !c.Hay(tabla + 4, 28)) return "sin tabla de constantes";
+  if (!tabla || !c.Hay(tabla + 4, 28)) return "no constant table";
   const size_t base = size_t(tabla) + 4;
   const uint32_t constantes = c.U32(base + 12);
   const uint32_t info = c.U32(base + 16);
   if (constantes > 1024 || !c.Hay(base + info, size_t(constantes) * 20)) {
-    return "tabla de constantes fuera del contenedor";
+    return "constant table outside the container";
   }
   // Float registers the SPIR-V reads: the highest in the table, or up to the end of the
   // buffer if there is an array with relative indexing (XenosRecomp shader_recompiler.cpp:
@@ -175,7 +175,7 @@ struct ShadersNativos::Datos {
   nfsmw::native::BibliotecaShaders biblioteca;
   std::vector<EntradaShader> entradas;
   std::unordered_map<const nfsmw::native::Shader*, uint32_t> por_shader;
-  // (vertices, palabras) -> entradas candidatas.
+  // (vertices, words) -> candidate entries.
   std::map<std::pair<bool, uint32_t>, std::vector<uint32_t>> candidatos;
   std::unordered_map<ClaveCruda, const EntradaShader*, HashClaveCruda> cache;
   std::vector<uint32_t> temporal;
@@ -258,7 +258,7 @@ bool ShadersNativos::Cargar(const std::filesystem::path& archivo) {
   try {
     d.biblioteca.Cargar(archivo);
   } catch (const std::exception& e) {
-    REXLOG_WARN("[nativo] C5a: biblioteca de shaders no disponible ({}): {}", archivo.string(),
+    REXLOG_WARN("[nativo] C5a: shader library not available ({}): {}", archivo.string(),
                 e.what());
     return false;
   }
@@ -273,7 +273,7 @@ bool ShadersNativos::Cargar(const std::filesystem::path& archivo) {
     e.shader = &shaders[i];
     e.numero = i;
     if (const char* motivo = Leer(shaders[i], e)) {
-      REXLOG_WARN("[nativo] C5a: contenedor {} de la biblioteca ignorado: {}", i, motivo);
+      REXLOG_WARN("[nativo] C5a: library container {} skipped: {}", i, motivo);
       continue;
     }
     if (!e.vertices) {
@@ -317,18 +317,18 @@ bool ShadersNativos::Cargar(const std::filesystem::path& archivo) {
   }
   d.cache.clear();
   d.cargada = !d.entradas.empty();
-  REXLOG_INFO("[nativo] C5a: biblioteca con {} shaders ({} vertex, {} pixel); {} grupos con el "
-              "mismo microcodigo, {} de ellos con SPIR-V distinto",
+  REXLOG_INFO("[nativo] C5a: library with {} shaders ({} vertex, {} pixel); {} groups with the "
+              "same microcode, {} of them with different SPIR-V",
               d.entradas.size(), vertex, pixel, repetidos, repetidos_distintos);
-  REXLOG_INFO("[nativo] C5a: pixel shaders que pueden descartar pixeles {} de {} (el resto solo llevan el "
-              "kill de la prueba de alfa: sin color que escribir, su etapa se puede quitar)",
+  REXLOG_INFO("[nativo] C5a: pixel shaders that can discard pixels {} of {} (the rest only have the "
+              "alpha test kill: with no color to write, their stage can be removed)",
               con_kill, con_kill + sin_kill);
-  REXLOG_INFO("[nativo] C5a: sombra por minimo (build 184): {} pixel shaders muestrean el mapa de sombras "
-              "(SHADOWMAP_SAMPLER) y {} traen tfetch2DSombraMin{}",
+  REXLOG_INFO("[nativo] C5a: shadow minimum (build 184): {} pixel shaders sample the shadow map "
+              "(SHADOWMAP_SAMPLER) and {} have tfetch2DSombraMin{}",
               con_mapa_sombras, con_minimo,
               con_minimo && con_minimo == con_mapa_sombras
-                  ? " (biblioteca con el minimo)"
-                  : " (sin el minimo: el mapa de sombras se sigue copiando como siempre)");
+                  ? " (library with the minimum)"
+                  : " (no minimum: the shadow map is still copied as before)");
   return d.cargada;
 }
 
@@ -386,7 +386,7 @@ const EntradaShader* ShadersNativos::Identificar(bool vertices,
                                elemento.indice_uso, fetch, (d1 >> 16) & 0x3F, d2 & 0xFF, offset,
                                ((d1 >> 30) & 0x1) ? "/mini" : "");
       }
-      REXLOG_INFO("[nativo] C5a: VS n{} ({} palabras, {} coincidencias):{}", elegido->numero,
+      REXLOG_INFO("[nativo] C5a: VS n{} ({} words, {} matches):{}", elegido->numero,
                   microcodigo.size(), coincidencias, detalle);
     }
   } else {
@@ -394,8 +394,8 @@ const EntradaShader* ShadersNativos::Identificar(bool vertices,
     if (avisar) {
       ++d.avisos;
       const auto c = d.candidatos.find({vertices, uint32_t(microcodigo.size())});
-      REXLOG_WARN("[nativo] C5a: {} shader sin identificar: {} palabras, huella {:016X} "
-                  "({} contenedores de ese tipo y longitud)",
+      REXLOG_WARN("[nativo] C5a: unidentified {} shader: {} words, fingerprint {:016X} "
+                  "({} containers of that type and length)",
                   vertices ? "vertex" : "pixel", microcodigo.size(), clave.huella,
                   c != d.candidatos.end() ? c->second.size() : 0);
       // Diagnostics: which words change against the containers of the same
@@ -428,8 +428,8 @@ const EntradaShader* ShadersNativos::Identificar(bool vertices,
         for (const ElementoVertice& elemento : e.elementos) {
           fetch += fmt::format(" {}", elemento.instruccion);
         }
-        REXLOG_WARN("[nativo] C5a:   frente a n{}: {} palabras distintas; fetch en las "
-                    "instrucciones{}:{}",
+        REXLOG_WARN("[nativo] C5a:   against n{}: {} words differ; fetch in the "
+                    "instructions{}:{}",
                     e.numero, cuantas, fetch, diferencias);
       }
     }

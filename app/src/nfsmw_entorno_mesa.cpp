@@ -44,8 +44,8 @@
  * Default 0 = leave it alone, so that nothing changes if the toml does not set it.
  */
 REXCVAR_DEFINE_INT32(nfsmw_switch_nvmap_mb, 0, "NFSMW",
-                     "Switch: MB del area que libnx comparte con nvdrv, donde vive la contabilidad de cada reserva "
-                     "de GPU. libnx usa 8; subirla sube el numero de reservas que caben. 0 = dejar la de libnx")
+                     "Switch: MB of the area that libnx shares with nvdrv, where the bookkeeping of each GPU "
+                     "allocation lives. libnx uses 8; raising it raises how many allocations fit. 0 = keep the libnx value")
     .range(0, 256)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -57,17 +57,17 @@ REXCVAR_DEFINE_INT32(nfsmw_switch_nvmap_mb, 0, "NFSMW",
  * draw = 78 dwords, which is exactly the push buffer and exactly the size the theory assumed. The path
  * really changed). But the cost did not move:
  *
- *     `grabar`: 3.871 -> 3.820 us per recorded draw, 95% CI [-0.18 ; +0.08], 0.78 sigma.
+ *     `record`: 3.871 -> 3.820 us per recorded draw, 95% CI [-0.18 ; +0.08], 0.78 sigma.
  *
  * The theory predicted -3 to -4 us. Rejected at more than 40 sigma: it is not "not visible", it "did not
  * happen".
  *
  * WHY IT WAS WRONG: on a Cortex-A57, stores to Normal Non-Cacheable memory go out through the write buffer
  * and are combined; they do not cost ~45 ns each. Those 45 ns are the round trip of Device memory or of a
- * read, not of a posted store. The 78 dwords per draw were never worth 3.5 us. The 3.8 us of `grabar` is
+ * read, not of a posted store. The 78 dwords per draw were never worth 3.5 us. The 3.8 us of `record` is
  * NVK encoding logic (a vkCmdDrawIndexed drags the whole flush_gfx_state along), not memory latency.
  *
- * And on top of that it came out net negative: +1.23 ms/s of cache maintenance and `presentar` from 1.328
+ * And on top of that it came out net negative: +1.23 ms/s of cache maintenance and `present` from 1.328
  * to 1.457 ms per Swap (2.98 sigma), the only counter that really moved in the whole comparison.
  *
  * -------------------- what was believed before, kept so that it is not repeated --------------------
@@ -90,7 +90,7 @@ REXCVAR_DEFINE_INT32(nfsmw_switch_nvmap_mb, 0, "NFSMW",
  * nvkmd_mem_sync_map_to_gpu per BO in EndCommandBuffer. Mesa's own comment says the option exists for
  * "cached-CPU comparisons".
  *
- * This is not exclusive to the "grabar" stage (5.25 ms per frame): everything that emits commands goes
+ * This is not exclusive to the "record" stage (5.25 ms per frame): everything that emits commands goes
  * through there, including registers, pipeline and uploads. That is why it shipped enabled.
  *
  * If there is corruption or a hang: set nfsmw_mesa_entorno = "" in the toml to go back to the previous
@@ -98,8 +98,8 @@ REXCVAR_DEFINE_INT32(nfsmw_switch_nvmap_mb, 0, "NFSMW",
  * ----------------------------------------------------------------------------------------------------
  */
 REXCVAR_DEFINE_STRING(nfsmw_mesa_entorno, "", "NFSMW",
-                      "Variables de entorno para Mesa/NVK que se ponen antes de crear Vulkan, como "
-                      "\"VARIABLE=valor;VARIABLE=valor\" (p. ej. MESA_SHADER_CACHE_DISABLE=true); vacio = ninguna")
+                      "Environment variables for Mesa/NVK, set before Vulkan is created, as "
+                      "\"VARIABLE=value;VARIABLE=value\" (e.g. MESA_SHADER_CACHE_DISABLE=true); empty = none")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 /*
@@ -111,8 +111,8 @@ REXCVAR_DEFINE_STRING(nfsmw_mesa_entorno, "", "NFSMW",
  * nfsmw_mesa_entorno is applied afterwards: "MESA_SHADER_CACHE_DISABLE=false" there turns it back on.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_mesa_cache_disco, false, "NFSMW",
-                    "Cache de shaders en disco de Mesa (sdmc:/.mesa). Duplica cache/nfsmw_nativo_pipelines.bin; false = ni se "
-                    "crea ni se usa")
+                    "Mesa's on-disk shader cache (sdmc:/.mesa). Duplicates cache/nfsmw_nativo_pipelines.bin; false = neither "
+                    "created nor used")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 namespace nfsmw::entorno {
@@ -143,7 +143,7 @@ void AnotarCacheMesa() {
       desactivada ? std::string(" (MESA_SHADER_CACHE_DISABLE=") + desactivada + ")" : std::string();
   std::error_code error;
   if (!std::filesystem::is_directory(base, error)) {
-    REXLOG_INFO("[mesa] cache de shaders en disco: {} no existe{}", base.string(), nota);
+    REXLOG_INFO("[mesa] on-disk shader cache: {} does not exist{}", base.string(), nota);
     return;
   }
   uint64_t bytes = 0;
@@ -159,7 +159,7 @@ void AnotarCacheMesa() {
       ++ficheros;
     }
   }
-  REXLOG_INFO("[mesa] cache de shaders en disco: {} con {} ficheros y {} KB{}", base.string(), ficheros, bytes >> 10,
+  REXLOG_INFO("[mesa] on-disk shader cache: {} with {} files and {} KB{}", base.string(), ficheros, bytes >> 10,
               nota);
 }
 #endif
@@ -176,13 +176,13 @@ extern "C" uint32_t __nx_nv_transfermem_size;
 void AjustarAreaDeNvmap() {
   const int32_t mb = REXCVAR_GET(nfsmw_switch_nvmap_mb);
   if (mb <= 0) {
-    REXLOG_INFO("[mesa] area de nvmap: se deja la de libnx ({} MB)", __nx_nv_transfermem_size >> 20);
+    REXLOG_INFO("[mesa] nvmap area: keeping the libnx value ({} MB)", __nx_nv_transfermem_size >> 20);
     return;
   }
   const uint32_t antes = __nx_nv_transfermem_size;
   __nx_nv_transfermem_size = uint32_t(mb) << 20;
-  REXLOG_INFO("[mesa] area de nvmap: {} MB -> {} MB (contabilidad de las reservas de GPU; si el juego no arranca, "
-              "poner nfsmw_switch_nvmap_mb = 0)",
+  REXLOG_INFO("[mesa] nvmap area: {} MB -> {} MB (bookkeeping of the GPU allocations; if the game does not start, "
+              "set nfsmw_switch_nvmap_mb = 0)",
               antes >> 20, __nx_nv_transfermem_size >> 20);
 }
 #endif  // REX_PLATFORM_SWITCH
@@ -197,9 +197,9 @@ void AplicarEntornoMesa() {
 #else
     const int error = setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
 #endif
-    REXLOG_INFO("[mesa] cache de shaders en disco de Mesa: apagada (nfsmw_mesa_cache_disco = false){}; los shaders "
-                "compilados se guardan solo en cache/nfsmw_nativo_pipelines.bin",
-                error ? " (no se pudo poner la variable)" : "");
+    REXLOG_INFO("[mesa] Mesa on-disk shader cache: off (nfsmw_mesa_cache_disco = false){}; compiled shaders "
+                "are stored only in cache/nfsmw_nativo_pipelines.bin",
+                error ? " (could not set the variable)" : "");
   }
   const std::string lista = REXCVAR_GET(nfsmw_mesa_entorno);
   size_t inicio = 0;
@@ -215,7 +215,7 @@ void AplicarEntornoMesa() {
     }
     const size_t igual = par.find('=');
     if (igual == std::string::npos || igual == 0) {
-      REXLOG_WARN("[mesa] entorno: '{}' no es VARIABLE=valor; se ignora", par);
+      REXLOG_WARN("[mesa] environment: '{}' is not VARIABLE=value; ignored", par);
       continue;
     }
     const std::string nombre = Recortar(par.substr(0, igual));
@@ -225,7 +225,7 @@ void AplicarEntornoMesa() {
 #else
     const int error = setenv(nombre.c_str(), valor.c_str(), 1);
 #endif
-    REXLOG_INFO("[mesa] entorno: {}={}{}", nombre, valor, error ? " (no se pudo poner)" : "");
+    REXLOG_INFO("[mesa] environment: {}={}{}", nombre, valor, error ? " (could not set)" : "");
   }
 #if REX_PLATFORM_SWITCH
   AnotarCacheMesa();

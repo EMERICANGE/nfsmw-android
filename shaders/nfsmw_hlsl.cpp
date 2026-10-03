@@ -77,7 +77,7 @@ bool FirmaValida(uint32_t flags_be) {
 
 int main(int argc, char** argv) try {
   if (argc < 4) {
-    std::printf("uso: nfsmw_hlsl <entrada> <salida> <shader_common.h>\n");
+    std::printf("usage: nfsmw_hlsl <input folder> <output folder> <shader_common.h>\n");
     return 1;
   }
   const std::filesystem::path entrada = argv[1];
@@ -85,18 +85,18 @@ int main(int argc, char** argv) try {
 
   const std::vector<uint8_t> comun = LeerTodo(argv[3]);
   if (comun.empty()) {
-    std::printf("no pude leer %s\n", argv[3]);
+    std::printf("could not read %s\n", argv[3]);
     return 1;
   }
   const std::string_view include(reinterpret_cast<const char*>(comun.data()), comun.size());
 
   std::error_code ec;
   if (std::filesystem::exists(salida) && !std::filesystem::is_empty(salida)) {
-    std::fprintf(stderr, "la salida debe estar vacia para no mezclar resultados anteriores\n");
+    std::fprintf(stderr, "the output must be empty, so that earlier results are not mixed in\n");
     return 1;
   }
   std::filesystem::create_directories(salida, ec);
-  if (ec) throw std::runtime_error("no se pudo crear la carpeta de salida");
+  if (ec) throw std::runtime_error("could not create the output folder");
 
   size_t total = 0, ok = 0, saltados = 0;
   for (const auto& e : std::filesystem::directory_iterator(entrada)) {
@@ -106,7 +106,7 @@ int main(int argc, char** argv) try {
     const std::vector<uint8_t> datos = LeerTodo(e.path());
     ++total;
     if (datos.size() < 24) {
-      std::printf("  %s: archivo ilegible o cabecera truncada\n", e.path().filename().string().c_str());
+      std::printf("  %s: unreadable file or truncated header\n", e.path().filename().string().c_str());
       ++saltados;
       continue;
     }
@@ -114,7 +114,7 @@ int main(int argc, char** argv) try {
     uint32_t flags_be = 0;
     std::memcpy(&flags_be, datos.data(), 4);
     if (!FirmaValida(flags_be)) {
-      std::printf("  %-20s firma desconocida 0x%08X\n", e.path().filename().string().c_str(),
+      std::printf("  %-20s unknown signature 0x%08X\n", e.path().filename().string().c_str(),
                   __builtin_bswap32(flags_be));
       ++saltados;
       continue;
@@ -132,23 +132,23 @@ int main(int argc, char** argv) try {
       continue;
     }
     if (conv.empty()) {
-      std::printf("  %-20s no pude convertir el contenedor\n", e.path().filename().string().c_str());
+      std::printf("  %-20s could not convert the container\n", e.path().filename().string().c_str());
       ++saltados;
       continue;
     }
 
-    std::printf("  %s: CF %u bytes, %u instrucciones\n", e.path().filename().string().c_str(), flujo.bytes, flujo.instrucciones);
+    std::printf("  %s: CF %u bytes, %u instructions\n", e.path().filename().string().c_str(), flujo.bytes, flujo.instrucciones);
     std::fflush(stdout);
     ShaderRecompiler recompilador;
     try {
       recompilador.recompile(conv.data(), include);
     } catch (const std::exception& error) {
-      std::printf("  %s: traduccion rechazada: %s\n", e.path().filename().string().c_str(), error.what());
+      std::printf("  %s: translation rejected: %s\n", e.path().filename().string().c_str(), error.what());
       ++saltados;
       continue;
     }
     if (recompilador.out.empty()) {
-      std::printf("  %-20s no produjo nada\n", e.path().filename().string().c_str());
+      std::printf("  %-20s produced nothing\n", e.path().filename().string().c_str());
       ++saltados;
       continue;
     }
@@ -166,7 +166,7 @@ int main(int argc, char** argv) try {
     }
   }
 
-  std::printf("\n%zu shaders: %zu traducidos, %zu saltados\n", total, ok, saltados);
+  std::printf("\n%zu shaders: %zu translated, %zu skipped\n", total, ok, saltados);
   return total > 0 && ok == total ? 0 : 2;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "error: %s\n", error.what());

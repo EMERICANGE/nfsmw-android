@@ -57,22 +57,22 @@ __attribute__((noreturn)) void RexResumeFromException(ThreadExceptionDump* ctx);
  * hand and trusted. If libnx changes the structure, this breaks at compile time
  * instead of jumping to a made-up address.
  */
-_Static_assert(offsetof(ThreadExceptionDump, cpu_gprs) == 16, "gprs movidos");
-_Static_assert(sizeof(CpuRegister) == 8, "CpuRegister ya no son 8 bytes");
-_Static_assert(offsetof(ThreadExceptionDump, fp) == 248, "fp movido");
-_Static_assert(offsetof(ThreadExceptionDump, lr) == 256, "lr movido");
-_Static_assert(offsetof(ThreadExceptionDump, sp) == 264, "sp movido");
-_Static_assert(offsetof(ThreadExceptionDump, pc) == 272, "pc movido");
-_Static_assert(offsetof(ThreadExceptionDump, fpu_gprs) == 288, "NEON movidos");
-_Static_assert(sizeof(FpuRegister) == 16, "FpuRegister ya no son 16 bytes");
-_Static_assert(offsetof(ThreadExceptionDump, pstate) == 800, "pstate movido");
-_Static_assert(offsetof(ThreadExceptionDump, far) == 816, "far movido");
-_Static_assert(sizeof(ThreadExceptionDump) <= 0x340, "el volcado ya no cabe en la copia");
+_Static_assert(offsetof(ThreadExceptionDump, cpu_gprs) == 16, "gprs moved");
+_Static_assert(sizeof(CpuRegister) == 8, "CpuRegister is no longer 8 bytes");
+_Static_assert(offsetof(ThreadExceptionDump, fp) == 248, "fp moved");
+_Static_assert(offsetof(ThreadExceptionDump, lr) == 256, "lr moved");
+_Static_assert(offsetof(ThreadExceptionDump, sp) == 264, "sp moved");
+_Static_assert(offsetof(ThreadExceptionDump, pc) == 272, "pc moved");
+_Static_assert(offsetof(ThreadExceptionDump, fpu_gprs) == 288, "NEON moved");
+_Static_assert(sizeof(FpuRegister) == 16, "FpuRegister is no longer 16 bytes");
+_Static_assert(offsetof(ThreadExceptionDump, pstate) == 800, "pstate moved");
+_Static_assert(offsetof(ThreadExceptionDump, far) == 816, "far moved");
+_Static_assert(sizeof(ThreadExceptionDump) <= 0x340, "the dump no longer fits in the copy");
 /* The frame the kernel restores, the one the exception entry writes. */
-_Static_assert(offsetof(ThreadExceptionFrameA64, lr) == 72, "lr del marco movido");
-_Static_assert(offsetof(ThreadExceptionFrameA64, sp) == 80, "sp del marco movido");
-_Static_assert(offsetof(ThreadExceptionFrameA64, elr_el1) == 88, "pc del marco movido");
-_Static_assert(offsetof(ThreadExceptionFrameA64, pstate) == 96, "pstate del marco movido");
+_Static_assert(offsetof(ThreadExceptionFrameA64, lr) == 72, "frame lr moved");
+_Static_assert(offsetof(ThreadExceptionFrameA64, sp) == 80, "frame sp moved");
+_Static_assert(offsetof(ThreadExceptionFrameA64, elr_el1) == 88, "frame pc moved");
+_Static_assert(offsetof(ThreadExceptionFrameA64, pstate) == 96, "frame pstate moved");
 
 __asm__(
     ".text\n"

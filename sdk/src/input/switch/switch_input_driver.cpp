@@ -396,7 +396,7 @@ void SwitchInputDriver::DispatchMenuShortcuts(Slot& slot, uint64_t held) {
       if (!ventana || !ventana->app_context().CallInUIThread(pulsar)) {
         pulsar();
       }
-      REXLOG_INFO("atajo de menu: {}", rex::ui::VirtualKeyToString(vk));
+      REXLOG_INFO("menu shortcut: {}", rex::ui::VirtualKeyToString(vk));
     }
     slot.menu_shortcuts = ahora ? (slot.menu_shortcuts | bit) : (slot.menu_shortcuts & ~bit);
   }
@@ -411,7 +411,7 @@ void SwitchInputDriver::DispatchMenuShortcuts(Slot& slot, uint64_t held) {
   const bool ab_antes = (slot.menu_shortcuts & kBitAb) != 0;
   if (ab_ahora && !ab_antes) {
     RexSwitchPerfToggleAb();
-    REXLOG_INFO("atajo de menu: pruebas A/B de GPU");
+    REXLOG_INFO("menu shortcut: GPU A/B tests");
   }
   slot.menu_shortcuts = ab_ahora ? (slot.menu_shortcuts | kBitAb)
                                  : (slot.menu_shortcuts & ~kBitAb);

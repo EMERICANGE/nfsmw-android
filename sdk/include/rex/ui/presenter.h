@@ -1016,7 +1016,7 @@ class Presenter {
   double paint_thread_espera_media_us_ = 0.0;
   bool paint_thread_pending_ = false;
   bool paint_thread_shutdown_ = false;
-  // For the log every 600: if "descartados" rises, frames are being dropped (this once happened with
+  // For the log every 600: if "dropped" rises, frames are being dropped (this once happened with
   // an invisible ImGuiDialog that forced painting on the UI thread).
   uint64_t paint_thread_avisos_ = 0;
   uint64_t paint_thread_pintados_ = 0;

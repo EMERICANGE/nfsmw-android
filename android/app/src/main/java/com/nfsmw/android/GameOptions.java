@@ -14,28 +14,40 @@ import java.util.List;
 final class GameOptions {
     static final class Option {
         final String key;
-        final String title;
+        final int titleRes;
         final String cvar;
         final String[] values;
-        final String[] labels;
+        final int[] labelRes;
         final String defaultValue;
 
-        Option(String key, String title, String cvar, String defaultValue, String[] values, String[] labels) {
+        Option(String key, int titleRes, String cvar, String defaultValue, String[] values, int[] labelRes) {
             this.key = key;
-            this.title = title;
+            this.titleRes = titleRes;
             this.cvar = cvar;
             this.defaultValue = defaultValue;
             this.values = values;
-            this.labels = labels;
+            this.labelRes = labelRes;
         }
 
-        String label(String value) {
+        String title(Context context) {
+            return context.getString(titleRes);
+        }
+
+        String label(Context context, String value) {
             for (int i = 0; i < values.length; i++) {
                 if (values[i].equals(value)) {
-                    return labels[i];
+                    return context.getString(labelRes[i]);
                 }
             }
             return value;
+        }
+
+        String[] labels(Context context) {
+            String[] labels = new String[labelRes.length];
+            for (int i = 0; i < labelRes.length; i++) {
+                labels[i] = context.getString(labelRes[i]);
+            }
+            return labels;
         }
     }
 
@@ -44,39 +56,41 @@ final class GameOptions {
     static final String RENDERER = "renderer";
 
     static final Option[] ALL = {
-            new Option(RENDERER, "Renderizador", "nfsmw_renderizador", "nativo",
+            new Option(RENDERER, R.string.opt_renderer, "nfsmw_renderizador", "nativo",
                     new String[] {"nativo", "xenos"},
-                    new String[] {"Nativo", "Compatibilidad · experimental"}),
-            new Option(RESOLUTION, "Resolución interna", "nfsmw_resolucion_interna", "1280x720",
+                    new int[] {R.string.opt_renderer_native, R.string.opt_renderer_compat}),
+            new Option(RESOLUTION, R.string.opt_resolution, "nfsmw_resolucion_interna", "1280x720",
                     new String[] {"640x360", "1024x576", "1280x720", "1920x1080"},
-                    new String[] {"640x360 · máximo rendimiento", "1024x576 · rendimiento", "1280x720 · equilibrado",
-                            "1920x1080 · máxima calidad"}),
-            new Option(FPS, "Límite de FPS", "nfsmw_limite_fps", "60",
+                    new int[] {R.string.opt_resolution_640, R.string.opt_resolution_1024, R.string.opt_resolution_1280,
+                            R.string.opt_resolution_1920}),
+            new Option(FPS, R.string.opt_fps, "nfsmw_limite_fps", "60",
                     new String[] {"30", "60", "90", "120"},
-                    new String[] {"30 FPS · ahorra batería", "60 FPS", "90 FPS · experimental",
-                            "120 FPS · experimental"}),
-            new Option("aa", "Antialiasing", "nfsmw_antialiasing", "apagado",
+                    new int[] {R.string.opt_fps_30, R.string.opt_fps_60, R.string.opt_fps_90, R.string.opt_fps_120}),
+            new Option("aa", R.string.opt_antialiasing, "nfsmw_antialiasing", "apagado",
                     new String[] {"apagado", "fxaa"},
-                    new String[] {"Desactivado", "FXAA"}),
-            new Option("shadows", "Sombras", "nfsmw_sombras_cada", "1",
+                    new int[] {R.string.opt_antialiasing_off, R.string.opt_antialiasing_fxaa}),
+            new Option("shadows", R.string.opt_shadows, "nfsmw_sombras_cada", "1",
                     new String[] {"1", "2"},
-                    new String[] {"Cada fotograma", "Cada 2 fotogramas · más rendimiento"}),
-            new Option("car_reflections", "Reflejos del coche", "nfsmw_cubemap_caras_max", "6",
+                    new int[] {R.string.opt_shadows_every_frame, R.string.opt_shadows_every_2}),
+            new Option("car_reflections", R.string.opt_car_reflections, "nfsmw_cubemap_caras_max", "6",
                     new String[] {"6", "2", "1"},
-                    new String[] {"Altos", "Medios", "Bajos · más rendimiento"}),
-            new Option("road_reflection", "Reflejo del asfalto mojado", "nfsmw_reflejo_carretera", "true",
+                    new int[] {R.string.opt_car_reflections_high, R.string.opt_car_reflections_medium,
+                            R.string.opt_car_reflections_low}),
+            new Option("road_reflection", R.string.opt_road_reflection, "nfsmw_reflejo_carretera", "true",
                     new String[] {"true", "false"},
-                    new String[] {"Activado", "Desactivado · más rendimiento"}),
-            new Option("sky", "Resplandor del cielo", "nfsmw_resplandor_cielo", "natural",
+                    new int[] {R.string.opt_road_reflection_on, R.string.opt_road_reflection_off}),
+            new Option("sky", R.string.opt_sky, "nfsmw_resplandor_cielo", "natural",
                     new String[] {"original", "natural", "suave"},
-                    new String[] {"Original (Xbox 360)", "Natural", "Suave"}),
-            new Option("volume", "Volumen del juego", "audio_ganancia_pct", "100",
+                    new int[] {R.string.opt_sky_original, R.string.opt_sky_natural, R.string.opt_sky_soft}),
+            new Option("volume", R.string.opt_volume, "audio_ganancia_pct", "100",
                     new String[] {"100", "125", "150", "200"},
-                    new String[] {"Normal", "Alto", "Muy alto", "Máximo · puede saturar"}),
-            new Option("filter", "Filtro de imagen", "nfsmw_posproceso", "apagado",
+                    new int[] {R.string.opt_volume_normal, R.string.opt_volume_high, R.string.opt_volume_very_high,
+                            R.string.opt_volume_max}),
+            new Option("filter", R.string.opt_filter, "nfsmw_posproceso", "apagado",
                     new String[] {"apagado", "cine", "vivo", "calido", "frio", "sepia", "noir", "crt"},
-                    new String[] {"Sin filtro", "Cine", "Vivo", "Cálido", "Frío", "Sepia", "Blanco y negro",
-                            "CRT"}),
+                    new int[] {R.string.opt_filter_none, R.string.opt_filter_cinema, R.string.opt_filter_vivid,
+                            R.string.opt_filter_warm, R.string.opt_filter_cold, R.string.opt_filter_sepia,
+                            R.string.opt_filter_noir, R.string.opt_filter_crt}),
     };
 
     private static final String PREFS = "nfsmw_game";

@@ -124,7 +124,7 @@ public final class MainActivity extends Activity {
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         left.addView(logo, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(92)));
 
-        TextView subtitle = label("Xbox 360 · recompilado para Android", 13, 0x99FFFFFF, false);
+        TextView subtitle = label(getString(R.string.subtitle), 13, 0x99FFFFFF, false);
         subtitle.setGravity(Gravity.CENTER);
         left.addView(subtitle, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -134,7 +134,7 @@ public final class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         cardParams.topMargin = dp(12);
         left.addView(card, cardParams);
-        card.addView(label("ARCHIVOS DEL JUEGO", 12, ACCENT, true));
+        card.addView(label(getString(R.string.game_files_title), 12, ACCENT, true));
         importStatus = label("", 13, 0xDDFFFFFF, false);
         importStatus.setPadding(0, dp(4), 0, dp(6));
         card.addView(importStatus);
@@ -154,7 +154,7 @@ public final class MainActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(10)));
         card.addView(shaderPanel);
 
-        launchGame = actionButton("JUGAR", true);
+        launchGame = actionButton(getString(R.string.play), true);
         launchGame.setVisibility(View.GONE);
         launchGame.setOnClickListener(view -> play());
         LinearLayout.LayoutParams playParams = new LinearLayout.LayoutParams(
@@ -162,7 +162,7 @@ public final class MainActivity extends Activity {
         playParams.topMargin = dp(12);
         left.addView(launchGame, playParams);
 
-        selectFolder = actionButton("Elegir carpeta del juego", false);
+        selectFolder = actionButton(getString(R.string.choose_game_folder), false);
         selectFolder.setOnClickListener(view -> selectGameFolder());
         LinearLayout.LayoutParams folderParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(46));
@@ -175,8 +175,8 @@ public final class MainActivity extends Activity {
                 0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
         rightParams.leftMargin = dp(24);
         columns.addView(right, rightParams);
-        right.addView(label("OPCIONES GRÁFICAS", 12, ACCENT, true));
-        TextView note = label("Se aplican al iniciar el juego.", 12, 0x88FFFFFF, false);
+        right.addView(label(getString(R.string.graphics_options_title), 12, ACCENT, true));
+        TextView note = label(getString(R.string.graphics_options_note), 12, 0x88FFFFFF, false);
         note.setPadding(0, dp(2), 0, dp(4));
         right.addView(note);
         ScrollView scroll = new ScrollView(this);
@@ -184,7 +184,7 @@ public final class MainActivity extends Activity {
         optionsList.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(optionsList);
         right.addView(scroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-        sendReport = actionButton("Enviar crash o log", false);
+        sendReport = actionButton(getString(R.string.send_report), false);
         sendReport.setOnClickListener(view -> chooseReportDestination());
         LinearLayout.LayoutParams reportParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
@@ -201,21 +201,21 @@ public final class MainActivity extends Activity {
         Diagnostics.recordLaunch(this);
         importer.execute(() -> {
             String problem = "nativo".equals(GameOptions.get(this, GameOptions.RENDERER))
-                    ? Diagnostics.incompatibility() : null;
+                    ? Diagnostics.incompatibility(this) : null;
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 launchGame.setEnabled(true);
                 if (problem != null) {
                     new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                            .setTitle("Probar otro renderizador")
-                            .setMessage(problem + "\n\nPuedes probar el modo de compatibilidad experimental. Puede tener errores gráficos o funcionar más lento.")
-                            .setPositiveButton("Probar compatibilidad", (dialog, which) -> {
+                            .setTitle(R.string.renderer_problem_title)
+                            .setMessage(getString(R.string.renderer_problem_message, problem))
+                            .setPositiveButton(R.string.try_compatibility, (dialog, which) -> {
                                 GameOptions.set(this, GameOptions.RENDERER, "xenos");
                                 refreshOptions();
                                 playCompatibleGame();
                             })
-                            .setNeutralButton("Enviar diagnóstico", (dialog, which) -> chooseReportDestination())
-                            .setNegativeButton("Volver", null).show();
+                            .setNeutralButton(R.string.send_diagnostics, (dialog, which) -> chooseReportDestination())
+                            .setNegativeButton(R.string.back, null).show();
                 } else {
                     playCompatibleGame();
                 }
@@ -244,28 +244,28 @@ public final class MainActivity extends Activity {
 
     private void chooseReportDestination() {
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Enviar crash o log")
-                .setMessage("El informe incluye modelo, Android, GPU, ajustes y registros de esta app. Añade qué ocurrió antes de enviarlo.")
-                .setPositiveButton("Correo", (dialog, which) -> prepareReport(0))
+                .setTitle(R.string.send_report)
+                .setMessage(R.string.report_message)
+                .setPositiveButton(R.string.report_email, (dialog, which) -> prepareReport(0))
                 .setNeutralButton("GitHub", (dialog, which) -> prepareReport(1))
-                .setNegativeButton("Guardar ZIP", (dialog, which) -> prepareReport(2)).show();
+                .setNegativeButton(R.string.report_save_zip, (dialog, which) -> prepareReport(2)).show();
     }
 
     private void reportError(String message) {
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Diagnóstico").setMessage(message).setPositiveButton("Aceptar", null).show();
+                .setTitle(R.string.diagnostics_title).setMessage(message).setPositiveButton(R.string.ok, null).show();
     }
 
     private void prepareReport(int destination) {
         sendReport.setEnabled(false);
-        sendReport.setText("Preparando diagnóstico…");
+        sendReport.setText(R.string.preparing_report);
         importer.execute(() -> {
             try {
                 File report = Diagnostics.createReport(this);
                 mainHandler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     sendReport.setEnabled(true);
-                    sendReport.setText("Enviar crash o log");
+                    sendReport.setText(R.string.send_report);
                     if (destination == 0) shareReportByEmail(report);
                     else saveReport(report, destination == 1);
                 });
@@ -273,8 +273,8 @@ public final class MainActivity extends Activity {
                 mainHandler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     sendReport.setEnabled(true);
-                    sendReport.setText("Enviar crash o log");
-                    reportError("No se pudo preparar el informe: " + error.getMessage());
+                    sendReport.setText(R.string.send_report);
+                    reportError(getString(R.string.report_failed, error.getMessage()));
                 });
             }
         });
@@ -285,12 +285,12 @@ public final class MainActivity extends Activity {
         Intent email = new Intent(Intent.ACTION_SEND);
         email.setType("application/zip");
         email.putExtra(Intent.EXTRA_EMAIL, new String[]{Diagnostics.EMAIL});
-        email.putExtra(Intent.EXTRA_SUBJECT, "NFSMW Android: " + Build.MODEL + " — diagnóstico");
-        email.putExtra(Intent.EXTRA_TEXT, Diagnostics.summary(this) + "\nQué ocurrió:\n\nPasos para reproducirlo:\n\nEdición del juego:\n\nAdjunto el diagnóstico.");
+        email.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.email_subject, Build.MODEL));
+        email.putExtra(Intent.EXTRA_TEXT, getString(R.string.email_text, Diagnostics.summary(this)));
         email.putExtra(Intent.EXTRA_STREAM, uri);
-        email.setClipData(ClipData.newUri(getContentResolver(), "Diagnóstico NFSMW", uri));
+        email.setClipData(ClipData.newUri(getContentResolver(), getString(R.string.report_clip_label), uri));
         email.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try { startActivity(Intent.createChooser(email, "Enviar a " + Diagnostics.EMAIL)); }
+        try { startActivity(Intent.createChooser(email, getString(R.string.send_to, Diagnostics.EMAIL))); }
         catch (ActivityNotFoundException error) { saveReport(report, false); }
     }
 
@@ -299,10 +299,10 @@ public final class MainActivity extends Activity {
         pendingGithub = github;
         if (github) {
             new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle("Reportar en GitHub")
-                    .setMessage("Primero guarda el ZIP. Después se abrirá el issue: describe el problema y adjunta el ZIP guardado.")
-                    .setPositiveButton("Guardar y abrir GitHub", (dialog, which) -> chooseReportFile())
-                    .setNegativeButton("Cancelar", (dialog, which) -> pendingReport = null).show();
+                    .setTitle(R.string.github_title)
+                    .setMessage(R.string.github_message)
+                    .setPositiveButton(R.string.github_save_open, (dialog, which) -> chooseReportFile())
+                    .setNegativeButton(R.string.cancel, (dialog, which) -> pendingReport = null).show();
         } else chooseReportFile();
     }
 
@@ -314,7 +314,7 @@ public final class MainActivity extends Activity {
         try { startActivityForResult(save, REQUEST_SAVE_REPORT); }
         catch (ActivityNotFoundException error) {
             pendingReport = null;
-            reportError("No hay una aplicación para guardar archivos. Prueba la opción Correo.");
+            reportError(getString(R.string.no_file_app));
         }
     }
 
@@ -323,32 +323,31 @@ public final class MainActivity extends Activity {
         boolean github = pendingGithub;
         pendingReport = null;
         if (report == null || !report.isFile()) {
-            reportError("El informe ya no está disponible. Genera uno nuevo.");
+            reportError(getString(R.string.report_gone));
             return;
         }
         importer.execute(() -> {
             try (InputStream input = new FileInputStream(report);
                  java.io.OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
-                if (output == null) throw new IOException("No se pudo abrir el archivo de destino.");
+                if (output == null) throw new IOException(getString(R.string.cannot_open_destination));
                 byte[] buffer = new byte[16384];
                 for (int count; (count = input.read(buffer)) != -1;) output.write(buffer, 0, count);
             } catch (Exception error) {
                 mainHandler.post(() -> {
-                    if (!isFinishing() && !isDestroyed()) reportError("No se pudo guardar el ZIP: " + error.getMessage());
+                    if (!isFinishing() && !isDestroyed()) reportError(getString(R.string.zip_save_failed, error.getMessage()));
                 });
                 return;
             }
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 if (github) {
-                    String body = "### Qué ocurrió\n\n### Pasos para reproducirlo\n\n### Edición del juego\n\n### Dispositivo\n"
-                            + Diagnostics.summary(this) + "\n### Diagnóstico\nAdjunta aquí el archivo **" + report.getName() + "** que acabas de guardar.\n";
+                    String body = getString(R.string.github_issue_body, Diagnostics.summary(this), report.getName());
                     Uri issue = Uri.parse(Diagnostics.ISSUES).buildUpon()
                             .appendQueryParameter("title", "[Android] " + Build.MODEL + ": ")
                             .appendQueryParameter("body", body).build();
                     try { startActivity(new Intent(Intent.ACTION_VIEW, issue)); }
-                    catch (ActivityNotFoundException error) { reportError("ZIP guardado. Abre " + Diagnostics.ISSUES + " y adjúntalo al issue."); }
-                } else reportError("ZIP guardado. Puedes adjuntarlo a un issue o enviarlo a " + Diagnostics.EMAIL + ".");
+                    catch (ActivityNotFoundException error) { reportError(getString(R.string.zip_saved_open_issues, Diagnostics.ISSUES)); }
+                } else reportError(getString(R.string.zip_saved, Diagnostics.EMAIL));
             });
         });
     }
@@ -363,7 +362,7 @@ public final class MainActivity extends Activity {
         selectFolder.setEnabled(false);
         shaderPanel.setVisibility(View.VISIBLE);
         shaderProgress.setProgress(0);
-        shaderText.setText("Generando los shaders del renderizador nativo (solo la primera vez)…");
+        shaderText.setText(R.string.generating_shaders);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         shaderBuilder = new ShaderBuilder(this, sharedGameRoot(), new ShaderBuilder.Listener() {
             @Override
@@ -385,7 +384,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onError(String message) {
                 shadersFinished();
-                shaderText.setText("No se pudieron generar los shaders: " + message);
+                shaderText.setText(getString(R.string.shaders_failed, message));
                 shaderProgress.setProgress(0);
             }
         });
@@ -404,12 +403,12 @@ public final class MainActivity extends Activity {
         optionsList.removeAllViews();
         for (GameOptions.Option option : GameOptions.ALL) {
             String value = GameOptions.get(this, option.key);
-            optionsList.addView(optionRow(option.title, option.label(value), () -> chooseOption(option)));
+            optionsList.addView(optionRow(option.title(this), option.label(this, value), () -> chooseOption(option)));
         }
         SharedPreferences controls = getSharedPreferences("nfsmw_controls", MODE_PRIVATE);
         boolean stretch = controls.getBoolean("stretch", true);
-        optionsList.addView(optionRow("Formato de imagen",
-                stretch ? "Estirada a toda la pantalla" : "Original 16:9", () -> {
+        optionsList.addView(optionRow(getString(R.string.image_format),
+                getString(stretch ? R.string.image_stretched : R.string.image_original), () -> {
                     controls.edit().putBoolean("stretch", !stretch).apply();
                     refreshOptions();
                 }));
@@ -422,13 +421,13 @@ public final class MainActivity extends Activity {
             if (option.values[i].equals(current)) checked = i;
         }
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(option.title)
-                .setSingleChoiceItems(option.labels, checked, (dialog, which) -> {
+                .setTitle(option.title(this))
+                .setSingleChoiceItems(option.labels(this), checked, (dialog, which) -> {
                     GameOptions.set(this, option.key, option.values[which]);
                     dialog.dismiss();
                     refreshOptions();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(R.string.cancel, null)
                 .show();
     }
 
@@ -458,14 +457,14 @@ public final class MainActivity extends Activity {
     private void showChecks(File folder) {
         checksList.removeAllViews();
         addCheck("default.xex", new File(folder, "default.xex").isFile(), true);
-        addCheck("Carpeta NFS", new File(folder, "NFS").isDirectory(), true);
-        addCheck("Carpeta Movies", new File(folder, "Movies").isDirectory(), true);
-        addCheck("Shaders del renderizador nativo", ShaderBuilder.hasLibrary(folder), false);
+        addCheck(getString(R.string.check_nfs_folder), new File(folder, "NFS").isDirectory(), true);
+        addCheck(getString(R.string.check_movies_folder), new File(folder, "Movies").isDirectory(), true);
+        addCheck(getString(R.string.check_shaders), ShaderBuilder.hasLibrary(folder), false);
     }
 
     private void addCheck(String name, boolean ok, boolean required) {
         String mark = ok ? "✓  " : (required ? "✗  " : "!  ");
-        String warning = ok || required ? "" : " · se generarán al pulsar JUGAR";
+        String warning = ok || required ? "" : " · " + getString(R.string.check_shaders_on_play);
         TextView row = label(mark + name + warning, 13,
                 ok ? 0xFF7CD992 : (required ? 0xFFFF6B6B : 0xFFFFC857), false);
         row.setPadding(0, dp(2), 0, dp(2));
@@ -547,7 +546,7 @@ public final class MainActivity extends Activity {
             if (hasStorageAccess()) prepareSharedGameFolder();
             else {
                 selectFolder.setEnabled(true);
-                setImportStatus("Activa el permiso de almacenamiento para usar Memoria interna/" + GAME_FOLDER_NAME + ".");
+                setImportStatus(getString(R.string.storage_permission_denied, GAME_FOLDER_NAME));
             }
             return;
         }
@@ -560,7 +559,7 @@ public final class MainActivity extends Activity {
         try {
             getContentResolver().takePersistableUriPermission(tree, flags & Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (SecurityException error) {
-            setImportStatus("No se pudo guardar el permiso de la carpeta: " + error.getMessage());
+            setImportStatus(getString(R.string.folder_permission_failed, error.getMessage()));
             return;
         }
         getPreferences(MODE_PRIVATE).edit().putString(TREE_URI, tree.toString()).apply();
@@ -574,7 +573,7 @@ public final class MainActivity extends Activity {
             if (hasStorageAccess()) prepareSharedGameFolder();
             else {
                 selectFolder.setEnabled(true);
-                setImportStatus("Activa el permiso de almacenamiento para usar Memoria interna/" + GAME_FOLDER_NAME + ".");
+                setImportStatus(getString(R.string.storage_permission_denied, GAME_FOLDER_NAME));
             }
         }
     }
@@ -588,7 +587,7 @@ public final class MainActivity extends Activity {
         if (!hasStorageAccess()) {
             selectFolder.setEnabled(false);
             launchGame.setVisibility(View.GONE);
-            setImportStatus("Para usar Memoria interna/" + GAME_FOLDER_NAME + ", activa el acceso a archivos que solicita Android.");
+            setImportStatus(getString(R.string.storage_access_needed, GAME_FOLDER_NAME));
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Intent settings = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
                         Uri.parse("package:" + getPackageName()));
@@ -601,7 +600,7 @@ public final class MainActivity extends Activity {
 
         selectFolder.setEnabled(false);
         launchGame.setVisibility(View.GONE);
-        setImportStatus("Revisando el juego en la memoria interna...");
+        setImportStatus(getString(R.string.checking_game));
         importer.execute(() -> {
             File gameRoot = sharedGameRoot();
             File oldPrivateRoot = privateGameRoot();
@@ -616,26 +615,26 @@ public final class MainActivity extends Activity {
                 }
 
                 if (isValidGameFolder(oldPrivateRoot)) {
-                    mainHandler.post(() -> setImportStatus("Moviendo el juego a Memoria interna/" + GAME_FOLDER_NAME + "..."));
+                    mainHandler.post(() -> setImportStatus(getString(R.string.moving_game, GAME_FOLDER_NAME)));
                     deleteRecursively(staging);
                     deleteRecursively(previous);
                     copyDirectory(oldPrivateRoot, staging, staging.getCanonicalFile(), new long[]{0});
-                    if (!isValidGameFolder(staging)) throw new IOException("La copia no pasó la verificación de archivos.");
+                    if (!isValidGameFolder(staging)) throw new IOException(getString(R.string.copy_check_failed));
                     installStagedGame(staging, gameRoot, previous);
                     deleteRecursively(oldPrivateRoot);
                     deleteRecursively(previous);
-                    mainHandler.post(() -> showSharedGameFolder("Juego movido desde el almacenamiento privado."));
+                    mainHandler.post(() -> showSharedGameFolder(getString(R.string.game_moved)));
                     return;
                 }
 
                 if (!gameRoot.mkdirs() && !gameRoot.isDirectory()) {
-                    throw new IOException("No se pudo crear " + gameRoot.getAbsolutePath());
+                    throw new IOException(getString(R.string.cannot_create, gameRoot.getAbsolutePath()));
                 }
                 mainHandler.post(() -> showSharedGameFolder(null));
             } catch (Exception error) {
                 try { deleteRecursively(staging); } catch (IOException ignored) {}
                 mainHandler.post(() -> {
-                    setImportStatus("No se pudo preparar la carpeta del juego: " + error.getMessage());
+                    setImportStatus(getString(R.string.folder_prepare_failed, error.getMessage()));
                     selectFolder.setEnabled(true);
                 });
             }
@@ -672,7 +671,7 @@ public final class MainActivity extends Activity {
     private void importGameFolder(Uri tree) {
         selectFolder.setEnabled(false);
         launchGame.setVisibility(View.GONE);
-        setImportStatus("Copiando el juego a Memoria interna/" + GAME_FOLDER_NAME + "...");
+        setImportStatus(getString(R.string.copying_game, GAME_FOLDER_NAME));
         importer.execute(() -> {
             File gameRoot = sharedGameRoot();
             File parent = gameRoot.getParentFile();
@@ -682,10 +681,10 @@ public final class MainActivity extends Activity {
                 deleteRecursively(staging);
                 deleteRecursively(previous);
                 DocumentFile source = DocumentFile.fromTreeUri(this, tree);
-                if (source == null || !source.isDirectory()) throw new IOException("No se pudo abrir la carpeta seleccionada.");
+                if (source == null || !source.isDirectory()) throw new IOException(getString(R.string.cannot_open_folder));
                 copyDirectory(source, staging, staging.getCanonicalFile(), new long[]{0});
                 if (!isValidGameFolder(staging)) {
-                    throw new IOException("La carpeta debe contener default.xex, NFS y Movies.");
+                    throw new IOException(getString(R.string.folder_needs_files));
                 }
                 installStagedGame(staging, gameRoot, previous);
                 File oldPrivateRoot = privateGameRoot();
@@ -698,7 +697,7 @@ public final class MainActivity extends Activity {
                 });
             } catch (Exception error) {
                 try { deleteRecursively(staging); } catch (IOException ignored) {}
-                mainHandler.post(() -> setImportStatus("Error al importar: " + error.getMessage()));
+                mainHandler.post(() -> setImportStatus(getString(R.string.import_error, error.getMessage())));
             } finally {
                 mainHandler.post(() -> selectFolder.setEnabled(shaderBuilder == null));
             }
@@ -707,14 +706,14 @@ public final class MainActivity extends Activity {
 
     private void copyDirectory(DocumentFile source, File destination, File safeRoot, long[] copiedBytes) throws IOException {
         if (!destination.getCanonicalFile().toPath().startsWith(safeRoot.toPath())) {
-            throw new IOException("La carpeta del juego contiene una ruta no válida.");
+            throw new IOException(getString(R.string.invalid_path));
         }
-        if (!destination.mkdirs() && !destination.isDirectory()) throw new IOException("No se pudo crear " + destination);
+        if (!destination.mkdirs() && !destination.isDirectory()) throw new IOException(getString(R.string.cannot_create, destination));
         for (DocumentFile child : source.listFiles()) {
             String name = child.getName();
             if (name == null || name.isEmpty() || name.equals(".") || name.equals("..") ||
                     name.contains("/") || name.contains("\\")) {
-                throw new IOException("La carpeta del juego contiene un nombre no válido.");
+                throw new IOException(getString(R.string.invalid_name));
             }
             File target = new File(destination, name);
             if (child.isDirectory()) {
@@ -722,12 +721,12 @@ public final class MainActivity extends Activity {
             } else if (child.isFile()) {
                 File parent = target.getParentFile();
                 if (parent == null || !parent.getCanonicalFile().toPath().startsWith(safeRoot.toPath())) {
-                    throw new IOException("Un archivo intenta salir de la carpeta de importación.");
+                    throw new IOException(getString(R.string.file_outside_import));
                 }
-                if (!parent.mkdirs() && !parent.isDirectory()) throw new IOException("No se pudo crear una carpeta del juego.");
+                if (!parent.mkdirs() && !parent.isDirectory()) throw new IOException(getString(R.string.cannot_create_game_folder));
                 try (InputStream input = getContentResolver().openInputStream(child.getUri());
                      FileOutputStream output = new FileOutputStream(target)) {
-                    if (input == null) throw new IOException("No se pudo leer " + name);
+                    if (input == null) throw new IOException(getString(R.string.cannot_read, name));
                     byte[] buffer = new byte[1024 * 1024];
                     int count;
                     while ((count = input.read(buffer)) != -1) {
@@ -735,7 +734,7 @@ public final class MainActivity extends Activity {
                         copiedBytes[0] += count;
                         if ((copiedBytes[0] & ((32L * 1024 * 1024) - 1)) < count) {
                             long total = copiedBytes[0];
-                            mainHandler.post(() -> setImportStatus("Copiados " + (total / (1024 * 1024)) + " MiB..."));
+                            mainHandler.post(() -> setImportStatus(getString(R.string.copied_mib, total / (1024 * 1024))));
                         }
                     }
                     output.getFD().sync();
@@ -746,11 +745,11 @@ public final class MainActivity extends Activity {
 
     private void copyDirectory(File source, File destination, File safeRoot, long[] copiedBytes) throws IOException {
         if (!destination.getCanonicalFile().toPath().startsWith(safeRoot.toPath())) {
-            throw new IOException("La carpeta del juego contiene una ruta no válida.");
+            throw new IOException(getString(R.string.invalid_path));
         }
-        if (!destination.mkdirs() && !destination.isDirectory()) throw new IOException("No se pudo crear " + destination);
+        if (!destination.mkdirs() && !destination.isDirectory()) throw new IOException(getString(R.string.cannot_create, destination));
         File[] children = source.listFiles();
-        if (children == null) throw new IOException("No se pudo leer " + source.getAbsolutePath());
+        if (children == null) throw new IOException(getString(R.string.cannot_read, source.getAbsolutePath()));
         byte[] buffer = new byte[1024 * 1024];
         for (File child : children) {
             File target = new File(destination, child.getName());
@@ -765,7 +764,7 @@ public final class MainActivity extends Activity {
                         copiedBytes[0] += count;
                         if ((copiedBytes[0] & ((128L * 1024 * 1024) - 1)) < count) {
                             long total = copiedBytes[0];
-                            mainHandler.post(() -> setImportStatus("Movidos " + (total / (1024 * 1024)) + " MiB..."));
+                            mainHandler.post(() -> setImportStatus(getString(R.string.moved_mib, total / (1024 * 1024))));
                         }
                     }
                     output.getFD().sync();
@@ -779,14 +778,13 @@ public final class MainActivity extends Activity {
         selectFolder.setEnabled(true);
         showChecks(gameRoot);
         if (isValidGameFolder(gameRoot)) {
-            setImportStatus((notice == null ? "" : notice + "\n") + "Memoria interna/" + GAME_FOLDER_NAME);
+            setImportStatus((notice == null ? "" : notice + "\n") + getString(R.string.game_location, GAME_FOLDER_NAME));
             launchGame.setVisibility(View.VISIBLE);
-            selectFolder.setText("Cambiar carpeta del juego");
+            selectFolder.setText(R.string.change_game_folder);
         } else {
-            setImportStatus("Elige la carpeta extraída del juego (con default.xex, NFS y Movies). Se copiará a " +
-                    "Memoria interna/" + GAME_FOLDER_NAME + ".");
+            setImportStatus(getString(R.string.choose_folder_hint, GAME_FOLDER_NAME));
             launchGame.setVisibility(View.GONE);
-            selectFolder.setText("Elegir carpeta del juego");
+            selectFolder.setText(R.string.choose_game_folder);
         }
     }
 
@@ -794,11 +792,11 @@ public final class MainActivity extends Activity {
         if (importStatus != null) importStatus.setText(message);
     }
 
-    private static void deleteRecursively(File file) throws IOException {
+    private void deleteRecursively(File file) throws IOException {
         if (!file.exists()) return;
         File[] children = file.listFiles();
         if (children != null) for (File child : children) deleteRecursively(child);
-        if (!file.delete()) throw new IOException("No se pudo borrar " + file.getName());
+        if (!file.delete()) throw new IOException(getString(R.string.cannot_delete, file.getName()));
     }
 
     @Override

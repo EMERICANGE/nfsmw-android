@@ -26,10 +26,10 @@
 #include <vector>
 
 REXCVAR_DEFINE_STRING(nfsmw_prueba_botones, "", "NFSMW",
-                      "Pruebas: guion de botones de un mando virtual, en segundos desde el "
-                      "arranque. \"92:start,98:a,130-160:rt\" pulsa START a los 92 s, A a los 98 s y "
-                      "mantiene el gatillo derecho de 130 a 160 s. Botones: a b x y start back arriba "
-                      "abajo izquierda derecha lb rb lt rt, y de la palanca izquierda "
+                      "Tests: button script for a virtual controller, in seconds since "
+                      "startup. \"92:start,98:a,130-160:rt\" presses START at 92 s, A at 98 s and "
+                      "holds the right trigger from 130 to 160 s. Buttons: a b x y start back arriba "
+                      "abajo izquierda derecha (D-pad) lb rb lt rt, and for the left stick "
                       "palanca_arriba palanca_abajo palanca_izquierda palanca_derecha")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -40,14 +40,14 @@ REXCVAR_DEFINE_STRING(nfsmw_prueba_botones, "", "NFSMW",
 // enables AI control (virtual function +16 with 1). It is what the game does when crossing the finish line:
 // the AI drives the player's car along the racing line.
 REXCVAR_DEFINE_BOOL(nfsmw_prueba_ia_conduce, false, "NFSMW",
-                    "Pruebas: en cada carrera la IA del juego conduce el coche del jugador desde el principio "
-                    "(comando ForceAIControl), para que avance siguiendo el circuito")
+                    "Tests: in every race the game's AI drives the player's car from the start "
+                    "(ForceAIControl command), so that it moves forward following the track")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 // Enabled after the countdown: when it was enabled 30 frames after entering the race (during the intro, with
 // the script's A presses already inside the race), the car ended up flipped and off the track.
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_ia_conduce_retraso_s, 12.0, "NFSMW",
-                      "Pruebas: segundos desde que empieza la carrera (estado 6) hasta que la IA toma el coche "
-                      "del jugador (nfsmw_prueba_ia_conduce)")
+                      "Tests: seconds from the start of the race (state 6) until the AI takes over the player's "
+                      "car (nfsmw_prueba_ia_conduce)")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // Alley shortcut in Ironwood Estates: the robotic-audio tests have to go through it, and the game's AI does
@@ -55,12 +55,12 @@ REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_ia_conduce_retraso_s, 12.0, "NFSMW",
 // with r3 = 0 it takes player 1, looks up its AI interface and, if the AI is driving, calls virtual function
 // +16 with 0 and gives the car back to the player.
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_ia_suelta_s, 0.0, "NFSMW",
-                      "Pruebas: segundos desde que empieza la carrera (estado 6) hasta que se le quita el coche a la "
-                      "IA (nfsmw_prueba_ia_conduce); 0 = nunca")
+                      "Tests: seconds from the start of the race (state 6) until the car is taken back from the "
+                      "AI (nfsmw_prueba_ia_conduce); 0 = never")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(nfsmw_prueba_tras_soltar, "", "NFSMW",
-                      "Pruebas: botones del mando virtual desde que se suelta la IA, en segundos contados desde ese "
-                      "momento, con el formato de nfsmw_prueba_botones (\"0-15:rt\" acelera 15 s)")
+                      "Tests: virtual controller buttons after the AI is released, in seconds counted from that "
+                      "moment, in the nfsmw_prueba_botones format (\"0-15:rt\" accelerates for 15 s)")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // Player car position: the AI does not repeat the race identically (in one run it passed the checkpoint at
@@ -69,9 +69,9 @@ REXCVAR_DEFINE_STRING(nfsmw_prueba_tras_soltar, "", "NFSMW",
 // player 1's car (the same ones ForceAIControl uses) and what they point to, to find the position and
 // speed offline.
 REXCVAR_DEFINE_STRING(nfsmw_prueba_volcar_coche, "", "NFSMW",
-                      "Pruebas: segundos desde que empieza la carrera (estado 6) en los que se vuelca la memoria del "
-                      "coche del jugador a logs/coche_N.bin, separados por comas (\"30,30.25,30.5,31\"); vacio = "
-                      "nunca")
+                      "Tests: seconds from the start of the race (state 6) at which the memory of the player's car "
+                      "is dumped to logs/coche_N.bin, separated by commas (\"30,30.25,30.5,31\"); empty = "
+                      "never")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // Alley shortcut autopilot: on the home straight the car is taken from the AI and the left stick drives it
@@ -81,32 +81,32 @@ REXCVAR_DEFINE_STRING(nfsmw_prueba_volcar_coche, "", "NFSMW",
 // 225 m from the home straight: with a single straight segment the autopilot dragged the car along the
 // right-hand wall.
 REXCVAR_DEFINE_BOOL(nfsmw_prueba_traza_coche, false, "NFSMW",
-                    "Pruebas: guarda en logs/traza_coche.csv la posicion, la velocidad y el rumbo del coche del "
-                    "jugador en cada fotograma de carrera")
+                    "Tests: writes the position, speed and heading of the player's car to logs/traza_coche.csv "
+                    "on every race frame")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_STRING(nfsmw_prueba_piloto, "", "NFSMW",
-                      "Pruebas: ruta \"x1,y1,x2,y2[,x3,y3...]\" (metros del mundo) por la que el piloto lleva el "
-                      "coche del jugador cuando pasa a menos de nfsmw_prueba_piloto_radio del primer punto; vacio = "
-                      "sin piloto")
+                      "Tests: route \"x1,y1,x2,y2[,x3,y3...]\" (world meters) along which the autopilot drives the "
+                      "player's car when it comes within nfsmw_prueba_piloto_radio of the first point; empty = "
+                      "no autopilot")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_piloto_radio, 20.0, "NFSMW",
-                      "Pruebas: distancia a A (m) a la que el piloto le quita el coche a la IA")
+                      "Tests: distance to A (m) at which the autopilot takes the car from the AI")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_piloto_adelanto, 25.0, "NFSMW",
-                      "Pruebas: metros por delante, sobre la linea, a los que apunta el piloto")
+                      "Tests: meters ahead, along the line, at which the autopilot aims")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_piloto_angulo, 25.0, "NFSMW",
-                      "Pruebas: grados de error de rumbo con los que el piloto gira el stick del todo")
+                      "Tests: heading error in degrees at which the autopilot turns the stick all the way")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_piloto_signo, 1.0, "NFSMW",
-                      "Pruebas: 1 o -1, sentido del stick del piloto")
+                      "Tests: 1 or -1, direction of the autopilot's stick")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_piloto_max_s, 12.0, "NFSMW",
-                      "Pruebas: segundos como mucho que conduce el piloto antes de devolverle el coche a la IA")
+                      "Tests: maximum seconds the autopilot drives before giving the car back to the AI")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_DOUBLE(nfsmw_prueba_piloto_zona_muerta, 0.24, "NFSMW",
-                      "Pruebas: fraccion del stick por debajo de la cual el juego no gira; las correcciones del "
-                      "piloto empiezan ahi (0,24 es la zona muerta habitual de XInput)")
+                      "Tests: stick fraction below which the game does not steer; the autopilot's corrections "
+                      "start there (0.24 is the usual XInput dead zone)")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_824411B8);
@@ -197,7 +197,7 @@ std::vector<Paso> Leer(std::string_view texto) {
                            ? (fin = inicio + kPulsacion, true)
                            : (Numero(tiempos.substr(guion + 1), fin) && fin > inicio));
     if (!bien) {
-      REXLOG_WARN("[prueba] mando del guion: paso no valido \"{}\": se ignora", paso);
+      REXLOG_WARN("[prueba] script controller: invalid step \"{}\": ignored", paso);
       continue;
     }
     pasos.push_back({inicio, fin, boton->bits});
@@ -221,7 +221,7 @@ class MandoGuion final : public in::InputDriver {
   void EnumerateDevices(std::vector<in::DeviceInfo>& out) override {
     in::DeviceInfo info;
     info.id = kMandoGuion;
-    info.name = "Mando del guion de pruebas";
+    info.name = "Test script controller";
     info.synthetic = true;
     out.push_back(info);
   }
@@ -325,8 +325,8 @@ class MandoGuion final : public in::InputDriver {
         if (teclas_.size() < 64) {
           teclas_.push_back(tecla);
         }
-        REXLOG_INFO("[prueba] mando del guion: {} {} a los {:.1f} s", b.nombre,
-                    ahora ? "pulsado" : "suelto", t);
+        REXLOG_INFO("[prueba] script controller: {} {} at {:.1f} s", b.nombre,
+                    ahora ? "pressed" : "released", t);
       }
       actuales_ = bits;
       stick_ = stick;
@@ -368,7 +368,7 @@ uint32_t ComandoJugador1(PPCContext& ctx, uint8_t* base, void (*funcion)(PPCCont
   const uint64_t r3 = ctx.r3.u64, r4 = ctx.r4.u64, r5 = ctx.r5.u64, r6 = ctx.r6.u64;
   const uint64_t r7 = ctx.r7.u64, r8 = ctx.r8.u64, r9 = ctx.r9.u64, r10 = ctx.r10.u64;
   const uint64_t lr = ctx.lr;
-  ctx.r3.u64 = 0;  // jugador 1
+  ctx.r3.u64 = 0;  // player 1
   funcion(ctx, base);
   const uint32_t resultado = ctx.r3.u32;
   ctx.r3.u64 = r3;
@@ -440,7 +440,7 @@ void VolcarCoche(PPCContext& ctx, uint8_t* base, double segundos) {
   const uint32_t interfaz = ComandoJugador1(ctx, base, __imp__sub_82366FB0);
   const uint32_t objeto = Legible(base, interfaz, 8) ? Leer32(base, interfaz + 4) : 0;
   if (!Legible(base, objeto, 16)) {
-    REXLOG_WARN("[prueba] coche del jugador a los {:.2f} s: sin objeto (interfaz {:08X}, objeto {:08X})", segundos,
+    REXLOG_WARN("[prueba] player car at {:.2f} s: no object (interface {:08X}, object {:08X})", segundos,
                 interfaz, objeto);
     return;
   }
@@ -498,7 +498,7 @@ void VolcarCoche(PPCContext& ctx, uint8_t* base, double segundos) {
   std::snprintf(ruta, sizeof(ruta), "logs/coche_%d.bin", g_volcados++);
   std::FILE* fichero = std::fopen(ruta, "wb");
   if (!fichero) {
-    REXLOG_WARN("[prueba] coche del jugador: no se puede crear {}", std::string_view(ruta));
+    REXLOG_WARN("[prueba] player car: cannot create {}", std::string_view(ruta));
     return;
   }
   const uint32_t version = 1;
@@ -514,8 +514,8 @@ void VolcarCoche(PPCContext& ctx, uint8_t* base, double segundos) {
     bytes += b.tamano;
   }
   std::fclose(fichero);
-  REXLOG_INFO("[prueba] coche del jugador a los {:.2f} s: interfaz {:08X}, objeto {:08X}, {} interfaces:{}; {} "
-              "bloques ({} bytes) en {}",
+  REXLOG_INFO("[prueba] player car at {:.2f} s: interface {:08X}, object {:08X}, {} interfaces:{}; {} "
+              "blocks ({} bytes) in {}",
               segundos, interfaz, objeto, interfaces, resumen, bloques.size(), bytes, std::string_view(ruta));
 }
 
@@ -567,7 +567,7 @@ bool LeerCoche(PPCContext& ctx, uint8_t* base, EstadoCoche& e) {
       return false;
     }
     g_interfaz_coche = interfaz;
-    REXLOG_INFO("[prueba] coche del jugador: interfaz {:08X}", interfaz);
+    REXLOG_INFO("[prueba] player car: interface {:08X}", interfaz);
   }
   const uint32_t i = g_interfaz_coche;
   e.fx = LeerF32(base, i + 0x854);
@@ -593,7 +593,7 @@ void Trazar(double segundos, const EstadoCoche& e, int modo, int16_t stick) {
     g_traza_intentada = true;
     g_traza = std::fopen("logs/traza_coche.csv", "w");
     if (!g_traza) {
-      REXLOG_WARN("[prueba] traza del coche: no se puede crear logs/traza_coche.csv");
+      REXLOG_WARN("[prueba] car trace: cannot create logs/traza_coche.csv");
       return;
     }
     std::fprintf(g_traza, "reloj_ms,segundos,x,y,z,vx,vy,vz,fx,fy,modo,stick\n");
@@ -651,7 +651,7 @@ bool LeerLinea() {
     i = j + 1;
   }
   if (numeros.size() < 4 || numeros.size() % 2 != 0) {
-    REXLOG_WARN("[prueba] piloto: ruta no valida \"{}\" (hacen falta al menos 2 puntos x,y)", texto);
+    REXLOG_WARN("[prueba] autopilot: invalid route \"{}\" (at least 2 x,y points are needed)", texto);
     return false;
   }
   for (size_t k = 0; k < numeros.size(); k += 2) {
@@ -662,7 +662,7 @@ bool LeerLinea() {
   for (size_t k = 1; k < g_px.size(); ++k) {
     const double largo = std::hypot(g_px[k] - g_px[k - 1], g_py[k] - g_py[k - 1]);
     if (largo < 1.0) {
-      REXLOG_WARN("[prueba] piloto: ruta no valida \"{}\" (los puntos {} y {} estan a menos de 1 m)", texto, k,
+      REXLOG_WARN("[prueba] autopilot: invalid route \"{}\" (points {} and {} are less than 1 m apart)", texto, k,
                   k + 1);
       g_px.clear();
       g_py.clear();
@@ -672,7 +672,7 @@ bool LeerLinea() {
     g_acumulado[k] = g_acumulado[k - 1] + largo;
   }
   g_hay_linea = true;
-  REXLOG_INFO("[prueba] piloto: ruta de {} puntos desde ({:.1f}, {:.1f}), {:.1f} m", g_px.size(), g_px[0], g_py[0],
+  REXLOG_INFO("[prueba] autopilot: route of {} points from ({:.1f}, {:.1f}), {:.1f} m", g_px.size(), g_px[0], g_py[0],
               g_acumulado.back());
   return true;
 }
@@ -709,8 +709,8 @@ bool Pilotar(PPCContext& ctx, uint8_t* base, double segundos, const EstadoCoche&
     g_piloto_inicio = Reloj::now();
     g_piloto_informe = 0.0;
     g_tramo = 1;
-    REXLOG_INFO("[prueba] piloto: suelta la IA a {:.1f} m del primer punto, en ({:.1f}, {:.1f}), {:.1f} m/s, a los "
-                "{:.1f} s de carrera",
+    REXLOG_INFO("[prueba] autopilot: takes the car from the AI {:.1f} m from the first point, at ({:.1f}, {:.1f}), "
+                "{:.1f} m/s, at {:.1f} s into the race",
                 distancia_a, e.x, e.y, velocidad, segundos);
   }
   // Projection onto the current segment; moves to the next one when the projection passes the segment's end.
@@ -739,8 +739,8 @@ bool Pilotar(PPCContext& ctx, uint8_t* base, double segundos, const EstadoCoche&
     g_bits_tras_soltar.store(0, std::memory_order_relaxed);
     ComandoJugador1(ctx, base, __imp__sub_82367128);
     g_piloto = Piloto::kTerminado;
-    REXLOG_INFO("[prueba] piloto: la IA vuelve a conducir en ({:.1f}, {:.1f}) tras {:.1f} s, tramo {}, recorrido "
-                "{:.1f} de {:.1f} m, lateral {:+.1f} m, {:.1f} m/s",
+    REXLOG_INFO("[prueba] autopilot: the AI drives again at ({:.1f}, {:.1f}) after {:.1f} s, segment {}, covered "
+                "{:.1f} of {:.1f} m, lateral {:+.1f} m, {:.1f} m/s",
                 e.x, e.y, t, g_tramo, recorrido, total, lateral, velocidad);
     return true;
   }
@@ -763,8 +763,8 @@ bool Pilotar(PPCContext& ctx, uint8_t* base, double segundos, const EstadoCoche&
   g_bits_tras_soltar.store(kBitRt, std::memory_order_relaxed);
   if (t >= g_piloto_informe) {
     g_piloto_informe += 0.5;
-    REXLOG_INFO("[prueba] piloto: {:.1f} s, ({:.1f}, {:.1f}), tramo {}, recorrido {:.1f} m, lateral {:+.1f} m, "
-                "error {:+.1f} grados, stick {}, {:.1f} m/s",
+    REXLOG_INFO("[prueba] autopilot: {:.1f} s, ({:.1f}, {:.1f}), segment {}, covered {:.1f} m, lateral {:+.1f} m, "
+                "error {:+.1f} degrees, stick {}, {:.1f} m/s",
                 t, e.x, e.y, g_tramo, recorrido, lateral, error * 180.0 / kPi, stick, velocidad);
   }
   return true;
@@ -824,8 +824,8 @@ void IaConduce(PPCContext& ctx, uint8_t* base) {
       ComandoJugador1(ctx, base, __imp__sub_823671C0);
       g_ia_soltada = true;
       g_soltada = Reloj::now();
-      REXLOG_INFO("[prueba] carrera: la IA suelta el coche del jugador ({:.1f} s despues de entrar en la carrera); "
-                  "botones desde ahora: \"{}\"",
+      REXLOG_INFO("[prueba] race: the AI releases the player's car ({:.1f} s after entering the race); "
+                  "buttons from now on: \"{}\"",
                   segundos, REXCVAR_GET(nfsmw_prueba_tras_soltar));
       BotonesTrasSoltar();
     }
@@ -836,8 +836,8 @@ void IaConduce(PPCContext& ctx, uint8_t* base) {
   }
   ComandoJugador1(ctx, base, __imp__sub_82367128);
   g_ia_activada = true;
-  REXLOG_INFO("[prueba] carrera: la IA del juego conduce el coche del jugador (ForceAIControl, {:.1f} s "
-              "despues de entrar en la carrera)",
+  REXLOG_INFO("[prueba] race: the game's AI drives the player's car (ForceAIControl, {:.1f} s "
+              "after entering the race)",
               segundos);
 }
 
@@ -848,7 +848,7 @@ void EnvolverEntrada(rex::RuntimeConfig& config) {
   }
   std::vector<Paso> pasos = Leer(guion);
   if (pasos.empty()) {
-    REXLOG_WARN("[prueba] mando del guion: \"{}\" no tiene pasos validos", guion);
+    REXLOG_WARN("[prueba] script controller: \"{}\" has no valid steps", guion);
     return;
   }
   auto base = config.input_factory;
@@ -859,7 +859,7 @@ void EnvolverEntrada(rex::RuntimeConfig& config) {
       // The default factory is CreateDefaultInputSystem (ui/rex_app.cpp:337), which
       // returns a rex::input::InputSystem.
       static_cast<in::InputSystem*>(sistema.get())->AddDriver(std::make_unique<MandoGuion>(pasos));
-      REXLOG_INFO("[prueba] mando del guion con {} pasos", pasos.size());
+      REXLOG_INFO("[prueba] script controller with {} steps", pasos.size());
     }
     return sistema;
   };

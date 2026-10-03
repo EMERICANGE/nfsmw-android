@@ -1,62 +1,62 @@
-# Diagnostico grafico: Galaxy A55
+# Graphics diagnostic: Galaxy A55
 
-Prueba local del 30 de septiembre de 2026. Correccion incluida en v0.3.4.
+Local test of 30 September 2026. Fix included in v0.3.4.
 
-## Dispositivo y sintomas
+## Device and symptoms
 
-- Samsung SM-A556E, Android 16, GPU Samsung Xclipse530.
-- Vulkan 1.3.279, controlador SamsungProprietary 24.0.539.
-- El usuario informa buen rendimiento, pero texturas y colores incorrectos.
-- Capturas por ADB muestran bloques y manchas en los reflejos de la carroceria
-  tanto en el menu como en una carrera. La geometria y el texto son legibles.
-- La copia de los archivos del juego se verifico por rutas y tamanos: 50
-  archivos, 7.009.137.083 bytes. Se comprobo tambien el SHA256 de default.xex,
-  nfsmw_shaders.nfsp y el video PSA usado en las pruebas de sonido.
+- Samsung SM-A556E, Android 16, Samsung Xclipse530 GPU.
+- Vulkan 1.3.279, SamsungProprietary 24.0.539 driver.
+- The user reports good performance, but wrong textures and colors.
+- ADB screenshots show blocks and smudges in the reflections on the car body,
+  both in the menu and in a race. The geometry and the text are readable.
+- The copy of the game files was verified by paths and sizes: 50
+  files, 7,009,137,083 bytes. The SHA256 of default.xex, of
+  nfsmw_shaders.nfsp and of the PSA video used in the sound tests was also checked.
 
-## Capacidades comprobadas en el telefono
+## Capabilities checked on the phone
 
-Una herramienta Vulkan independiente consulta los formatos y crea imagenes
-con los usos SAMPLED y TRANSFER_DST, 512x512 y seis niveles mip.
+A standalone Vulkan tool queries the formats and creates images
+with the SAMPLED and TRANSFER_DST usages, 512x512 and six mip levels.
 
-| Formato | Imagen compatible | Alineacion de memoria |
+| Format | Image supported | Memory alignment |
 | --- | --- | --- |
-| RGBA8, RGB10A2 | Si | 65536 bytes |
-| BC1, BC2, BC3 | Si | 65536 bytes |
+| RGBA8, RGB10A2 | Yes | 65536 bytes |
+| BC1, BC2, BC3 | Yes | 65536 bytes |
 | BC4, BC5 | No: VK_ERROR_FORMAT_NOT_SUPPORTED | N/A |
-| RG16F, RGBA16F | Si | 65536 bytes |
+| RG16F, RGBA16F | Yes | 65536 bytes |
 
-`textureCompressionBC` es falso, pero BC1/2/3 estan disponibles individualmente.
-No se debe desactivar toda la compresion BC basandose solo en ese indicador.
-La ausencia de BC4/5 no demuestra que sea la causa de esta escena: falta
-confirmar que el juego los usa en los dibujos afectados.
+`textureCompressionBC` is false, but BC1/2/3 are available individually.
+All BC compression should not be disabled based on that flag alone.
+The absence of BC4/5 does not prove that it causes this scene: it still has to
+be confirmed that the game uses them in the affected draws.
 
-Las imagenes probadas no requieren ni prefieren asignacion dedicada. No se
-encontro una diferencia entre su alineacion y la unidad de 64 KB del pool.
+The tested images neither require nor prefer a dedicated allocation. No
+difference was found between their alignment and the pool's 64 KB unit.
 
-## Primera prueba: dependencias de memoria
+## First test: memory dependencies
 
-El renderizador nativo mantiene las imagenes en GENERAL y los pases no tenian
-dependencias explicitas con las copias y lecturas siguientes. Los comandos de
-subida y trabajo se envian juntos, pero el orden de envio no sustituye las
-dependencias de memoria.
+The native renderer keeps the images in GENERAL, and the passes had no
+explicit dependencies with the copies and reads that follow. The upload and
+work commands are submitted together, but submission order does not replace
+memory dependencies.
 
-Se agregan dependencias externas de entrada y salida al pase, una dependencia
-antes de las subidas para las lecturas/escrituras de envios anteriores, y otra
-al terminar las subidas para publicar las texturas y caras de los reflejos.
-El ajuste `nfsmw_nativo_sincronizacion_gpu` permite comparar con la ruta previa;
-es de inicio y requiere reiniciar el juego. No modifica los archivos del juego.
+External input and output dependencies are added to the pass, one dependency
+before the uploads for the reads/writes of earlier submissions, and another
+at the end of the uploads to publish the textures and the reflection faces.
+The `nfsmw_nativo_sincronizacion_gpu` setting allows comparing with the previous
+path; it is a startup setting and requires restarting the game. It does not modify the game files.
 
-Referencia: [ejemplos de sincronizacion de Khronos](https://docs.vulkan.org/guide/latest/synchronization_examples.html).
+Reference: [Khronos synchronization examples](https://docs.vulkan.org/guide/latest/synchronization_examples.html).
 
-## Resultado
+## Result
 
-El APK compilo, se instalo encima de v0.3.3 y arranco en el A55 con el ajuste
-de sincronizacion activado. La captura posterior mostro la carroceria sin las
-manchas de la prueba anterior. El usuario confirmo: "ahora si funciona bien"
-y pidio publicar la correccion.
+The APK built, was installed over v0.3.3 and started on the A55 with the
+synchronization setting enabled. The next screenshot showed the car body without
+the smudges of the previous test. The user confirmed: "now it does work fine"
+and asked for the fix to be released.
 
-La comprobacion de enlaces internos de FFmpeg sigue pasando. No se modifico
-el audio ni los shaders del juego. La prueba funcional de v0.3.4 corresponde
-al Galaxy A55; el Galaxy S25 Ultra se habia comprobado con v0.3.3. No se ha
-medido el coste de estas dependencias en todos los controladores ni se ha
-validado la compatibilidad de otros modelos de GPU.
+The FFmpeg internal bindings check still passes. Neither the audio nor the
+game's shaders were modified. The functional test of v0.3.4 was done on the
+Galaxy A55; the Galaxy S25 Ultra had been checked with v0.3.3. The cost of
+these dependencies has not been measured on every driver, and compatibility
+with other GPU models has not been validated.

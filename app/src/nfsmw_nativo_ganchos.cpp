@@ -18,25 +18,25 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_sombra_d3d, false, "NFSMW",
-                    "Renderizador nativo (24/09, fase 1 del renderizador a nivel de Direct3D): en 1 de cada 64 "
-                    "dibujos fotografia el espejo de registros del dispositivo y el anillo lo compara con lo que "
-                    "lee de los paquetes (linea «sombra D3D»). No cambia lo que se dibuja")
+                    "Native renderer (24/09, phase 1 of the Direct3D-level renderer): on 1 in 64 "
+                    "draws it snapshots the device's register mirror and the ring compares it with what it "
+                    "reads from the packets («D3D shadow» line). Does not change what is drawn")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // Phase 2b of the Direct3D-level renderer: see g_dibujo_en_curso and AnotarDibujo below.
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_marcador_registro, true, "NFSMW",
-                    "Renderizador nativo (25/09, fase 2b del renderizador a nivel de Direct3D): el marcador del "
-                    "FlushState de cada Draw* lleva su registro (VS, PS, argumentos) y el anillo lo usa sin la cola "
-                    "ni la busqueda de EmparejarDibujo. Empieza comprobando contra la busqueda y se apaga solo al "
-                    "primer desacuerdo. false = como antes")
+                    "Native renderer (25/09, phase 2b of the Direct3D-level renderer): the marker of the "
+                    "FlushState of each Draw* carries its record (VS, PS, arguments) and the ring uses it without the queue "
+                    "or the EmparejarDibujo lookup. It starts by checking against the lookup and turns itself off at the "
+                    "first disagreement. false = as before")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // Shadow map vegetation filtered on the game thread (see DecidirVegetacion).
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_vegetacion_juego, true, "NFSMW",
-                    "Renderizador nativo (25/09, build 184): los DrawVertices y DrawIndexedVertices que el anillo "
-                    "tiraria como vegetacion del mapa de sombras (sin color, con prueba de alfa o descarte) se saltan "
-                    "enteros en el hilo del juego: sin FlushState, DRAW_INDX ni registro. Empieza mirando (el anillo "
-                    "comprueba el veredicto de cada dibujo) y se apaga solo al primer desacuerdo. false = como antes")
+                    "Native renderer (25/09, build 184): the DrawVertices and DrawIndexedVertices calls the ring "
+                    "would drop as shadow map vegetation (no color, with alpha test or discard) are skipped "
+                    "entirely on the game thread: no FlushState, DRAW_INDX or record. It starts observing (the ring "
+                    "checks the verdict of each draw) and turns itself off at the first disagreement. false = as before")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 // The settings of the ring's vegetation discard (nfsmw_nativo_dibujos.cpp): the game side checks the
 // same ones.
@@ -83,7 +83,7 @@ constexpr uint32_t kDispositivoConstantesVs = 0x780;
 constexpr uint32_t kDispositivoConstantesPs = 0x1780;
 
 std::atomic<uint64_t> g_mascara_grupo[kGruposEspejo];
-std::atomic<uint32_t> g_desplazamiento_grupo[kGruposEspejo];  // 0 = aun no se ha visto
+std::atomic<uint32_t> g_desplazamiento_grupo[kGruposEspejo];  // 0 = not seen yet
 
 struct Foto {
   std::atomic<uint64_t> secuencia{0};  // 0 while being written
@@ -111,10 +111,10 @@ int GrupoDe(uint32_t registro_base) {
  * mode); the draw uses the usual lookup and the ring compares the shaders from the lookup with those from
  * the marker's record (CompararDibujoMarcador). After kComprobacionesDibujo matches, marker only; even so
  * 1 in kComprobarDibujoCada is still checked. At the first difference it is off for the whole session
- * ("[d3d_marcador] registro de dibujo: DIFERENCIA" in the log) and records go back to the queue.
+ * ("[d3d_marcador] draw record: DIFFERENCE" in the log) and records go back to the queue.
  */
 constexpr uint64_t kComprobacionesDibujo = 20000;
-constexpr uint64_t kComprobarDibujoCada = 1024;  // potencia de 2
+constexpr uint64_t kComprobarDibujoCada = 1024;  // power of 2
 RegistroDibujo g_dibujo_en_curso;  // only the thread using D3D (the Draw* calls and their FlushState)
 bool g_dibujo_pendiente = false;
 uint64_t g_turno_dibujo = 0;
@@ -159,15 +159,15 @@ void ApagarDibujo() {
   }
   g_dibujo_apagado.store(true, std::memory_order_relaxed);
   static constexpr const char* kQue[] = {
-      "?", "los registros dan shaders distintos", "?",
-      "la busqueda no encuentra registro y la identidad del anillo da otros shaders"};
+      "?", "the records give different shaders", "?",
+      "the lookup finds no record and the ring's identity gives other shaders"};
   const RegistroDibujo& b = g_dibujo_busqueda;
   const RegistroDibujo& m = g_dibujo_marcador;
-  REXLOG_ERROR("[d3d_marcador] registro de dibujo: DIFERENCIA con la busqueda del anillo ({}): busqueda {} (funcion "
-               "{} tipo {} VS {:08X} PS {:08X}), marcador {} (funcion {} tipo {} VS {:08X} PS {:08X}). Fase 2b APAGADA "
-               "para el resto de la sesion: los registros vuelven a la cola",
-               kQue[g_dibujo_que < 4 ? g_dibujo_que : 0], g_dibujo_hay_busqueda ? "con registro" : "sin registro",
-               int(b.funcion), b.args[0], b.vs, b.ps, g_dibujo_hay_marcador ? "con registro" : "sin registro",
+  REXLOG_ERROR("[d3d_marcador] draw record: DIFFERENCE with the ring's lookup ({}): lookup {} (function "
+               "{} type {} VS {:08X} PS {:08X}), marker {} (function {} type {} VS {:08X} PS {:08X}). Phase 2b OFF "
+               "for the rest of the session: records go back to the queue",
+               kQue[g_dibujo_que < 4 ? g_dibujo_que : 0], g_dibujo_hay_busqueda ? "with a record" : "without a record",
+               int(b.funcion), b.args[0], b.vs, b.ps, g_dibujo_hay_marcador ? "with a record" : "without a record",
                int(m.funcion), m.args[0], m.vs, m.ps);
 }
 
@@ -181,12 +181,12 @@ void InformeDibujo() {
   const bool primero = g_i_siguiente_ms == 0;
   g_i_siguiente_ms = ahora + 10000;
   if (!primero) {
-    NFSMW_INFORME_DIFERIDO("[d3d_marcador] registro de dibujo (fase 2b), ultimos 10 s: {} en el marcador ({} comprobando), {} "
-                "por la cola, {} sin FlushState | fase {} | comprobados en el anillo {} de {}",
+    NFSMW_INFORME_DIFERIDO("[d3d_marcador] draw record (phase 2b), last 10 s: {} in the marker ({} checking), {} "
+                "through the queue, {} without FlushState | phase {} | checked in the ring {} of {}",
                 g_i_en_marcador, g_i_comprobando, g_i_por_cola, g_i_sin_flushstate,
-                g_dibujo_apagado.load(std::memory_order_relaxed)     ? "APAGADA"
-                : g_dibujo_aplicando.load(std::memory_order_relaxed) ? "aplicando"
-                                                                     : "mirando",
+                g_dibujo_apagado.load(std::memory_order_relaxed)     ? "OFF"
+                : g_dibujo_aplicando.load(std::memory_order_relaxed) ? "applying"
+                                                                     : "observing",
                 g_dibujo_iguales.load(std::memory_order_relaxed), kComprobacionesDibujo);
   }
   g_i_en_marcador = g_i_comprobando = g_i_por_cola = g_i_sin_flushstate = 0;
@@ -221,7 +221,7 @@ void RecordarCreacion(uint32_t objeto, const EntradaShader* entrada, bool vertic
   if (entrada) {
     (vertices ? g_conocidos_vs : g_conocidos_ps).fetch_add(1, std::memory_order_relaxed);
   } else if (g_avisos.fetch_add(1, std::memory_order_relaxed) < 16) {
-    REXLOG_WARN("[nativo] C5b: {} shader creado en {:08X} que no esta en la biblioteca",
+    REXLOG_WARN("[nativo] C5b: {} shader created at {:08X} that is not in the library",
                 vertices ? "vertex" : "pixel", objeto);
   }
   if (!objeto) {
@@ -341,9 +341,9 @@ uint32_t DecidirModoDibujo() {
       return kDibujoComprobar;
     }
     g_dibujo_aplicando.store(true, std::memory_order_relaxed);
-    REXLOG_INFO("[d3d_marcador] registro de dibujo: {} dibujos comprobados contra la busqueda del anillo, 0 "
-                "desacuerdos: el marcador lleva ya el registro y el anillo no busca (1 de cada {} se sigue "
-                "comprobando)",
+    REXLOG_INFO("[d3d_marcador] draw record: {} draws checked against the ring's lookup, 0 "
+                "disagreements: the marker now carries the record and the ring does no lookup (1 in {} is still "
+                "checked)",
                 iguales, kComprobarDibujoCada);
   }
   return (++g_turno_dibujo & (kComprobarDibujoCada - 1)) == 0 ? kDibujoComprobar : kDibujoAplicar;
@@ -488,7 +488,7 @@ uint64_t GeneracionObjetos() {
  *   2. Applying: they are skipped. 1 in kMuestraCada is still sent, flagged kVegMuestra, for the ring to
  *      check, and the ones not skipped still carry their negative verdict, which the ring checks on all of
  *      them.
- *   The filter is switched off for the rest of the session, with DIFERENCIA in the log, on: a differing
+ *   The filter is switched off for the rest of the session, with DIFFERENCE in the log, on: a differing
  *   verdict in either direction, an occlusion query open in the ring that the game does not see, a draw the
  *   game sees as vegetation that the ring does not draw with its record's shaders, or a ring verdict that
  *   differs from Dibujar's early discard.
@@ -522,7 +522,7 @@ constexpr uint32_t kSucios28 = 0x28;
 constexpr uint32_t kSucios30 = 0x30;
 constexpr uint32_t kBloques = 0x28C0;      // D3D block byte (BeginTiling 825992F0, ZPass 825999D8...)
 constexpr uint8_t kBloquesMascara = 0x3F;  // 0x40 and 0x80 are set at device creation: not blocks
-constexpr uint32_t kTipoOclusion = 9;      // D3DQUERYTYPE_OCCLUSION, en consulta+4 (8258F810)
+constexpr uint32_t kTipoOclusion = 9;      // D3DQUERYTYPE_OCCLUSION, at consulta+4 (8258F810)
 constexpr uint32_t kMaxConsultas = 16;
 
 enum Que : uint32_t { kQueNada, kQueJuegoSi, kQueAnilloSi, kQueOclusion, kQueSinIdentidad, kQueModelo, kQues };
@@ -603,7 +603,7 @@ void EscribirBE(uint8_t* p, uint32_t valor) {
 }
 
 const char* SiNo(bool valor) {
-  return valor ? "si" : "no";
+  return valor ? "yes" : "no";
 }
 
 inline void Contar(Contador c) {  // ring thread only
@@ -695,22 +695,22 @@ void ApagarVegetacion() {
   g_apagado = true;
   static constexpr const char* kQueTexto[kQues] = {
       "?",
-      "el juego ve vegetacion y el anillo no",
-      "el anillo ve vegetacion y el juego no",
-      "consulta de oclusion abierta en el anillo y no en el juego",
-      "el juego ve vegetacion y el anillo no dibuja con los shaders de su registro",
-      "el veredicto del anillo no es el descarte temprano de Dibujar"};
+      "the game sees vegetation and the ring does not",
+      "the ring sees vegetation and the game does not",
+      "occlusion query open in the ring and not in the game",
+      "the game sees vegetation and the ring does not draw with its record's shaders",
+      "the ring's verdict is not Dibujar's early discard"};
   const DetalleVegetacion& a = g_detalle;
   const uint16_t b = g_banderas;
-  REXLOG_ERROR("[vegetacion] DIFERENCIA con el anillo ({}): juego {} (motivo {}, ajustes {}, oclusion {}, bloque {}, "
-               "destinos {}, saltaria {}, muestra {}; fase {}); anillo: estructura {}, ajustes {}, oclusion {}, "
-               "descarte temprano en Dibujar {}, RB_MODECONTROL {:08X}, RB_COLOR_MASK {:08X}, RB_COLORCONTROL {:08X}, "
-               "PS n{} (salidas {:X}, descarta {}), VS n{}. Filtro de la vegetacion en el juego APAGADO para el resto "
-               "de la sesion: todos los Draw* vuelven al anillo",
+  REXLOG_ERROR("[vegetacion] DIFFERENCE with the ring ({}): game {} (reason {}, settings {}, occlusion {}, block {}, "
+               "render targets {}, would skip {}, sample {}; phase {}); ring: structure {}, settings {}, occlusion {}, "
+               "early discard in Dibujar {}, RB_MODECONTROL {:08X}, RB_COLOR_MASK {:08X}, RB_COLORCONTROL {:08X}, "
+               "PS n{} (outputs {:X}, discards {}), VS n{}. Game-side vegetation filter OFF for the rest "
+               "of the session: all Draw* calls go back to the ring",
                kQueTexto[g_que < kQues ? g_que : 0], SiNo((b & kVegSi) != 0), (b >> kVegMotivo) & 0xF,
                SiNo((b & kVegAjustes) != 0), SiNo((b & kVegOclusion) != 0), SiNo((b & kVegBloque) != 0),
                SiNo((b & kVegDestinos) != 0), SiNo((b & kVegSaltaria) != 0), SiNo((b & kVegMuestra) != 0),
-               g_aplicando ? "aplicando" : "mirando", SiNo(a.estructura), SiNo(a.ajustes), SiNo(a.oclusion),
+               g_aplicando ? "applying" : "observing", SiNo(a.estructura), SiNo(a.ajustes), SiNo(a.oclusion),
                SiNo(a.temprana), a.modo, a.mascara, a.control, a.ps, a.salidas, SiNo(a.descarta), a.vs);
 }
 
@@ -729,8 +729,8 @@ void InformeVegetacion() {
     anillo[i] = g_contadores[i].load(std::memory_order_relaxed);
   }
   if (primero) {
-    REXLOG_INFO("[vegetacion] vegetacion del mapa de sombras filtrada en el juego (build 184): empieza mirando; salta "
-                "cuando el anillo haya comprobado {} dibujos que saltaria sin ningun desacuerdo",
+    REXLOG_INFO("[vegetacion] shadow map vegetation filtered in the game (build 184): starts observing; skips "
+                "once the ring has checked {} draws it would skip without any disagreement",
                 kComprobaciones);
   } else {
     std::array<uint64_t, kContadores> d{};
@@ -744,21 +744,21 @@ void InformeVegetacion() {
       }
     }
     if (!bloques.empty()) {
-      bloques = " (valores" + bloques + ")";
+      bloques = " (values" + bloques + ")";
     }
     const bool perdida = g_consultas_abiertas.load(std::memory_order_relaxed) == UINT32_MAX;
     NFSMW_INFORME_DIFERIDO(
-        "[vegetacion] Draw* (build 184), ultimos 10 s: {} mirados, {} de vegetacion para el juego: {} saltados y {} "
-        "enviados para comprobar; no se saltan {} en bloques del D3D{}, {} con destinos por volcar, {} con una "
-        "consulta de oclusion abierta, {} con los ajustes apagados o alternando, {} por la cuenta | anillo: si y si "
-        "{}, no y no {}, juego si y anillo no {}, juego no y anillo si {} ({} por bloque, {} por destinos, {} por "
-        "oclusion solo en el juego, {} por ajustes, {} por la cuenta), ajustes distintos {}, sin comparar {}, "
-        "muestras bien {} | fase {} | comprobados {} de {}{}",
+        "[vegetacion] Draw* (build 184), last 10 s: {} observed, {} vegetation according to the game: {} skipped and {} "
+        "sent to be checked; not skipped: {} in D3D blocks{}, {} with render targets pending a dump, {} with an "
+        "occlusion query open, {} with the settings off or alternating, {} because of the count | ring: yes and yes "
+        "{}, no and no {}, game yes and ring no {}, game no and ring yes {} ({} by block, {} by render targets, {} by "
+        "occlusion only in the game, {} by settings, {} by count), settings differ {}, not compared {}, "
+        "samples ok {} | phase {} | checked {} of {}{}",
         g_i_mirados, g_i_si, g_i_saltados, g_i_muestras, g_i_bloque, bloques, g_i_destinos, g_i_oclusion, g_i_ajustes,
         g_i_cuenta, d[kSiSi], d[kNoNo], d[kSiNo], d[kNoSi], d[kNoSiBloque], d[kNoSiDestinos], d[kNoSiOclusion],
         d[kNoSiAjustes], d[kNoSiCuenta], d[kAjustesDistintos], d[kSinComparar], d[kMuestrasBien],
-        g_aplicando ? "aplicando" : "mirando", anillo[kAcuerdos], kComprobaciones,
-        perdida ? " | consultas de oclusion: SE PERDIO LA CUENTA, no se salta nada" : "");
+        g_aplicando ? "applying" : "observing", anillo[kAcuerdos], kComprobaciones,
+        perdida ? " | occlusion queries: THE COUNT WAS LOST, nothing is skipped" : "");
   }
   g_previos = anillo;
   g_i_mirados = g_i_si = g_i_saltados = g_i_muestras = g_i_bloque = g_i_destinos = g_i_oclusion = g_i_ajustes =
@@ -848,8 +848,8 @@ uint16_t DecidirVegetacion(FuncionDibujo funcion, uint8_t* base, uint32_t dispos
       return banderas;  // observing phase: sent, and the ring compares it
     }
     g_aplicando = true;
-    REXLOG_INFO("[vegetacion] {} dibujos de vegetacion que el juego saltaria comprobados en el anillo, 0 desacuerdos: "
-                "se saltan ya en el Draw* del D3D (1 de cada {} se sigue enviando para comprobarlo)",
+    REXLOG_INFO("[vegetacion] {} vegetation draws the game would skip checked in the ring, 0 disagreements: "
+                "they are now skipped in the D3D Draw* (1 in {} is still sent to check it)",
                 comprobados, kMuestraCada);
   }
   if ((++g_turno & (kMuestraCada - 1)) == 0) {
@@ -1004,7 +1004,7 @@ REX_HOOK_RAW(sub_8259C038) {  // vertex shader
  * (nfsmw_recomp.58.cpp and nfsmw_recomp.124.cpp, changed by a patch; tools/llamadas_directas.py already
  * handles them because this address appears here). If the one from sub_825A3AF0 went to __imp__, this
  * hook would not see the in-place patches and the ring's guard would stay in the observing phase (or
- * switch off with DIFERENCIA).
+ * switch off with DIFFERENCE).
  * It changes no PPC register.
  */
 REX_EXTERN(__imp__sub_825A2FB8);

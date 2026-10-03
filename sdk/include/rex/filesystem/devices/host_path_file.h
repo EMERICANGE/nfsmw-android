@@ -65,8 +65,8 @@ struct EstadisticasRangos {
   uint64_t expulsiones = 0;
   uint64_t tope_mb = 0;  // the cvar, so the summary does not have to declare it on its own
   // Why something was not cached. Without this the cache could not be tuned.
-  uint64_t bajo_suelo = 0;          // lecturas demasiado pequenas
-  uint64_t sobre_techo = 0;         // demasiado grandes
+  uint64_t bajo_suelo = 0;          // reads too small
+  uint64_t sobre_techo = 0;         // too large
   uint64_t secuenciales = 0;        // the level-load sweep, which is not kept
   uint64_t secuenciales_bytes = 0;
   uint64_t suelo_kb = 0;

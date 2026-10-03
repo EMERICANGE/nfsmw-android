@@ -6,8 +6,8 @@
 #     ldr x3, [sp+548]      <- reads claves[3] and claves[4]
 #     str w2, [sp, #552]    <- writes claves[4] afterwards
 # Usage:  py comprobar_clave_textura.py <elf> [<elf> ...]     (the .stripped.elf works; no symbols needed)
-# Output: one line per site found and a verdict per ELF: BIEN, MAL or NO ENCONTRADO. Exit code 1 if any
-# ELF is MAL or NO ENCONTRADO.
+# Output: one line per site found and a verdict per ELF: OK, BAD or NOT FOUND. Exit code 1 if any
+# ELF is BAD or NOT FOUND.
 #
 # How it finds the site: the only instruction "and wD, wN, #0xffc003ff" followed by "str wD, [sp, #K]"
 # and by a 20-byte XXH3, either inlined (constant 20 * PRIME64_1 = 0x5c5581de766bd28c) or called out
@@ -33,7 +33,7 @@ DESPUES = 200   # instructions after the AND
 def seccion_texto(ruta):
     with open(ruta, 'rb') as f:
         datos = f.read()
-    assert datos[:4] == b'\x7fELF' and datos[4] == 2 and datos[5] == 1, ruta + ': no es un ELF64 little-endian'
+    assert datos[:4] == b'\x7fELF' and datos[4] == 2 and datos[5] == 1, ruta + ': not a little-endian ELF64'
     e_shoff, = struct.unpack_from('<Q', datos, 0x28)
     e_shentsize, e_shnum, e_shstrndx = struct.unpack_from('<HHH', datos, 0x3A)
     def cabecera(i):
@@ -45,7 +45,7 @@ def seccion_texto(ruta):
         nombre = datos[ini:datos.index(b'\x00', ini)].decode()
         if nombre == '.text':
             return datos, c[3], c[4], c[5]  # address, file offset, size
-    raise SystemExit(ruta + ': sin seccion .text')
+    raise SystemExit(ruta + ': no .text section')
 
 
 def ands_de_la_mascara(datos, direccion, desplazamiento, tamano):
@@ -145,9 +145,9 @@ def analizar(ruta, direccion_and):
     llamada_tras_escrituras = None
     for idx, (a, mnem, ops) in enumerate(instr):
         if mnem == 'mov' and re.match(r'x\d+, #0xd28c$', ops):
-            firma = 'XXH3 integrado (0x...d28c = 20 * PRIME64_1)'
+            firma = 'XXH3 inlined (0x...d28c = 20 * PRIME64_1)'
         if mnem == 'mov' and ops == 'x1, #0x14' and idx > i_and:
-            firma = firma or 'XXH3 fuera de linea (x1 = 20)'
+            firma = firma or 'XXH3 out of line (x1 = 20)'
         acc = acceso(mnem, ops, bases)
         if acc:
             tipo, ini, tam = acc
@@ -181,7 +181,7 @@ def analizar(ruta, direccion_and):
 
 def main():
     if len(sys.argv) < 2:
-        print('uso: py comprobar_clave_textura.py <elf> [<elf> ...]')
+        print('usage: py comprobar_clave_textura.py <elf> [<elf> ...]')
         return 2
     fallo = False
     for ruta in sys.argv[1:]:
@@ -193,24 +193,24 @@ def main():
                 sitios.append(r)
         print('== ' + ruta)
         if not sitios:
-            print('   NO ENCONTRADO: ningun "and wD, wN, #0xffc003ff" con la clave en la pila y un XXH3 de 20 bytes')
+            print('   NOT FOUND: no "and wD, wN, #0xffc003ff" with the key on the stack and a 20-byte XXH3')
             fallo = True
             continue
         for s in sitios:
-            print('   sitio: AND en {:#x}; claves en [sp+{}, sp+{}); {}'.format(s['and'], s['k'], s['k'] + 20, s['firma']))
+            print('   site: AND at {:#x}; claves at [sp+{}, sp+{}); {}'.format(s['and'], s['k'], s['k'] + 20, s['firma']))
             for a, mnem, ops, tipo in s['usadas']:
                 print('      {:#x}  {:8} {:30} {}'.format(a, mnem, ops, tipo))
             if s['malas']:
                 fallo = True
                 for a, mnem, ops, b0, b1 in s['malas']:
-                    print('   MAL: {:#x} {} {} lee sp+{}..sp+{} ANTES de escribirlo (claves[{}])'.format(
+                    print('   BAD: {:#x} {} {} reads sp+{}..sp+{} BEFORE writing it (claves[{}])'.format(
                         a, mnem, ops, b0, b1, (b0 - s['k']) // 4))
             elif len(s['escritas']) != 20:
                 fallo = True
-                print('   MAL: solo se ven escritas {} de los 20 bytes de la clave en la ventana'.format(len(s['escritas'])))
+                print('   BAD: only {} of the 20 key bytes are seen written in the window'.format(len(s['escritas'])))
             else:
-                extra = ' (XXH3 llamado en {:#x}, despues de las 5 escrituras)'.format(s['llamada']) if s['llamada'] else ''
-                print('   BIEN: toda lectura de la clave va despues de su escritura' + extra)
+                extra = ' (XXH3 called at {:#x}, after the 5 writes)'.format(s['llamada']) if s['llamada'] else ''
+                print('   OK: every read of the key comes after its write' + extra)
     return 1 if fallo else 0
 
 

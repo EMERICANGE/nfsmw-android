@@ -39,8 +39,8 @@
 // Native by default. On PC, in the alley test run, it gave 0 differences against the recompiled code
 // over 29 million samples and runs 1.6 times faster.
 REXCVAR_DEFINE_INT32(nfsmw_audio_filtro_nativo, 1, "NFSMW",
-                     "Filtro recursivo del motor de sonido (sub_825CD088): 0 = codigo recompilado, 1 = nativo (mismo "
-                     "resultado bit a bit; por defecto), 2 = validar el nativo contra el recompilado");
+                     "Recursive filter of the sound engine (sub_825CD088): 0 = recompiled code, 1 = native (bit-identical "
+                     "result; default), 2 = validate the native one against the recompiled one");
 
 REX_EXTERN(__imp__sub_825CD088);
 
@@ -157,8 +157,8 @@ void Informar() {
   if (ahora - ultimo < 10000 || !g_ultimo_informe_ms.compare_exchange_strong(ultimo, ahora, std::memory_order_relaxed)) {
     return;
   }
-  NFSMW_INFORME_DIFERIDO("[audio] filtro nativo (modo {}): sub_825CD088 {} llamadas y {} muestras, {} releyendo el objeto, "
-              "diferencias con el recompilado {}",
+  NFSMW_INFORME_DIFERIDO("[audio] native filter (mode {}): sub_825CD088 {} calls and {} samples, {} rereading the object, "
+              "differences with the recompiled code {}",
               REXCVAR_GET(nfsmw_audio_filtro_nativo), g_llamadas.exchange(0), g_muestras.exchange(0),
               g_releidos.exchange(0), g_diferencias.exchange(0));
 }
@@ -213,7 +213,7 @@ void Validar(PPCContext& ctx, uint8_t* base) {
     for (uint32_t off = 0; off + 4 <= r.bytes; off += 4) {
       if (std::memcmp(Dir(base, r.dir + off), r.datos.data() + off, 4) != 0) {
         if (!g_diferencia_anotada.exchange(true, std::memory_order_relaxed)) {
-          REXLOG_WARN("[audio] filtro nativo: primera diferencia en 0x{:08X} (rango {}), nativo 0x{:08X}, recompilado "
+          REXLOG_WARN("[audio] native filter: first difference at 0x{:08X} (range {}), native 0x{:08X}, recompiled "
                       "0x{:08X}",
                       r.dir + off, i, Leer32(base, r.dir + off),
                       (uint32_t(r.datos[off]) << 24) | (uint32_t(r.datos[off + 1]) << 16) |

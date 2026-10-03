@@ -49,7 +49,7 @@
 #if REX_PLATFORM_SWITCH
 // Counter 0 of the console profiler (game FPS), the same one IssueSwap of the emulated path uses.
 extern "C" void RexSwitchPerfCount(unsigned id);
-// Interval of a long frame for stack sampling ("durante los tirones" section).
+// Interval of a long frame for stack sampling ("during the stutters" section).
 extern "C" void RexSwitchPerfTiron(uint64_t inicio, uint64_t fin);
 #endif
 #include <cmath>
@@ -60,23 +60,23 @@ extern "C" void RexSwitchPerfTiron(uint64_t inicio, uint64_t fin);
 #include <vector>
 
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_sincronizacion_gpu, true, "NFSMW",
-                    "Sincroniza subidas, reflejos y lecturas de imagenes entre pases Vulkan")
+                    "Synchronizes uploads, reflections and image reads between Vulkan passes")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_INT32(nfsmw_nativo_resolver_sin_copia_alternar_s, 0, "NFSMW",
-                     "Renderizador nativo (prueba, build 154): con N > 0 alterna copiar e intercambiar cada N "
-                     "segundos, para comparar capturas del mismo sitio con el juego en pausa");
+                     "Native renderer (test, build 154): with N > 0 it alternates copying and swapping every N "
+                     "seconds, to compare captures of the same spot with the game paused");
 REXCVAR_DEFINE_INT32(nfsmw_nativo_sombras_escala, 100, "NFSMW",
-                     "Renderizador nativo (19/09, build 201): dibuja los dos mapas de sombras de 1600x1600 "
-                     "del juego a este porcentaje y los sube de tamano al resolverlos. 100 = como la Xbox 360 "
-                     "(1600, que son 2000 de sus 2048 baldosas de EDRAM); 64 = como la version de PC de este "
-                     "mismo juego (1024). El valor se toma al crear el primer mapa y no cambia en marcha")
+                     "Native renderer (19/09, build 201): draws the game's two 1600x1600 shadow maps at this "
+                     "percentage and scales them up when resolving them. 100 = like the Xbox 360 "
+                     "(1600, which is 2000 of its 2048 EDRAM tiles); 64 = like the PC version of this "
+                     "same game (1024). The value is taken when the first map is created and does not change on the fly")
     .range(50, 100);
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_resolver_sin_copia, true, "NFSMW",
-                    "Renderizador nativo (17/09, build 154; por defecto desde la 161, medido en consola: -2,36 ms "
-                    "de los 7,41 de copias): al resolver un destino entero a una textura del mismo "
-                    "tamano y formato, intercambia las imagenes en vez de copiar los pixeles. La imagen no cambia; si "
-                    "el juego vuelve a dibujar en ese destino sin borrarlo antes, se restaura la copia");
+                    "Native renderer (17/09, build 154; default since build 161, measured on the console: -2.36 ms "
+                    "of the 7.41 of copies): when resolving a whole render target to a texture of the same "
+                    "size and format, it swaps the images instead of copying the pixels. The image does not change; if "
+                    "the game draws into that render target again without clearing it first, the content is copied back");
 /*
  * Swap also when the command does not clear the render target.
  *
@@ -89,8 +89,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_resolver_sin_copia, true, "NFSMW",
  * texture. So the worst case is paying the same copy later (net zero), not a regression. And the game
  * starts the next frame by clearing the shadow map, so there should not be a single restore.
  *
- * How to check it in the log: "C2 resoluciones sin copia" must go from ~0.93 to ~1.9 per frame and
- * "restauraciones" must stay at 0. If the restores go up, this does not help and should be turned off:
+ * How to check it in the log: "C2 resolves without copy" must go from ~0.93 to ~1.9 per frame and
+ * "restores" must stay at 0. If the restores go up, this does not help and should be turned off:
  * we would be paying for the copy anyway, just somewhere else.
  */
 /*
@@ -121,16 +121,16 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_resolver_sin_copia, true, "NFSMW",
  * would see the previous frame's content. It is added here.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_intercambiar_color, false, "NFSMW",
-                    "Renderizador nativo (20/09): al resolver el destino de color entero a una textura del "
-                    "mismo tamano, intercambiar las imagenes en vez de copiar 1280x720 pixeles. Son 4 copias "
-                    "por fotograma, el 78 % del trafico de copias. La imagen no cambia; si el juego dibuja "
-                    "encima sin borrar, se restaura");
+                    "Native renderer (20/09): when resolving the whole color render target to a texture of the "
+                    "same size, swap the images instead of copying 1280x720 pixels. That is 4 copies "
+                    "per frame, 78 % of the copy traffic. The image does not change; if the game draws "
+                    "on top without clearing, it is restored");
 
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_intercambiar_sin_borrado, true, "NFSMW",
-                    "Renderizador nativo (20/09): intercambiar la imagen tambien cuando la orden de resolve no "
-                    "borra el destino. Se lleva por delante la copia de 1600x1600 del segundo mapa de sombras "
-                    "(2,4 ms reales). Si el juego dibuja encima sin borrar, se restaura: peor caso, lo mismo "
-                    "que ahora. Vigila 'restauraciones' en el log: tiene que quedarse en 0");
+                    "Native renderer (20/09): swap the image also when the resolve command does not "
+                    "clear the render target. It gets rid of the 1600x1600 copy of the second shadow map "
+                    "(2.4 ms real). If the game draws on top without clearing, it is restored: worst case, the same "
+                    "as now. Watch 'restores' in the log: it has to stay at 0");
 /*
  * The flickering shadows of the main menu. This was the cause.
  *
@@ -154,13 +154,13 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_intercambiar_sin_borrado, true, "NFSMW",
  * back by copying (without lending or the minimum trick: this is a resolve, not the car pass), and the
  * resolve continues as usual. It is the exact path: on the Xbox 360 both resolves read the same EDRAM. It
  * costs one 1600x1600 copy per frame in the menu (~1.5 ms of GPU); in a race nothing is touched because the
- * render target already arrives valid. Report line: "C2 restauraciones por fotograma", the "para
+ * render target already arrives valid. Report line: "C2 restores per frame", the "para
  * resolver" figure. false = previous behavior.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_resolver_contenido_valido, true, "NFSMW",
-                    "Renderizador nativo (26/09, build 193): antes de resolver un destino de profundidad cuyo contenido "
-                    "se fue en un intercambio, traerlo de vuelta. Arregla el parpadeo de las sombras del menu (el "
-                    "escenario muestreaba el mapa del fotograma anterior). false = como la 192");
+                    "Native renderer (26/09, build 193): before resolving a depth render target whose content "
+                    "went away in a swap, bring it back. Fixes the flickering of the menu shadows (the "
+                    "scenery sampled the previous frame's map). false = as in build 192");
 /*
  * The verdict on intercambiar_sin_borrado, with numbers measured on the console.
  *
@@ -170,7 +170,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_resolver_contenido_valido, true, "NFSMW",
  * One restore per swap, exactly, in all three intervals. So the pixel saving is exactly zero: the
  * 1600x1600 copy is not avoided, it is paid later and with two operations (swap + restore) instead of one.
  *
- * And it is the missing piece to make the "copias" breakdown of the C2 report add up:
+ * And it is the missing piece to make the "copies" breakdown of the C2 report add up:
  *     recorded inventory  2.67 Mpixels x 0.78 ms/Mpixel = 2.08 ms
  *     restores            0.83/frame x 2.56 Mpixels x 0.78 = 1.66 ms  <-- not recorded
  *     scaling blit 1280x720 -> 1024x576 (internal resolution)         = 0.49 ms
@@ -183,10 +183,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_resolver_contenido_valido, true, "NFSMW",
  * has to go is the restore, which is what the two settings below are for.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_area_util, true, "NFSMW",
-                    "Renderizador nativo (20/09 noche): al traer de vuelta el contenido de un destino "
-                    "intercambiado, copiar solo las filas que el juego resuelve de verdad en vez de la imagen "
-                    "entera. Los destinos se crean con alto = max(720, pitch) (la escena es 1280x1280 para "
-                    "dibujar 1280x720), y lo de debajo del area util no se dibuja ni se lee nunca");
+                    "Native renderer (20/09 night): when bringing back the content of a swapped render "
+                    "target, copy only the rows the game really resolves instead of the whole "
+                    "image. Render targets are created with height = max(720, pitch) (the scene is 1280x1280 to "
+                    "draw 1280x720), and what lies below the useful area is never drawn or read");
 /*
  * Restore without copying a single pixel.
  *
@@ -204,7 +204,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_area_util, true, "NFSMW",
  *     reflection, cubemap, SCENE      <- the scene is what samples R
  * So in steady state it is safe. In transitions (menu, loading, pause) it may not be.
  *
- * That is why it is off and watched: 'prestadas leidas' in the C2 report counts the times someone
+ * That is why it is off and watched: 'lent reads' in the C2 report counts the times someone
  * requested a resolved texture while it was lent out. If the log says 0, this is worth 1.66 ms real and
  * gets turned on. If it says anything else, the image could show the previous frame's shadows and it stays
  * off.
@@ -212,10 +212,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_area_util, true, "NFSMW",
 /*
  * It stayed on, but the watchdog reading flipped. Read this.
  *
- * The mix-up: it was turned on citing "prestadas leidas 0, limpio" from an earlier run. That zero proved
+ * The mix-up: it was turned on citing "lent reads 0, clean" from an earlier run. That zero proved
  * nothing: the cvar was false in the toml, not a single image was lent, and the watchdog counted zeros
  * because it had nothing to count. The first session in which this path actually ran says the opposite:
- *     prestadas leidas 8226   -> *** EL PRESTAMO NO ES SEGURO ***
+ *     lent reads 8226   -> *** THE LENDING IS NOT SAFE ***
  * One read per frame, exactly, during the five minutes of racing. The premise written above ("in steady
  * state it is safe, the risk is the transitions") is backwards: the transitions gave 9 isolated reads and
  * the steady state gives one every time.
@@ -226,7 +226,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_area_util, true, "NFSMW",
  *     deviation      8.19 -> 7.06 ms             > 50 ms     6.14 % -> 3.66 %
  *     frame median   43.0 -> 33.3 ms
  * Turning it off brings the median back to 43 ms, for a risk that in six minutes of play did not produce a
- * single visible fault. The "C2 prestadas leidas, por direccion" line reports what is read, with address
+ * single visible fault. The "C2 lent reads, by address" line reports what is read, with address
  * and size: if it is the 1600x1600 shadow map, it has to be fixed (by returning the render target, which is
  * where the good content is); anything else may be harmless.
  */
@@ -240,24 +240,24 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_area_util, true, "NFSMW",
  * and the world samples 0. Between the two resolves the game draws the cars on top without clearing, so
  * here the render target was restored by swapping: texture[1] got its old image back and stayed lent out
  * until the next frame's resolve. The scene reads it before that: in a console run, the increase of
- * "prestadas leidas" is exactly the number of reads of 07CEA000 in each race report (369/369, 385/385,
+ * "lent reads" is exactly the number of reads of 07CEA000 in each race report (369/369, 385/385,
  * 336/336...). And since it always gets the same image back, the car does not read the previous frame's
  * map: it reads one frozen since the start of the race. The ground darkens under the bridge and the car
  * does not.
  *
  * It costs the 1600x1600 copy this used to save (2.56 Mpixels, ~2.00 ms real per frame in a race): that
- * saving was fake. With false, "prestadas leidas" and "por intercambio" must stay at 0.
+ * saving was fake. With false, "lent reads" and "by swapping" must stay at 0.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_por_intercambio, false, "NFSMW",
-                    "Renderizador nativo (20/09 noche; APAGADO el 25/09): traer de vuelta el contenido de "
-                    "un destino intercambiado volviendo a intercambiar las imagenes en vez de copiarlas. NO "
-                    "ENCENDER: deja prestada la textura[1] del mapa de sombras, la que muestrea el coche, y "
-                    "el coche deja de recibir sombras. Vigila 'prestadas leidas' en el log: tiene que ser 0");
+                    "Native renderer (20/09 night; turned OFF on 25/09): bring back the content of "
+                    "a swapped render target by swapping the images again instead of copying them. DO NOT "
+                    "TURN ON: it leaves the shadow map's texture[1] lent out, the one the car samples, and "
+                    "the car stops receiving shadows. Watch 'lent reads' in the log: it has to be 0");
 /*
  * Depth that nobody samples is not copied (nfsmw_nativo_profundidad_perezosa).
  *
  * Every race frame the game resolves the scene depth to a 1024x576 texture (091F0000 in the logs: 0.59
- * Mpixels and one copy per frame, "C2 caras resueltas") and the only reader is the final composition
+ * Mpixels and one copy per frame, "C2 faces resolved") and the only reader is the final composition
  * p_000139 (PS n19): it is its HEIGHTMAP, which only feeds the radial blur factor. With
  * nfsmw_nativo_sin_desenfoque (true by default) that sampling is dead (the specialization constant cuts
  * the blend and the compiler removes it), but the copy was still being paid: ~0.35 ms real per frame
@@ -278,22 +278,22 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_restaurar_por_intercambio, false, "NFSMW",
  *   - if another resolve arrives at the same address while the copy is still deferred, it is copied first
  *     (exact).
  * GUARD: if a draw really samples an address whose copy was dropped (a late read: a previous frame's depth
- * after the next frame has started drawing), DIFERENCIA in the log and it turns off for the session.
- * Report line: "C2 profundidad perezosa". false = always copy, as before.
+ * after the next frame has started drawing), DIFFERENCE in the log and it turns off for the session.
+ * Report line: "C2 lazy depth". false = always copy, as before.
  */
 // The first version saved nothing (the copy was recorded if the source was rewritten in the same frame, which
 // is always the case); with the current AntesDeEscribirProfundidad rule it is dropped. On again.
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_profundidad_perezosa, true, "NFSMW",
-                    "Renderizador nativo (25/09, build 184): la profundidad que el juego resuelve para la composicion "
-                    "final solo se copia si un dibujo la muestrea de verdad (sin el desenfoque, ninguno). La imagen no "
-                    "cambia; ~0,35 ms de GPU por fotograma. Se comprueba sola. false = copiar siempre, como antes");
+                    "Native renderer (25/09, build 184): the depth the game resolves for the final composition "
+                    "is only copied if a draw really samples it (without the blur, none does). The image does not "
+                    "change; ~0.35 ms of GPU per frame. It checks itself. false = always copy, as before");
 /*
  * The front buffer is drawn from its render target, without copying it (nfsmw_nativo_frontal_perezoso).
  *
  * At the end of each frame the game resolves the 1024x576 output (the pitch-1040 render target) to one of
  * its two front buffers (09430000 and 09670000) and the Swap draws it with PintarSalida. That is 0.59
  * Mpixels of copying per frame (~0.35 ms real, at 0.60 ms per Mpixel) and across the measured sessions no
- * draw has ever sampled a front buffer: 0 reads in every session ("C2 caras resueltas"). Only the Swap
+ * draw has ever sampled a front buffer: 0 reads in every session ("C2 faces resolved"). Only the Swap
  * reads them.
  *
  * If the address is a front buffer (a Swap drew it in the last kFrontalFotogramas and no draw sampled it)
@@ -312,13 +312,13 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_profundidad_perezosa, true, "NFSMW",
  *     first (exact);
  *   - if another resolve arrives that covers it entirely, the deferred copy is unnecessary and dropped.
  * The content is never lost: the image is the same by construction. GUARD: if something requests a front
- * buffer whose copy can no longer be made, DIFERENCIA in the log and it turns off for the session. Report
- * line: "C2 frontal perezoso". false = always copy, as before.
+ * buffer whose copy can no longer be made, DIFFERENCE in the log and it turns off for the session. Report
+ * line: "C2 lazy front buffer". false = always copy, as before.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_frontal_perezoso, true, "NFSMW",
-                    "Renderizador nativo (25/09, build 184): el Swap pinta el frontal desde su destino de render (o una "
-                    "imagen retenida) en vez de copiarlo antes a la textura: 0,59 Mpixeles menos por fotograma. Misma "
-                    "imagen; con FXAA se copia como siempre. Se comprueba sola. false = copiar siempre, como antes");
+                    "Native renderer (25/09, build 184): the Swap draws the front buffer from its render target (or a "
+                    "retained image) instead of copying it to the texture first: 0.59 Mpixels less per frame. Same "
+                    "image; with FXAA it is copied as always. It checks itself. false = always copy, as before");
 /*
  * The shadow map without the 1600x1600 copy (nfsmw_nativo_sombra_minimo).
  *
@@ -351,19 +351,19 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_frontal_perezoso, true, "NFSMW",
  *     register and outside the window between the two resolves. Those reads already use the pipeline with
  *     the bit (minimum with itself: the same texel), so switching to applying does not create pipelines in
  *     the middle of a race. After kSombraMinimoCiclos clean cycles in a row it moves to
- *   - APPLYING: clears instead of copying. If anything watched fails, DIFERENCIA in the log (REXLOG_ERROR) and
+ *   - APPLYING: clears instead of copying. If anything watched fails, DIFFERENCE in the log (REXLOG_ERROR) and
  *   - OFF for the session: it copies again. A library without tfetch2DSombraMin never leaves watching.
- * Report line: "C2 sombra por minimo". false = always copy, as before.
+ * Report line: "C2 shadow minimum". false = always copy, as before.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_sombra_minimo, true, "NFSMW",
-                    "Renderizador nativo (25/09, build 184): el mapa de sombras del mundo ya no se restaura copiando "
-                    "1600x1600; los coches se dibujan sobre el destino borrado y el mundo muestrea el minimo de las dos "
-                    "texturas. Misma imagen. Necesita la biblioteca con tfetch2DSombraMin. Se comprueba sola. false = "
-                    "copiar como antes");
+                    "Native renderer (25/09, build 184): the world shadow map is no longer restored by copying "
+                    "1600x1600; the cars are drawn on the cleared render target and the world samples the minimum of "
+                    "the two textures. Same image. Needs the library with tfetch2DSombraMin. It checks itself. false = "
+                    "copy as before");
 REXCVAR_DEFINE_INT32(nfsmw_nativo_sombra_minimo_alternar_s, 0, "NFSMW",
-                     "Renderizador nativo (25/09, build 184, prueba): con N > 0 y la guardia ya aplicando, alterna cada N "
-                     "segundos el minimo (tramos pares) y la copia de siempre (impares), para medir la ganancia neta en la "
-                     "consola con 'C2: GPU por Swap'. 0 = sin alternar");
+                     "Native renderer (25/09, build 184, test): with N > 0 and the guard already applying, it alternates every N "
+                     "seconds between the minimum (even intervals) and the usual copy (odd ones), to measure the net gain on the "
+                     "console with 'C2: GPU per Swap'. 0 = no alternation");
 /*
  * Repeated clears.
  *
@@ -378,9 +378,9 @@ REXCVAR_DEFINE_INT32(nfsmw_nativo_sombra_minimo_alternar_s, 0, "NFSMW",
  * restore. With that it is impossible to skip a clear that is needed.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_saltar_borrados_repetidos, true, "NFSMW",
-                    "Renderizador nativo (20/09 noche): saltarse un borrado cuando el destino ya esta borrado "
-                    "con ese mismo valor y no se ha dibujado nada desde entonces. No cambia ni un pixel; "
-                    "'borrados saltados' en el informe C2 dice cuantos se ahorran");
+                    "Native renderer (20/09 night): skip a clear when the render target is already cleared "
+                    "to that same value and nothing has been drawn since then. Not a single pixel changes; "
+                    "'skipped clears' in the C2 report says how many are saved");
 /*
  * How much of each clear is used (nfsmw_nativo_diag_borrados).
  *
@@ -389,14 +389,14 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_saltar_borrados_repetidos, true, "NFSMW",
  * clear less, it must first be known, per render target, which part is really used until the next clear:
  * what the passes load and store (their renderArea, the useful area), the rectangles that are resolved,
  * what is restored and what is swapped (whole). Measurement only: it does not change the image. One line
- * every 20 s: "C2 borrados por destino". false = not measured.
+ * every 20 s: "C2 clears per render target". false = not measured.
  */
 // false by default. Measured: the clip to the useful area that needs it only saved 0.09 ms of GPU, and the
 // tracking runs on the PM4 ring thread, which is now the bottleneck.
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_diag_borrados, false, "NFSMW",
-                    "Renderizador nativo (25/09, build 184, diagnostico): por destino, area borrada frente a la que se "
-                    "usa hasta el borrado siguiente (pases, resolves, restauraciones e intercambios). Una linea cada "
-                    "20 s ('C2 borrados por destino'). No cambia la imagen");
+                    "Native renderer (25/09, build 184, diagnostic): per render target, area cleared against the area "
+                    "used until the next clear (passes, resolves, restores and swaps). One line every "
+                    "20 s ('C2 clears per render target'). Does not change the image");
 /*
  * Color clears only over the area in use (nfsmw_nativo_borrar_area_util).
  *
@@ -410,35 +410,35 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_diag_borrados, false, "NFSMW",
  * and the pass that reaches the band completes it before it opens. If a render target needs that 3 times,
  * it stops being clipped (its useful area is not stable). Color only: depth without TRANSFER_DST is cleared
  * per pass and that pass clears the whole ZCULL region (NVK), so it is not clipped. GUARD: if a band cannot
- * be completed, DIFERENCIA in the log and it turns off for the session. false = clear the whole image, as
+ * be completed, DIFFERENCE in the log and it turns off for the session. false = clear the whole image, as
  * before.
  */
 // false by default. Measured: 0.09 ms of GPU per frame (1.18 Mpixels not cleared): not worth it with the
 // PM4 ring as the bottleneck.
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_borrar_area_util, false, "NFSMW",
-                    "Renderizador nativo (25/09, build 184): los borrados de color borran solo las filas que se usan de "
-                    "verdad; el resto se borra antes de que algo lo use. Misma imagen. Necesita "
-                    "nfsmw_nativo_diag_borrados. false = la imagen entera, como antes");
+                    "Native renderer (25/09, build 184): color clears only clear the rows that are really "
+                    "used; the rest is cleared before anything uses it. Same image. Needs "
+                    "nfsmw_nativo_diag_borrados. false = the whole image, as before");
 // Defined in nfsmw_nativo_dibujos.cpp; here it is only read so as not to open two queries of the same type
 // at once.
 REXCVAR_DECLARE(int32_t, nfsmw_nativo_estadisticas_por_dibujo_s);
 // nfsmw_nativo_sombra_minimo only pays off with the single-sample PCF (defined in nfsmw_nativo_dibujos.cpp).
 REXCVAR_DECLARE(bool, nfsmw_nativo_pcf_barato);
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_estadisticas_pipeline, false, "NFSMW",
-                    "Renderizador nativo (17/09, build 156): cuenta fragmentos sombreados, invocaciones de "
-                    "vertice y primitivas recortadas por tipo de pasada (informe C2). La imagen no cambia, "
-                    "pero las consultas cuestan tiempo de GPU: solo para medir");
+                    "Native renderer (17/09, build 156): counts shaded fragments, vertex "
+                    "invocations and clipped primitives per pass type (C2 report). The image does not change, "
+                    "but the queries cost GPU time: only for measuring");
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_diag_borrado, false, "NFSMW",
-                    "Renderizador nativo: borrar cada destino de render con un color propio en "
-                    "vez del color del juego (solo pruebas: comprueba copia, borrado y "
-                    "presentacion)");
+                    "Native renderer: clear each render target with its own color instead "
+                    "of the game's color (testing only: checks copy, clear and "
+                    "presentation)");
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_diag_resueltas, false, "NFSMW",
-                    "Renderizador nativo: presentar en mosaico las texturas resueltas de cada "
-                    "fotograma, en el orden de sus copias (solo pruebas)");
+                    "Native renderer: present the resolved textures of each frame as a "
+                    "grid, in the order of their copies (testing only)");
 /*
  * Who reads each resolved texture (nfsmw_nativo_diag_lectores_s, measurement only).
  *
- * "C2 caras resueltas" counts copies and reads per address, but a read is a call to TexturaResuelta and
+ * "C2 faces resolved" counts copies and reads per address, but a read is a call to TexturaResuelta and
  * only happens when the sampler caches of DibujosVulkan miss (per frame and per fetch constant): it does not
  * say which shader reads nor after which copy. With 098B0000 (the 1024x576 scene) that leaves the question
  * open: it is written twice per frame (the blit of the 1280x720 scene and, after the composition, the
@@ -450,11 +450,11 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_diag_resueltas, false, "NFSMW",
  * depth resolve, even if the real copy is deferred or is a swap), every draw that samples it according to
  * the fetch constants of its pixel shader, bypassing the caches, and the Swap that draws the front buffer.
  * At the end, one line per address: for each write, who reads it until the next one (PS nN, sampler, draws
- * and the render target being drawn into) and SOBRA if nobody reads it and the next one covers it entirely.
- * What is read before the first write of the window goes to the last one before it ("[antes]"). The
+ * and the render target being drawn into) and UNNEEDED if nobody reads it and the next one covers it entirely.
+ * What is read before the first write of the window goes to the last one before it ("[before]"). The
  * per-address lines are only printed if their pattern changes (the first three windows, all of them); the
  * summary line always is.
- * A write that comes out as SOBRA stays watched in every frame (menus, pause, rain, cutscenes...),
+ * A write that comes out as UNNEEDED stays watched in every frame (menus, pause, rain, cutscenes...),
  * separating the reads before its source is written again (a deferred copy covers them: it would be recorded
  * right before that draw; this is the case of the raindrops on the screen with 098B0000) from the ones after
  * (with a single one, dropping the copy when the source is written would not be exact). The first of each
@@ -466,10 +466,10 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_diag_resueltas, false, "NFSMW",
  */
 // 0 by default. Measured: its watching only served the lazy composite copy, which saves nothing.
 REXCVAR_DEFINE_INT32(nfsmw_nativo_diag_lectores_s, 0, "NFSMW",
-                     "Renderizador nativo (25/09, build 184): cada estos segundos se miran dos fotogramas enteros y se "
-                     "escribe, por textura resuelta, que pixel shaders leen cada escritura antes de la siguiente "
-                     "(lineas C2 lectores); lo que sale como SOBRA se vigila despues en todos los fotogramas. Solo "
-                     "mide. 0 = apagado")
+                     "Native renderer (25/09, build 184): at this interval in seconds two whole frames are examined and, "
+                     "per resolved texture, it logs which pixel shaders read each write before the next one "
+                     "(C2 readers lines); whatever comes out as UNNEEDED is then watched in every frame. It only "
+                     "measures. 0 = off")
     .range(0, 3600);
 /*
  * The composited scene is only copied if someone reads it (nfsmw_nativo_compuesta_perezosa).
@@ -481,25 +481,25 @@ REXCVAR_DEFINE_INT32(nfsmw_nativo_diag_lectores_s, 0, "NFSMW",
  * when its source (the HUD) is written if nobody has read it: 0.59 Mpixels and ~0.35 ms real of GPU per
  * frame without drops. It only applies to the (address, source) pair that the watching of
  * nfsmw_nativo_diag_lectores_s has seen kCompuestaAMirar times with no read after the source was written,
- * and it turns itself off if a draw samples the texture after its copy was dropped (DIFERENCIA in the log).
+ * and it turns itself off if a draw samples the texture after its copy was dropped (DIFFERENCE in the log).
  * Without the diagnostic (nfsmw_nativo_diag_lectores_s = 0) it never applies. false = always copy, as
  * before.
  */
 // false by default. Measured: 19,895 of 21,041 copies were recorded anyway because a draw reads it almost
 // every frame: 0 ms saved.
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_compuesta_perezosa, false, "NFSMW",
-                    "Renderizador nativo (25/09, build 184): la copia 1 a 1 de la escena compuesta a su textura "
-                    "(098B0000, antes del HUD) se aplaza: se graba si un dibujo la muestrea antes de volver a escribir "
-                    "su origen (las gotas de lluvia) y se tira si no. Se activa tras la vigilancia de "
-                    "nfsmw_nativo_diag_lectores_s y se apaga sola al primer desacuerdo. false = se copia siempre");
+                    "Native renderer (25/09, build 184): the 1 to 1 copy of the composited scene to its texture "
+                    "(098B0000, before the HUD) is deferred: it is recorded if a draw samples it before its source is "
+                    "written again (the raindrops) and dropped otherwise. It activates after the watching of "
+                    "nfsmw_nativo_diag_lectores_s and turns itself off at the first mismatch. false = always copied");
 REXCVAR_DEFINE_INT32(nfsmw_nativo_leer_resueltas_texels, 4096, "NFSMW",
-                     "Renderizador nativo: las texturas resueltas de hasta estos texels se copian "
-                     "tambien a la memoria del invitado, que el juego lee para su exposicion (0 = "
-                     "ninguna; 4096 = 64x64, las que usa la exposicion; 57600 = 320x180)");
+                     "Native renderer: resolved textures of up to this many texels are also copied "
+                     "to guest memory, which the game reads for its exposure (0 = "
+                     "none; 4096 = 64x64, the ones the exposure uses; 57600 = 320x180)");
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_invalidar_texturas_cada_copia, false, "NFSMW",
-                    "Renderizador nativo: tirar las caches de texturas en cada copia (lo de antes de la build 127). "
-                    "Desde la 127 solo se tiran cuando una textura resuelta se crea, se rehace, se prepara o cambia "
-                    "su orden de canales");
+                    "Native renderer: drop the texture caches on every copy (the behavior before build 127). "
+                    "Since 127 they are only dropped when a resolved texture is created, rebuilt, prepared or changes "
+                    "its channel order");
 /*
  * On by default. It was written earlier and left off without being measured.
  *
@@ -533,7 +533,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_invalidar_texturas_cada_copia, false, "NFSMW",
  *
  * That is: on the straight the CPU arrives first and waits for the GPU to release the slot; in the alley it
  * is the other way round. With four slots the CPU can be three frames ahead and stops stalling in the first
- * case. It fits easily: the log says "monton 0 (GPU): 482 MB usados de 1382 MB presupuestados", and each
+ * case. It fits easily: the log says "heap 0 (GPU): 482 MB used of 1382 MB budgeted", and each
  * slot costs a 64 MB upload buffer.
  */
 /*
@@ -560,7 +560,7 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_invalidar_texturas_cada_copia, false, "NFSMW",
  *
  * It first went in together with the sky deferral and the lazy sealing. That build broke the image and all
  * three were reverted without knowing which one it was; then the sky counter showed the culprit was the
- * sky ("7,00 detectados por fotograma" when 0.9 was expected). So this one comes back on its own, which
+ * sky ("7.00 detected per frame" when 0.9 was expected). So this one comes back on its own, which
  * is how it should have been added from the start.
  *
  * What it buys, measured per regime:
@@ -571,8 +571,8 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_invalidar_texturas_cada_copia, false, "NFSMW",
  * three frames ahead. It costs 64 MB of upload buffer, out of the ~900 MB free in the heap.
  */
 REXCVAR_DEFINE_INT32(nfsmw_nativo_ranuras_trabajo, 3, "NFSMW",
-                     "Renderizador nativo: ranuras de trabajo (2 a 4). Con mas, la CPU va mas fotogramas por "
-                     "delante de la GPU y se para menos; cada una cuesta 64 MB. 2 = como la compilacion 80")
+                     "Native renderer: work slots (2 to 4). With more, the CPU runs more frames "
+                     "ahead of the GPU and stalls less; each one costs 64 MB. 2 = as in build 80")
     .range(2, 4)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -590,13 +590,13 @@ REXCVAR_DEFINE_INT32(nfsmw_nativo_ranuras_trabajo, 3, "NFSMW",
  * enabled by hand in the test toml; the default value was misleading.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_zcull, true, "NFSMW",
-                    "Descarte jerarquico de profundidad (ZCULL): quita TRANSFER_DST a las "
-                    "profundidades del juego para que el driver les de plano de ZCULL");
+                    "Hierarchical depth culling (ZCULL): removes TRANSFER_DST from the "
+                    "game's depth buffers so that the driver gives them a ZCULL plane");
 
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_salida_sin_espera, true, "NFSMW",
-                    "Renderizador nativo: pinta la salida de cada Swap rotando 3 ranuras en vez de una, para no "
-                    "esperar a que la GPU termine la salida anterior (en la consola el anillo esperaba ahi 17 ms "
-                    "por Swap, casi un vsync). No cambia la imagen; false vuelve al comportamiento de antes");
+                    "Native renderer: draws the output of each Swap rotating 3 slots instead of one, so as not to "
+                    "wait for the GPU to finish the previous output (on the console the ring waited 17 ms there "
+                    "per Swap, almost one vsync). Does not change the image; false goes back to the old behavior");
 // In NVK, TOP_OF_PIPE is PIPELINE_LOCATION_NONE: the timestamp is released when the GPU reads the command,
 // not when the previous work finishes, and the per-category breakdown is approximate (a copy gets charged
 // with the draw of the previous pass). BOTTOM_OF_PIPE is PIPELINE_LOCATION_ALL: it is released when all
@@ -607,21 +607,21 @@ REXCVAR_DEFINE_BOOL(nfsmw_nativo_salida_sin_espera, true, "NFSMW",
  * of them worth 2 ms and dead for several builds.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_marcas_precisas, true, "NFSMW",
-                    "Renderizador nativo (medida): marcas de tiempo de GPU entre categorias con BOTTOM_OF_PIPE (se "
-                    "sueltan al terminar lo anterior) en vez de TOP_OF_PIPE (al leer el comando): reparto por "
-                    "categorias exacto. No cambia la imagen");
+                    "Native renderer (measurement): GPU timestamps between categories with BOTTOM_OF_PIPE (released "
+                    "when the previous work finishes) instead of TOP_OF_PIPE (when the command is read): exact "
+                    "per-category breakdown. Does not change the image");
 REXCVAR_DEFINE_INT32(nfsmw_nativo_marcas_precisas_alternar_s, 0, "NFSMW",
-                     "Renderizador nativo (medida): con N > 0 alterna marcas normales (tramos pares) y precisas "
-                     "(tramos impares) cada N segundos y anota cada cambio, para comparar en la misma ejecucion");
+                     "Native renderer (measurement): with N > 0 it alternates normal timestamps (even intervals) and precise "
+                     "ones (odd intervals) every N seconds and logs each change, to compare within the same run");
 REXCVAR_DEFINE_INT32(nfsmw_nativo_lecturas_cada, 1, "NFSMW",
-                     "Renderizador nativo: de cada destino se lee y escribe en la memoria del invitado "
-                     "una de cada N copias pequenas (1 = todas); el juego las usa para su exposicion");
+                     "Native renderer: for each render target, 1 of every N small copies is read back and written "
+                     "to guest memory (1 = all); the game uses them for its exposure");
 // The Xbox 360 passes the image through the gamma ramp the game loads, and NFSMW does not load the identity
 // (measured: [64] = 273 and [128] = 539 in 10 bits, instead of 256 and 513).
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_rampa_gamma, true, "NFSMW",
-                    "Renderizador nativo: aplica en la salida la rampa de gamma que carga el juego, como la pantalla "
-                    "de la Xbox 360 (sin ella, los medios tonos y las sombras salen mas oscuros). false: la imagen tal "
-                    "cual, como antes de la build 137")
+                    "Native renderer: applies to the output the gamma ramp the game loads, like the Xbox 360 "
+                    "display (without it, midtones and shadows come out darker). false: the image as "
+                    "is, as before build 137")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // The 30 FPS guard (nfsmw_guardia_30) lives in nfsmw_recorte_sombras.cpp, which owns the lever it pulls.
@@ -753,7 +753,7 @@ struct CopiaDestino {
 // It lives in a separate map and not in ImagenNativa because that structure belongs to another file.
 struct EstadoDestino {
   bool borrado_limpio = false;    // the content is exactly the last clear, with nothing on top
-  uint64_t valor_borrado = 0;     // color empaquetado, o profundidad+stencil
+  uint64_t valor_borrado = 0;     // packed color, or depth+stencil
   uint64_t dibujos_al_borrar = 0; // global draw counter at that moment
   uint32_t alto_usado = 0;        // the largest y1 the game has resolved from this render target
 };
@@ -793,7 +793,7 @@ constexpr uint8_t kVisibilidadAgua = 0;
 constexpr uint8_t kVisibilidadTestigo = 1;
 // Passes measured per work unit. In a race there are ~16 per frame including the resumed ones.
 constexpr uint32_t kEstadisticasPorRanura = 64;
-constexpr uint32_t kContadoresEstadistica = 3;  // vertices, primitivas recortadas y fragmentos
+constexpr uint32_t kContadoresEstadistica = 3;  // vertices, clipped primitives and fragments
 // Draws measured in a diagnostic frame (the scene has ~1200).
 constexpr uint32_t kEstadisticasDibujoPorRanura = 2048;
 constexpr uint32_t kEtiquetasShader = 512;
@@ -810,7 +810,7 @@ struct RanuraTrabajo {
   VkCommandBuffer subida = VK_NULL_HANDLE;
   VkFence fence = VK_NULL_HANDLE;
   bool pendiente = false;
-  uint64_t orden = 0;                        // numero de envio
+  uint64_t orden = 0;                        // submission number
   // Wall-clock time of the work, from vkQueueSubmit to the signaled fence. The GPU timestamps give
   // 30.5 ms per frame while the hardware's own counter says 99.7 % load on a 55 ms frame: either there is
   // work we do not mark or the timestamp scale is wrong. This bounds the truth from above (the CPU sees
@@ -836,7 +836,7 @@ struct ConsultaOclusionJuego {
   uint32_t base = 0;              // D3D counter structure
   uint64_t muestras = 0;          // sum of the spans read
   uint32_t tramos_pendientes = 0;  // recorded and not yet read
-  bool terminada = false;         // ya llego su Issue(END)
+  bool terminada = false;         // its Issue(END) has already arrived
   bool fallida = false;           // some span without room or not read: not published
 };
 
@@ -914,15 +914,15 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   }
 
   bool Inicializar() {
-    REXLOG_INFO("[nativo] sincronizacion de imagenes Vulkan = {} ({})",
-                REXCVAR_GET(nfsmw_nativo_sincronizacion_gpu) ? "SI" : "no",
+    REXLOG_INFO("[nativo] Vulkan image synchronization = {} ({})",
+                REXCVAR_GET(nfsmw_nativo_sincronizacion_gpu) ? "YES" : "no",
                 dispositivo_->properties().deviceName);
     // vkCmdCopyImage is not in the SDK's function table: it is requested from the driver.
     copiar_imagen_ = reinterpret_cast<FnCopiarImagen>(
         dispositivo_->vulkan_instance()->functions().vkGetDeviceProcAddr(device_,
                                                                           "vkCmdCopyImage"));
     if (!copiar_imagen_) {
-      REXLOG_ERROR("[nativo] C2: el driver no da vkCmdCopyImage");
+      REXLOG_ERROR("[nativo] C2: the driver does not provide vkCmdCopyImage");
       return false;
     }
     borrar_profundidad_ = reinterpret_cast<FnBorrarProfundidad>(
@@ -960,13 +960,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     }
     if (formato_profundidad_ != VK_FORMAT_UNDEFINED) {
       const VkFormatFeatureFlags faltan = kUsosProfundidad & ~usos_elegido;
-      REXLOG_INFO("[nativo] C2: formato de profundidad {}{}{}{}",
+      REXLOG_INFO("[nativo] C2: depth format {}{}{}{}",
                   formato_profundidad_ == VK_FORMAT_D24_UNORM_S8_UINT ? "D24S8" : "D32S8",
-                  (faltan & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? ", sin muestreo" : "",
-                  (faltan & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) ? ", sin origen de copias" : "",
-                  (faltan & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) ? ", sin destino de copias" : "");
+                  (faltan & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) ? ", no sampling" : "",
+                  (faltan & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) ? ", not a copy source" : "",
+                  (faltan & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) ? ", not a copy destination" : "");
       if (!profundidad_escalable_) {
-        REXLOG_INFO("[nativo] C2: el driver no escala profundidad: el mapa de sombras se queda a su tamano");
+        REXLOG_INFO("[nativo] C2: the driver does not scale depth: the shadow map stays at its own size");
       }
     }
     // One pool per command buffer: the SDK table does not include
@@ -1011,19 +1011,19 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     }
     ranuras_usadas_ = uint32_t(std::clamp(REXCVAR_GET(nfsmw_nativo_ranuras_trabajo), 2,
                                           int32_t(ranuras_.size())));
-    REXLOG_INFO("[nativo] C2: ranuras de trabajo (nfsmw_nativo_ranuras_trabajo) = {} de {}", ranuras_usadas_,
+    REXLOG_INFO("[nativo] C2: work slots (nfsmw_nativo_ranuras_trabajo) = {} of {}", ranuras_usadas_,
                 ranuras_.size());
     salida_sin_espera_ = REXCVAR_GET(nfsmw_nativo_salida_sin_espera);
     invalidar_cada_copia_ = REXCVAR_GET(nfsmw_nativo_invalidar_texturas_cada_copia);
-    REXLOG_INFO("[nativo] C2: caches de texturas tiradas en cada copia (nfsmw_nativo_invalidar_texturas_cada_copia) = {}",
-                invalidar_cada_copia_ ? "SI" : "no");
-    REXLOG_INFO("[nativo] C2: salida sin esperar a la anterior (nfsmw_nativo_salida_sin_espera) = {}",
-                salida_sin_espera_ ? "SI" : "no");
+    REXLOG_INFO("[nativo] C2: texture caches dropped on every copy (nfsmw_nativo_invalidar_texturas_cada_copia) = {}",
+                invalidar_cada_copia_ ? "YES" : "no");
+    REXLOG_INFO("[nativo] C2: output without waiting for the previous one (nfsmw_nativo_salida_sin_espera) = {}",
+                salida_sin_espera_ ? "YES" : "no");
     marcas_precisas_ = REXCVAR_GET(nfsmw_nativo_marcas_precisas);
     alternar_marcas_s_ = REXCVAR_GET(nfsmw_nativo_marcas_precisas_alternar_s);
     inicio_marcas_ = std::chrono::steady_clock::now();
-    REXLOG_INFO("[nativo] C2: marcas de GPU precisas (nfsmw_nativo_marcas_precisas) = {}; alternar cada {} s",
-                marcas_precisas_ ? "SI" : "no", alternar_marcas_s_);
+    REXLOG_INFO("[nativo] C2: precise GPU timestamps (nfsmw_nativo_marcas_precisas) = {}; alternate every {} s",
+                marcas_precisas_ ? "YES" : "no", alternar_marcas_s_);
     // GPU time per work unit: two timestamps per slot. Without timestamp bits on the queue, it is not measured.
     {
       const auto& ifn = dispositivo_->vulkan_instance()->functions();
@@ -1050,9 +1050,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         }
         periodo_marca_ns_ = fisico.limits.timestampPeriod;
       }
-      REXLOG_INFO("[nativo] C2: tiempo de GPU por Swap {}",
-                  consultas_ != VK_NULL_HANDLE ? "medido con marcas de tiempo"
-                                               : "no disponible (la cola no tiene marcas)");
+      REXLOG_INFO("[nativo] C2: GPU time per Swap {}",
+                  consultas_ != VK_NULL_HANDLE ? "measured with timestamps"
+                                               : "not available (the queue has no timestamps)");
       // The game's occlusion queries (the sun flare), counted on the GPU.
       VkQueryPoolCreateInfo info_oclusiones{};
       info_oclusiones.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
@@ -1063,9 +1063,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         oclusiones_ = VK_NULL_HANDLE;
       }
       oclusion_precisa_ = dispositivo_->properties().occlusionQueryPrecise;
-      REXLOG_INFO("[nativo] C2: consultas de oclusion del host {} ({})",
-                  oclusiones_ != VK_NULL_HANDLE ? "disponibles" : "no disponibles: cuenta fingida",
-                  oclusion_precisa_ ? "precisas" : "sin precision: cuentan si hubo alguna muestra");
+      REXLOG_INFO("[nativo] C2: host occlusion queries {} ({})",
+                  oclusiones_ != VK_NULL_HANDLE ? "available" : "not available: faked count",
+                  oclusion_precisa_ ? "precise" : "not precise: they count whether there was any sample");
       // nfsmw_reflejo_visibilidad, in a separate pool so as not to touch the count of the game's queries.
       if (nfsmw::reflejo_demanda::MedirVisibilidad() && leer_consultas_) {
         VkQueryPoolCreateInfo info_visibilidad{};
@@ -1075,9 +1075,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         if (dfn_.vkCreateQueryPool(device_, &info_visibilidad, nullptr, &visibilidad_) != VK_SUCCESS) {
           visibilidad_ = VK_NULL_HANDLE;
         }
-        REXLOG_INFO("[nativo] C2: visibilidad del reflejo (build 192): {}",
-                    visibilidad_ != VK_NULL_HANDLE ? "consultas disponibles"
-                                                   : "SIN consultas: el reflejo se decide por lecturas (como la 191)");
+        REXLOG_INFO("[nativo] C2: reflection visibility (build 192): {}",
+                    visibilidad_ != VK_NULL_HANDLE ? "queries available"
+                                                   : "NO queries: the reflection is decided by reads (as in build 191)");
       }
       // Pipeline statistics per pass. The order of the counters is the order of the bits,
       // not the order of this list: vertices, clipped primitives and fragments.
@@ -1109,9 +1109,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         fragmentos_por_shader_.assign(size_t(kEtiquetasShader) * kGpuCategorias, 0);
         dibujos_por_shader_.assign(size_t(kEtiquetasShader) * kGpuCategorias, 0);
       }
-      REXLOG_INFO("[nativo] C2: estadisticas de tuberia por pasada {}",
-                  estadisticas_ != VK_NULL_HANDLE ? "disponibles (nfsmw_nativo_estadisticas_pipeline)"
-                                                  : "no disponibles");
+      REXLOG_INFO("[nativo] C2: pipeline statistics per pass {}",
+                  estadisticas_ != VK_NULL_HANDLE ? "available (nfsmw_nativo_estadisticas_pipeline)"
+                                                  : "not available");
     }
 
     VkSamplerCreateInfo info_sampler{};
@@ -1200,7 +1200,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
               dispositivo_, sizeof(rampa_valores_), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
               rex::ui::vulkan::util::MemoryPurpose::kUpload, rampa.bufer, rampa.memoria, &tipo) ||
           dfn_.vkMapMemory(device_, rampa.memoria, 0, VK_WHOLE_SIZE, 0, &mapeado) != VK_SUCCESS) {
-        REXLOG_WARN("[nativo] C2: no se pudo crear el bufer de la rampa de gamma: la salida va sin ella");
+        REXLOG_WARN("[nativo] C2: could not create the gamma ramp buffer: the output goes without it");
         rampa_gamma_ = false;
         break;
       }
@@ -1278,8 +1278,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (rampa_gamma_ && (PipelineRampa(0) == VK_NULL_HANDLE || PipelineRampa(1) == VK_NULL_HANDLE)) {
       return false;
     }
-    REXLOG_INFO("[nativo] C2: rampa de gamma del juego en la salida (nfsmw_nativo_rampa_gamma) = {}",
-                rampa_gamma_ ? "SI" : "no");
+    REXLOG_INFO("[nativo] C2: the game's gamma ramp on the output (nfsmw_nativo_rampa_gamma) = {}",
+                rampa_gamma_ ? "YES" : "no");
     // Parts C3-C6: without the required capabilities only copies and presentation remain.
     dibujos_ = DibujosVulkan::Crear(dispositivo_, memoria_, this);
     return true;
@@ -1365,11 +1365,11 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       pipeline = CrearPipelineSalida(fs_rampa_, &especial);
       if (pipeline == VK_NULL_HANDLE) {
         pipelines_rampa_fallidos_[indice] = true;
-        REXLOG_ERROR("[nativo] C2: no se pudo crear la variante {} de la pasada de salida", indice);
+        REXLOG_ERROR("[nativo] C2: could not create variant {} of the output pass", indice);
       } else {
-        REXLOG_INFO("[nativo] C2: variante {} de la pasada de salida (exacta {}, graduacion {}, FXAA {}) creada en {:.1f} "
+        REXLOG_INFO("[nativo] C2: variant {} of the output pass (exact {}, grading {}, FXAA {}) created in {:.1f} "
                     "ms",
-                    indice, (indice & 1) ? "si" : "no", (indice & 2) ? "si" : "no", (indice & 4) ? "si" : "no",
+                    indice, (indice & 1) ? "yes" : "no", (indice & 2) ? "yes" : "no", (indice & 4) ? "yes" : "no",
                     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - antes).count());
       }
     }
@@ -1401,7 +1401,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const uint32_t pitch = reg.rb_surface_info & 0x3FFF;
     const uint32_t msaa = (reg.rb_surface_info >> 16) & 0x3;
     if (msaa != uint32_t(xenos::MsaaSamples::k1X) && avisados_.insert(1).second) {
-      REXLOG_INFO("[nativo] C2: destino con MSAA: se usa con 1 muestra");
+      REXLOG_INFO("[nativo] C2: render target with MSAA: used with 1 sample");
     }
     if (origen >= xenos::kMaxColorRenderTargets) {
       // From depth: the copy goes to a resolved texture with the host depth
@@ -1420,7 +1420,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const uint32_t formato_color = (info_color >> 16) & 0xF;
     if (formato_color != uint32_t(xenos::ColorRenderTargetFormat::k_8_8_8_8) &&
         formato_color != uint32_t(xenos::ColorRenderTargetFormat::k_8_8_8_8_GAMMA)) {
-      return Rechazar(100 + formato_color, "formato de destino de render todavia no soportado");
+      return Rechazar(100 + formato_color, "render target format not supported yet");
     }
     int32_t x0, y0, x1, y1;
     if (!Rectangulo(reg, pitch, x0, y0, x1, y1)) {
@@ -1444,11 +1444,11 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const uint32_t info_destino = reg.rb_copy_dest_info;
       const uint32_t formato_destino = (info_destino >> 7) & 0x3F;
       if ((info_destino >> 3) & 0x1) {
-        Rechazar(3, "copia a textura 3D o array: todavia no");
+        Rechazar(3, "copy to a 3D or array texture: not yet");
       } else if (formato_destino != uint32_t(xenos::ColorFormat::k_8_8_8_8) &&
                  formato_destino != uint32_t(xenos::ColorFormat::k_8_8_8_8_A) &&
                  formato_destino != uint32_t(xenos::ColorFormat::k_8_8_8_8_AS_16_16_16_16)) {
-        Rechazar(200 + formato_destino, "formato de copia todavia no soportado");
+        Rechazar(200 + formato_destino, "copy format not supported yet");
       } else {
         const uint32_t pitch_destino = reg.rb_copy_dest_pitch & 0x3FFF;
         const uint32_t alto_destino = (reg.rb_copy_dest_pitch >> 16) & 0x3FFF;
@@ -1526,7 +1526,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         ++copias_;
         ++reducciones_;
         if (reducciones_ <= 4) {
-          REXLOG_INFO("[resolucion] la escena de {}x{} se encoge a {}x{} al resolverla (superescalado)",
+          REXLOG_INFO("[resolucion] the {}x{} scene is shrunk to {}x{} when resolved (supersampling)",
                       pedido_ancho, pedido_alto, cabe_ancho, cabe_alto);
         }
         AnotarCopia(cabe_ancho, cabe_alto);
@@ -1667,8 +1667,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       if (!dibujos_->BorrarProfundidadEnPase(comandos_trabajo_, *profundidad, valor.depth,
                                              valor.stencil)) {
         if (++borrados_en_pase_fallidos_ <= 8) {
-          REXLOG_WARN("[nativo] C2: NO se pudo borrar la profundidad {}x{} abriendo un pase; se queda "
-                      "con el contenido anterior (fallo {})",
+          REXLOG_WARN("[nativo] C2: could NOT clear the {}x{} depth by opening a pass; it keeps "
+                      "the previous content (failure {})",
                       profundidad->ancho, profundidad->alto, borrados_en_pase_fallidos_);
         }
       }
@@ -1687,7 +1687,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   void CopiarProfundidad(const RegistrosCopia& reg, uint32_t pitch, bool borrara) {
     const uint32_t info_destino = reg.rb_copy_dest_info;
     if ((info_destino >> 3) & 0x1) {
-      Rechazar(3, "copia a textura 3D o array: todavia no");
+      Rechazar(3, "copy to a 3D or array texture: not yet");
       return;
     }
     int32_t x0, y0, x1, y1;
@@ -1824,7 +1824,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         ++sin_intercambio_[entero ? 0 : 1];  // 0: the command does not clear the render target; 1: not the whole render target
         if (avisos_sin_intercambio_ < 8) {
           ++avisos_sin_intercambio_;
-          REXLOG_INFO("[nativo] C2 sin intercambio: {}x{} de {}x{} en ({},{})->({},{}), borra {} (base {:03X})",
+          REXLOG_INFO("[nativo] C2 no swap: {}x{} of {}x{} at ({},{})->({},{}), clears {} (base {:03X})",
                       ancho, alto, profundidad->ancho, profundidad->alto, x0, y0, dx, dy, borrara,
                       base & 0xFFF);
         }
@@ -1902,7 +1902,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     // of the frame (33 of 500 shadow draws were measured).
     AbrirVentanaDiagnostico();
 #if REX_PLATFORM_SWITCH
-    RexSwitchPerfCount(0);  // the profiler's "juego N fps", which read 0.0 with the native renderer
+    RexSwitchPerfCount(0);  // the profiler's "game N fps", which read 0.0 with the native renderer
 #endif
     // Histogram of intervals between Swaps (C2 report): whether they come in vsync steps or spread out.
     {
@@ -1976,8 +1976,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
           const double gpu_ms = double(gpu_ns_ - tiron_gpu_ns_) / 1e6 * 1.627;
           // The three [tiron] lines go to the report thread (NFSMW_INFORME_ANILLO).
           NFSMW_INFORME_ANILLO(
-              "[tiron] fotograma de {:.1f} ms (GPU {:.1f} reales, grabar {:.1f}): {} copias, "
-              "{} borrados, {} intercambios, {} restauraciones, {} esperas a la GPU",
+              "[tiron] frame of {:.1f} ms (GPU {:.1f} real, record {:.1f}): {} copies, "
+              "{} clears, {} swaps, {} restores, {} waits for the GPU",
               ms, gpu_ms, double(ns_grabar_ - tiron_ns_grabar_) / 1e6, copias_ - tiron_copias_,
               borrados_ - tiron_borrados_, intercambios_ - tiron_resolves_,
               restauraciones_ - tiron_restaura_, esperas_gpu_ - tiron_esperas_);
@@ -1993,10 +1993,10 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
             return e::g_veces[t].load(std::memory_order_relaxed) - tiron_esperas_veces_[t];
           };
           NFSMW_INFORME_ANILLO(
-              "[tiron] esperas (ms): juego: relevo del ejecutor {:.1f} ({}), relevo del preparador {:.1f} ({}), "
-              "sitio en el anillo {:.1f} ({}), dentro de sub_826E8EE8 {:.1f} ({}; vtabla {:08X}, llamante {:08X}) | "
-              "anillo: sin trabajo {:.1f} ({}), WAIT_REG_MEM {:.1f} ({}), valla de la GPU {:.1f}, salida {:.1f} | "
-              "texturas comprobadas {:.1f} MB, aplazadas {}",
+              "[tiron] waits (ms): game: executor handoff {:.1f} ({}), preparer handoff {:.1f} ({}), "
+              "room in the ring {:.1f} ({}), inside sub_826E8EE8 {:.1f} ({}; vtable {:08X}, caller {:08X}) | "
+              "ring: no work {:.1f} ({}), WAIT_REG_MEM {:.1f} ({}), GPU fence {:.1f}, output {:.1f} | "
+              "textures checked {:.1f} MB, deferred {}",
               delta(e::kRelevoEjecutor), veces(e::kRelevoEjecutor), delta(e::kRelevoPreparador),
               veces(e::kRelevoPreparador), delta(e::kSitioAnillo), veces(e::kSitioAnillo),
               delta(e::kJuegoMedio), veces(e::kJuegoMedio), e::g_vtabla_medio.load(std::memory_order_relaxed),
@@ -2011,17 +2011,17 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
             return a.load(std::memory_order_relaxed) - antes;
           };
           // And how long the ring waited for the vertex copy thread (EsperarSubidas). The wait before each
-          // submit is inside "trabajando" and the one before returning the read pointer is outside: it is read
+          // submit is inside "working" and the one before returning the read pointer is outside: it is read
           // separately, not added.
-          // And what the ring spent creating textures (image, memory and view; "texturas" starts afterwards),
+          // And what the ring spent creating textures (image, memory and view; "textures" starts afterwards),
           // how many the binding thread bound and how long the ring waited for it
           // (nfsmw_nativo_texturas_enlace_hilo).
-          NFSMW_INFORME_ANILLO("[tiron] anillo: {} dibujos, trabajando {:.1f} ms, texturas {:.1f} ms ({} subidas, {:.1f} MB; "
-                      "{} creadas; huellas {:.1f} + {:.1f} ms); esperando al hilo de copias de vertices {:.1f} ms "
-                      "({} veces), ayudandolo {:.1f} ms ({} copias); "
-                      "crear texturas {:.1f} ms en el anillo, {} enlazadas en el hilo, esperandolo {:.1f} ms; "
-                      "huellas en el hilo: {} texturas en {:.1f} ms del hilo, copias en el anillo {:.1f} ms, {} "
-                      "hechas por el anillo en {:.1f} ms, esperandolo {:.1f} ms",
+          NFSMW_INFORME_ANILLO("[tiron] ring: {} draws, working {:.1f} ms, textures {:.1f} ms ({} uploads, {:.1f} MB; "
+                      "{} created; fingerprints {:.1f} + {:.1f} ms); waiting for the vertex copy thread {:.1f} ms "
+                      "({} times), helping it {:.1f} ms ({} copies); "
+                      "creating textures {:.1f} ms on the ring, {} bound on the thread, waiting for it {:.1f} ms; "
+                      "fingerprints on the thread: {} textures in {:.1f} ms of the thread, copies on the ring {:.1f} ms, {} "
+                      "done by the ring in {:.1f} ms, waiting for it {:.1f} ms",
                       dif(e::g_dibujos, tiron_dibujos_), double(dif(e::g_ns_anillo_trabajando, tiron_ns_anillo_)) / 1e6,
                       double(dif(e::g_ns_texturas, tiron_ns_texturas_)) / 1e6,
                       dif(e::g_texturas_subidas, tiron_texturas_subidas_),
@@ -2046,11 +2046,11 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
           /*
            * The game's side. Four of the seven race stutters in one run come from the preparer (the executor
            * waiting for the handoff, or waiting for commands inside the list, with the ring idle), and the wait
-           * without commands did not show up in any line. "Fuera de la lista" is the preparer's simulation plus
+           * without commands did not show up in any line. "Outside the list" is the preparer's simulation plus
            * its handoff wait (the one in the line above): the difference is what the game itself takes.
            */
-          NFSMW_INFORME_ANILLO("[tiron] juego: el ejecutor sin ordenes {:.1f} ms ({}) | el preparador: llenando la "
-                               "lista {:.1f} ms ({}), de ello TreeCull {:.1f} ms ({}); fuera de la lista {:.1f} ms ({})",
+          NFSMW_INFORME_ANILLO("[tiron] game: executor without commands {:.1f} ms ({}) | preparer: filling the "
+                               "list {:.1f} ms ({}), of which TreeCull {:.1f} ms ({}); outside the list {:.1f} ms ({})",
                                delta(e::kEjecutorSinOrdenes), veces(e::kEjecutorSinOrdenes),
                                delta(e::kPreparadorLista), veces(e::kPreparadorLista),
                                delta(e::kPreparadorEscenario), veces(e::kPreparadorEscenario),
@@ -2124,7 +2124,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     }
     auto it = resueltas_.find(base);
     if (it == resueltas_.end() || !it->second.imagen.preparada) {
-      Rechazar(4, "Swap sin textura resuelta: se pinta el color de prueba");
+      Rechazar(4, "Swap without a resolved texture: the test color is drawn");
       return false;
     }
     Resuelta& resuelta = it->second;
@@ -2176,9 +2176,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       }
       if (compuesta_aplicando_ != direccion) {
         compuesta_aplicando_ = direccion;
-        NFSMW_INFORME_ANILLO("[nativo] C2 compuesta perezosa: {:08X} desde {:03X}/{}: {} escrituras vigiladas, {} "
-                             "leidas antes de volver a escribir su origen y 0 despues: APLICANDO (la copia se aplaza; "
-                             "se graba antes del primer dibujo que la lea y se tira al escribir su origen)",
+        NFSMW_INFORME_ANILLO("[nativo] C2 lazy composite: {:08X} from {:03X}/{}: {} watched writes, {} "
+                             "read before its source is written again and 0 after: APPLYING (the copy is deferred; "
+                             "it is recorded before the first draw that reads it and dropped when its source is written)",
                              direccion, origen & 0xFFF, origen >> 12, v.escrituras, v.antes);
       }
       return true;
@@ -2229,8 +2229,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (r == resueltas_.end() || r->second.imagen.imagen != p.textura_vk || !p.destino ||
         p.destino->imagen != p.origen_vk || !copiar_imagen_ || !Grabar()) {
       compuesta_caducada_ = p.direccion;
-      CompuestaDiferencia(p.direccion, "la copia aplazada ya no se puede grabar (cambio la imagen del origen o de la "
-                                       "textura)");
+      CompuestaDiferencia(p.direccion, "the deferred copy can no longer be recorded (the image of the source or of the "
+                                       "texture changed)");
       return;
     }
     if (dibujos_) {
@@ -2285,8 +2285,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         ++compuesta_grabadas_lectura_;
       } else if (compuesta_caducada_ != 0 && base == compuesta_caducada_) {
         ++compuesta_lecturas_tardias_;
-        CompuestaDiferencia(base, "un dibujo la muestrea despues de tirar su copia (ve la escena de antes de "
-                                  "componer)");
+        CompuestaDiferencia(base, "a draw samples it after its copy was dropped (it sees the scene from before "
+                                  "compositing)");
         compuesta_caducada_ = 0;
       }
     }
@@ -2333,8 +2333,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       return;
     }
     compuesta_apagada_ = true;
-    REXLOG_ERROR("[nativo] C2 compuesta perezosa: DIFERENCIA en {:08X}: {}. Apagada para el resto de la sesion: se "
-                 "copia siempre, como antes de la 184",
+    REXLOG_ERROR("[nativo] C2 lazy composite: DIFFERENCE at {:08X}: {}. Off for the rest of the session: it "
+                 "always copies, as before build 184",
                  direccion, motivo);
   }
 
@@ -2346,14 +2346,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const uint64_t fotogramas = presentados_ - compuesta_presentados_previos_;
     const double mp = double(compuesta_pixeles_ahorrados_ - compuesta_pixeles_previos_) / 1e6;
     const double por_fotograma = fotogramas ? mp / double(fotogramas) : 0.0;
-    NFSMW_INFORME_ANILLO("[nativo] C2 compuesta perezosa (build 184): {} copias aplazadas desde el arranque; {} "
-                         "grabadas antes de un dibujo que la lee (exacto) y {} antes de otra escritura; {} tiradas al "
-                         "escribir su origen y {} al taparla otra entera: {:.2f} Mpixeles por fotograma sin copiar "
-                         "(~{:.2f} ms reales); lecturas tardias {}{}",
+    NFSMW_INFORME_ANILLO("[nativo] C2 lazy composite (build 184): {} copies deferred since startup; {} "
+                         "recorded before a draw that reads it (exact) and {} before another write; {} dropped when "
+                         "its source was written and {} when another one covered it entirely: {:.2f} Mpixels per frame "
+                         "not copied (~{:.2f} ms real); late reads {}{}",
                          compuesta_aplazadas_, compuesta_grabadas_lectura_, compuesta_grabadas_otras_,
                          compuesta_tiradas_origen_, compuesta_sustituidas_, por_fotograma, por_fotograma * 0.60,
                          compuesta_lecturas_tardias_,
-                         compuesta_apagada_ ? " *** APAGADA POR LA GUARDIA ***" : " (0 = la imagen es la misma)");
+                         compuesta_apagada_ ? " *** TURNED OFF BY THE GUARD ***" : " (0 = the image is the same)");
     compuesta_pixeles_previos_ = compuesta_pixeles_ahorrados_;
     compuesta_presentados_previos_ = presentados_;
   }
@@ -2518,16 +2518,16 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       if (!v.origen_escrito) {
         if (v.antes++ == 0) {
           v.ps_antes = ps;
-          NFSMW_INFORME_ANILLO("[nativo] C2 lectores (build 184): {:08X}, escrita desde {:03X}/{}, la lee el PS n{} "
-                               "ANTES de volver a escribir su origen (tras {} escrituras vigiladas): una copia "
-                               "aplazada la cubre",
+          NFSMW_INFORME_ANILLO("[nativo] C2 readers (build 184): {:08X}, written from {:03X}/{}, read by PS n{} "
+                               "BEFORE its source is written again (after {} watched writes): a deferred copy "
+                               "covers it",
                                direccion, v.origen & 0xFFF, v.origen >> 12, ps, v.escrituras);
         }
       } else if (v.tardias++ == 0) {
         v.ps_tardio = ps;
-        NFSMW_INFORME_ANILLO("[nativo] C2 lectores (build 184): {:08X}, escrita desde {:03X}/{}, la lee el PS n{} "
-                             "DESPUES de escribir su origen (tras {} escrituras vigiladas): tirar esa copia al "
-                             "escribir el origen NO seria exacto",
+        NFSMW_INFORME_ANILLO("[nativo] C2 readers (build 184): {:08X}, written from {:03X}/{}, read by PS n{} "
+                             "AFTER its source is written (after {} watched writes): dropping that copy when "
+                             "the source is written would NOT be exact",
                              direccion, v.origen & 0xFFF, v.origen >> 12, ps, v.escrituras);
       }
     }
@@ -2589,13 +2589,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       for (size_t i = 0; i < lista.size(); ++i) {
         const EscrituraDiag& e = lista[i];
         if (e.fotograma < 0) {
-          linea += " [antes]";
+          linea += " [before]";
         } else {
           ++escrituras;
           const bool blit = e.pedido_ancho * 4 >= e.ancho * 5 || e.pedido_alto * 4 >= e.alto * 5;
-          linea += fmt::format(" [{}.{}] {} {}x{} desde {:03X}/{}{} ({} dibujos antes)", e.fotograma, e.orden,
-                               e.profundidad ? "profundidad" : (blit ? "blit" : "1:1"), e.pedido_ancho,
-                               e.pedido_alto, e.origen & 0xFFF, e.origen >> 12, e.entera ? "" : ", parcial",
+          linea += fmt::format(" [{}.{}] {} {}x{} from {:03X}/{}{} ({} draws before)", e.fotograma, e.orden,
+                               e.profundidad ? "depth" : (blit ? "blit" : "1:1"), e.pedido_ancho,
+                               e.pedido_alto, e.origen & 0xFFF, e.origen >> 12, e.entera ? "" : ", partial",
                                e.dibujos);
         }
         firma = (firma ^ (uint64_t(uint32_t(e.fotograma + 1)) << 48 | uint64_t(e.orden) << 40 | e.origen)) *
@@ -2603,16 +2603,16 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         if (e.lectores.empty()) {
           const bool siguiente = i + 1 < lista.size();
           if (cpu) {
-            linea += " -> ningun dibujo (la lee la CPU)";
+            linea += " -> no draw (the CPU reads it)";
           } else if (e.fotograma >= 0 && siguiente && lista[i + 1].entera) {
-            linea += " -> NADIE antes de la siguiente, que la tapa entera: SOBRA";
-            sobran += fmt::format(" {:08X} [{}.{}] desde {:03X}/{}", direccion, e.fotograma, e.orden,
+            linea += " -> NOBODY before the next one, which covers it entirely: UNNEEDED";
+            sobran += fmt::format(" {:08X} [{}.{}] from {:03X}/{}", direccion, e.fotograma, e.orden,
                                   e.origen & 0xFFF, e.origen >> 12);
             firma ^= 0x5A5Au;
             AnadirVigilada(direccion, e.origen);
           } else {
-            linea += siguiente ? " -> nadie antes de la siguiente (que no la tapa entera)"
-                               : " -> nadie hasta el final de la ventana";
+            linea += siguiente ? " -> nobody before the next one (which does not cover it entirely)"
+                               : " -> nobody until the end of the window";
           }
         } else {
           linea += " ->";
@@ -2620,14 +2620,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
             if (l.ps == kLectorSwap) {
               linea += fmt::format(" Swap x{}", l.veces);
             } else {
-              linea += fmt::format(" PS n{} s{} x{} en {:03X}/{}", l.ps, l.registro, l.veces, l.destino & 0xFFF,
+              linea += fmt::format(" PS n{} s{} x{} into {:03X}/{}", l.ps, l.registro, l.veces, l.destino & 0xFFF,
                                    l.destino >> 12);
             }
             firma = (firma ^ (uint64_t(l.ps) << 32 | uint64_t(l.registro) << 26 | (l.destino & 0x3FFFFFF))) *
                     0x100000001B3ull;
           }
           if (e.otros) {
-            linea += fmt::format(" (y {} lectores mas)", e.otros);
+            linea += fmt::format(" (and {} more readers)", e.otros);
           }
         }
         linea += ";";
@@ -2639,32 +2639,32 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       }
       previa = firma;
       ++nuevas;
-      NFSMW_INFORME_ANILLO("[nativo] C2 lectores (build 184, ventana {}): {:08X} {}x{}:{}", diag_ventanas_, direccion,
+      NFSMW_INFORME_ANILLO("[nativo] C2 readers (build 184, window {}): {:08X} {}x{}:{}", diag_ventanas_, direccion,
                            ancho, alto, linea);
     }
     std::string vigiladas;
     for (const VigiladaDiag& v : diag_vigiladas_) {
-      vigiladas += fmt::format(" {:08X} desde {:03X}/{}: {} escrituras; {} lecturas antes de volver a escribir el "
-                               "origen{} y {} despues{};",
+      vigiladas += fmt::format(" {:08X} from {:03X}/{}: {} writes; {} reads before the source is written "
+                               "again{} and {} after{};",
                                v.direccion, v.origen & 0xFFF, v.origen >> 12, v.escrituras, v.antes,
-                               v.antes ? fmt::format(" (la primera, PS n{})", v.ps_antes) : std::string(),
+                               v.antes ? fmt::format(" (the first, PS n{})", v.ps_antes) : std::string(),
                                v.tardias,
-                               v.tardias ? fmt::format(" (la primera, PS n{}): tirarla NO seria exacto", v.ps_tardio)
-                                         : std::string(v.escrituras ? " (tirarla al escribir el origen seria exacto)"
+                               v.tardias ? fmt::format(" (the first, PS n{}): dropping it would NOT be exact", v.ps_tardio)
+                                         : std::string(v.escrituras ? " (dropping it when the source is written would be exact)"
                                                                     : ""));
     }
-    NFSMW_INFORME_ANILLO("[nativo] C2 lectores de las resueltas (build 184, ventana {}, 2 fotogramas cada {} s): {} "
-                         "direcciones y {} escrituras; {} lineas escritas y {} iguales a la ultima escrita (no se "
-                         "repiten){}; escrituras que nadie lee antes de otra que las tapa entera:{} | vigiladas en "
-                         "todos los fotogramas:{}",
+    NFSMW_INFORME_ANILLO("[nativo] C2 readers of the resolved textures (build 184, window {}, 2 frames every {} s): {} "
+                         "addresses and {} writes; {} lines written and {} identical to the last one written (not "
+                         "repeated){}; writes nobody reads before another one covers them entirely:{} | watched in "
+                         "every frame:{}",
                          diag_ventanas_, REXCVAR_GET(nfsmw_nativo_diag_lectores_s), direcciones.size(), escrituras,
                          nuevas, iguales,
                          diag_escrituras_perdidas_
-                             ? fmt::format(" ({} escrituras sin apuntar por el tope de {} por direccion)",
+                             ? fmt::format(" ({} writes not recorded because of the cap of {} per address)",
                                            diag_escrituras_perdidas_, kDiagMaxEscrituras)
                              : std::string(),
-                         sobran.empty() ? std::string(" ninguna") : sobran,
-                         vigiladas.empty() ? std::string(" ninguna") : vigiladas);
+                         sobran.empty() ? std::string(" none") : sobran,
+                         vigiladas.empty() ? std::string(" none") : vigiladas);
     CompuestaInforme();  // nfsmw_nativo_compuesta_perezosa
   }
 
@@ -2821,7 +2821,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     return dibujos_ ? dibujos_->CopiasPendientes() : 0;
   }
 
-  // --- ContextoDestinos (piezas C3-C6) ---------------------------------------
+  // --- ContextoDestinos (parts C3-C6) ----------------------------------------
 
   VkCommandBuffer ComandosTrabajo() override {
     return Grabar() ? comandos_trabajo_ : VK_NULL_HANDLE;
@@ -2923,7 +2923,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       return false;
     }
     if (!solo_profundidad) {
-      SombraMinimoFalloCiclo("el pase de los coches tiene destino de color", 0, true);
+      SombraMinimoFalloCiclo("the car pass has a color render target", 0, true);
     }
     return true;
   }
@@ -2934,7 +2934,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     ++sm_dibujos_coches_;
     if (!exacto) {
       ++sm_dibujos_no_exactos_;
-      SombraMinimoFalloCiclo("un dibujo de los coches no deja el minimo (el dato es su control de Z)", control_z, true);
+      SombraMinimoFalloCiclo("a car draw does not leave the minimum (the value is its Z control)", control_z, true);
     }
   }
 
@@ -2954,11 +2954,11 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const bool mundo = it != resueltas_.end() && it->second.imagen.preparada;
       if (!sm_virtual_valida_ || !capaz || !mundo) {
         ++sm_lecturas_incapaces_;
-        SombraMinimoDiferencia(!sm_virtual_valida_ ? "se muestrea la textura de los coches solos y la del mundo ya es de "
-                                                     "otro ciclo (el dato es el pixel shader)"
-                               : !capaz ? "un pixel shader sin tfetch2DSombraMin muestrea la textura de los coches solos "
-                                          "(el dato es su numero)"
-                                        : "no esta la textura del mundo (el dato es el pixel shader)",
+        SombraMinimoDiferencia(!sm_virtual_valida_ ? "the cars-only texture is sampled and the world one is already from "
+                                                     "another cycle (the value is the pixel shader)"
+                               : !capaz ? "a pixel shader without tfetch2DSombraMin samples the cars-only texture "
+                                          "(the value is its number)"
+                                        : "the world texture is missing (the value is the pixel shader)",
                                ps);
         return nullptr;
       }
@@ -2969,13 +2969,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     // without surprises.
     if (sm_estado_ != kSmLibre) {
       ++sm_lecturas_a_destiempo_;
-      SombraMinimoNoApto("la textura de los coches se muestrea entre las dos resoluciones (el dato es el pixel shader)",
+      SombraMinimoNoApto("the car texture is sampled between the two resolves (the value is the pixel shader)",
                          ps);
     }
     if (!capaz) {
       ++sm_lecturas_incapaces_;
-      SombraMinimoNoApto("un pixel shader sin tfetch2DSombraMin muestrea la textura de los coches: biblioteca sin el "
-                         "minimo? (el dato es su numero)",
+      SombraMinimoNoApto("a pixel shader without tfetch2DSombraMin samples the car texture: library without the "
+                         "minimum? (the value is its number)",
                          ps);
       return nullptr;
     }
@@ -3149,14 +3149,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (!area_util_global_apagada_) {
       area_util_global_apagada_ = true;
       borrar_area_util_ = false;
-      REXLOG_ERROR("[nativo] C2 borrar area util: DIFERENCIA, no se pudo completar la banda de {}x{} desde la fila {} "
-                   "({}). Apagado para el resto de la sesion: se borra la imagen entera",
-                   imagen.ancho, imagen.alto, u.banda_desde, misma_imagen ? "fallo el pase" : "la imagen cambio");
+      REXLOG_ERROR("[nativo] C2 clear useful area: DIFFERENCE, could not complete the {}x{} band from row {} "
+                   "({}). Off for the rest of the session: the whole image is cleared",
+                   imagen.ancho, imagen.alto, u.banda_desde, misma_imagen ? "the pass failed" : "the image changed");
     }
   }
 
-  // Every 20 s, per render target, what was cleared against what was used (C2 borrados por destino).
-  // Clears cost ~0.075 ms real per Mpixel (measured, see "C2 borrados saltados").
+  // Every 20 s, per render target, what was cleared against what was used (C2 clears per render target).
+  // Clears cost ~0.075 ms real per Mpixel (measured, see "C2 skipped clears").
   void InformeBorrados() {
     diag_borrados_ = REXCVAR_GET(nfsmw_nativo_diag_borrados);
     borrar_area_util_ = REXCVAR_GET(nfsmw_nativo_borrar_area_util) && !area_util_global_apagada_;
@@ -3198,25 +3198,25 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       std::string lista;
       for (const Fila& fila : filas) {
         const UsoBorrado& u = *fila.uso;
-        lista += fmt::format(" | {:03X}/{} {} {}x{}{}: {:.2f} por fotograma, {:.2f} Mpixeles borrados, {:.2f} usados "
-                             "(hasta {}x{})",
-                             u.base, u.pitch, u.profundidad ? "prof" : "color", fila.ancho, fila.alto,
-                             u.en_pase ? " (por pase, ZCULL)" : "", double(u.borrados) / double(fotogramas),
+        lista += fmt::format(" | {:03X}/{} {} {}x{}{}: {:.2f} per frame, {:.2f} Mpixels cleared, {:.2f} used "
+                             "(up to {}x{})",
+                             u.base, u.pitch, u.profundidad ? "depth" : "color", fila.ancho, fila.alto,
+                             u.en_pase ? " (by pass, ZCULL)" : "", double(u.borrados) / double(fotogramas),
                              fila.borrado, fila.usado, u.max_ancho, u.max_alto);
       }
-      NFSMW_INFORME_ANILLO("[nativo] C2 borrados por destino (build 184, {} fotogramas): {:.2f} Mpixeles borrados y {:.2f} "
-                           "usados por fotograma (sobran {:.2f}: ~{:.2f} ms reales){}",
+      NFSMW_INFORME_ANILLO("[nativo] C2 clears per render target (build 184, {} frames): {:.2f} Mpixels cleared and {:.2f} "
+                           "used per frame (excess {:.2f}: ~{:.2f} ms real){}",
                            fotogramas, total_borrado, total_usado, total_borrado - total_usado,
                            (total_borrado - total_usado) * 0.075, lista);
     }
     if (area_util_borrados_ || area_util_fallos_) {  // nfsmw_nativo_borrar_area_util
       const double mp =
           double(area_util_pixeles_ - area_util_pixeles_previos_) / 1e6 / double(std::max<uint64_t>(fotogramas, 1));
-      NFSMW_INFORME_ANILLO("[nativo] C2 borrar area util (build 184): {} borrados de color recortados desde el arranque; "
-                           "{:.2f} Mpixeles por fotograma sin borrar (~{:.2f} ms reales); {} bandas completadas antes de "
-                           "un uso; {} fallos{}",
+      NFSMW_INFORME_ANILLO("[nativo] C2 clear useful area (build 184): {} color clears trimmed since startup; "
+                           "{:.2f} Mpixels per frame not cleared (~{:.2f} ms real); {} bands completed before "
+                           "a use; {} failures{}",
                            area_util_borrados_, mp, mp * 0.075, area_util_completadas_, area_util_fallos_,
-                           area_util_global_apagada_ ? " *** APAGADO POR LA GUARDIA ***" : " (0 = la imagen es la misma)");
+                           area_util_global_apagada_ ? " *** TURNED OFF BY THE GUARD ***" : " (0 = the image is the same)");
       area_util_pixeles_previos_ = area_util_pixeles_;
     }
     for (auto& [imagen, u] : uso_borrados_) {
@@ -3247,9 +3247,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       ++perezosa_lecturas_tardias_;
       if (!perezosa_apagada_) {
         perezosa_apagada_ = true;
-        REXLOG_ERROR("[nativo] C2 profundidad perezosa: DIFERENCIA, un dibujo muestrea {:08X} despues de tirar su "
-                     "copia (lectura tardia: lee una profundidad vieja). Apagada para el resto de la sesion: se "
-                     "copia siempre",
+        REXLOG_ERROR("[nativo] C2 lazy depth: DIFFERENCE, a draw samples {:08X} after its copy was "
+                     "dropped (late read: it reads a stale depth). Off for the rest of the session: it "
+                     "always copies",
                      direccion);
       }
     }
@@ -3520,7 +3520,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
           Preparar(nueva.imagen);
           frontales_imagenes_.push_back(nueva);
           libre = int32_t(frontales_imagenes_.size()) - 1;
-          REXLOG_INFO("[nativo] C2 frontal perezoso: imagen de repuesto {} de {}x{} para el destino del frontal",
+          REXLOG_INFO("[nativo] C2 lazy front buffer: spare image {} of size {}x{} for the front buffer's render target",
                       frontales_imagenes_.size(), destino.ancho, destino.alto);
         }
       }
@@ -3554,8 +3554,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       ++frontal_lecturas_tardias_;
       if (!frontal_apagado_) {
         frontal_apagado_ = true;
-        REXLOG_ERROR("[nativo] C2 frontal perezoso: DIFERENCIA, un dibujo muestrea el frontal {:08X} sin su ultima "
-                     "copia. Apagado para el resto de la sesion: se copia siempre",
+        REXLOG_ERROR("[nativo] C2 lazy front buffer: DIFFERENCE, a draw samples front buffer {:08X} without its last "
+                     "copy. Off for the rest of the session: it always copies",
                      direccion);
       }
     }
@@ -3571,8 +3571,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       ++frontal_lecturas_tardias_;
       if (!frontal_apagado_) {
         frontal_apagado_ = true;
-        REXLOG_ERROR("[nativo] C2 frontal perezoso: DIFERENCIA, el Swap pinta el frontal {:08X} sin su ultima copia. "
-                     "Apagado para el resto de la sesion: se copia siempre",
+        REXLOG_ERROR("[nativo] C2 lazy front buffer: DIFFERENCE, the Swap draws front buffer {:08X} without its last copy. "
+                     "Off for the rest of the session: it always copies",
                      direccion);
       }
     }
@@ -3753,8 +3753,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (ranura.estadisticas.size() >= kEstadisticasPorRanura) {
       ++estadisticas_sin_sitio_;
       if (estadisticas_sin_sitio_ % 200 == 1) {
-        REXLOG_WARN("[nativo] C2: sin sitio para estadisticas de pasada ({} veces): el trabajo lleva mas de {} "
-                    "pases", estadisticas_sin_sitio_, kEstadisticasPorRanura);
+        REXLOG_WARN("[nativo] C2: no room for pass statistics ({} times): the work has more than {} "
+                    "passes", estadisticas_sin_sitio_, kEstadisticasPorRanura);
       }
       return UINT32_MAX;
     }
@@ -3780,7 +3780,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (ranura.estadisticas_dibujo.size() >= kEstadisticasDibujoPorRanura) {
       ++estadisticas_dibujo_sin_sitio_;
       if (estadisticas_dibujo_sin_sitio_ % 2000 == 1) {
-        REXLOG_WARN("[nativo] C2: sin sitio para estadisticas por dibujo ({} veces)",
+        REXLOG_WARN("[nativo] C2: no room for per-draw statistics ({} times)",
                     estadisticas_dibujo_sin_sitio_);
       }
       return UINT32_MAX;
@@ -3803,7 +3803,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   bool Rechazar(uint32_t causa, const char* texto) {
     ++rechazos_;
     if (avisados_.insert(causa).second) {
-      REXLOG_WARN("[nativo] C2: {} (causa {})", texto, causa);
+      REXLOG_WARN("[nativo] C2: {} (cause {})", texto, causa);
     }
     return false;
   }
@@ -3816,7 +3816,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const auto orden = static_cast<xenos::Endian>(reg.fetch_vertices[1] & 0x3);
     const uint32_t tamano = (reg.fetch_vertices[1] >> 2) & 0xFFFFFF;
     if (tipo != uint32_t(xenos::FetchConstantType::kVertex) || tamano != 3 * 2) {
-      return Rechazar(5, "vertices de la copia en un formato no soportado");
+      return Rechazar(5, "copy vertices in an unsupported format");
     }
     const uint8_t* vertices = memoria_->TranslatePhysical(direccion * 4);
     const float medio_pixel =
@@ -3859,7 +3859,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     y0 = std::clamp(y0, arriba, abajo);
     x1 = std::clamp(x1, izquierda, derecha);
     y1 = std::clamp(y1, arriba, abajo);
-    // D3D9 alinea a 8 (kResolveAlignmentPixels).
+    // D3D9 aligns to 8 (kResolveAlignmentPixels).
     x0 &= ~int32_t(7);
     y0 &= ~int32_t(7);
     x1 = (x1 + 7) & ~int32_t(7);
@@ -3868,14 +3868,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     x0 = std::min(x0, pitch_alineado);
     x1 = std::min(x1, pitch_alineado);
     if (x0 >= x1 || y0 >= y1) {
-      return Rechazar(6, "rectangulo de copia vacio");
+      return Rechazar(6, "empty copy rectangle");
     }
     return true;
   }
 
   Imagen* ObtenerDestino(uint32_t base, uint32_t formato, uint32_t pitch) {
     if (!pitch) {
-      Rechazar(7, "destino de render con pitch 0");
+      Rechazar(7, "render target with pitch 0");
       return nullptr;
     }
     const uint64_t clave = (uint64_t(base) << 20) | (uint64_t(formato) << 16) | pitch;
@@ -3899,12 +3899,12 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (!Crear(imagen, pitch, alto,
                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
-      Rechazar(8, "no se pudo crear un destino de render");
+      Rechazar(8, "could not create a render target");
       return nullptr;
     }
     const VkClearColorValue diag = ColorDiagnostico(base, formato, pitch);
-    REXLOG_INFO("[nativo] C2: destino de render base {:03X}, formato {}, {}x{} (color de "
-                "diagnostico {:02X}{:02X}{:02X})",
+    REXLOG_INFO("[nativo] C2: render target base {:03X}, format {}, {}x{} (diagnostic "
+                "color {:02X}{:02X}{:02X})",
                 base, formato, pitch, alto, uint32_t(std::lround(diag.float32[0] * 255.0f)),
                 uint32_t(std::lround(diag.float32[1] * 255.0f)),
                 uint32_t(std::lround(diag.float32[2] * 255.0f)));
@@ -3913,7 +3913,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
 
   Imagen* ObtenerProfundidad(uint32_t base, uint32_t formato, uint32_t pitch) {
     if (!pitch || formato_profundidad_ == VK_FORMAT_UNDEFINED) {
-      Rechazar(11, "sin destino de profundidad (pitch 0 o formato no disponible)");
+      Rechazar(11, "no depth render target (pitch 0 or format not available)");
       return nullptr;
     }
     const uint64_t clave = (uint64_t(base) << 20) | (uint64_t(formato) << 16) | pitch;
@@ -3945,7 +3945,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         alto_imagen = std::max<uint32_t>(64, ((alto * escala_sombras_ / 100) + 15) & ~15u);
         ancho_guest = pitch;
         alto_guest = alto;
-        REXLOG_INFO("[nativo] C2: mapa de sombras a {} %: se dibuja y se resuelve a {}x{} (el juego pide {}x{})",
+        REXLOG_INFO("[nativo] C2: shadow map at {} %: drawn and resolved at {}x{} (the game asks for {}x{})",
                     escala_sombras_, ancho_imagen, alto_imagen, pitch, alto);
       }
     }
@@ -4009,13 +4009,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     // Source of the depth copies (CopiarProfundidad): TRANSFER_SRC is required.
     // SAMPLED: with nfsmw_nativo_resolver_sin_copia this image can end up being the resolved texture.
     if (!Crear(imagen, ancho_imagen, alto_imagen, uso_profundidad, formato_profundidad_)) {
-      Rechazar(12, "no se pudo crear un destino de profundidad");
+      Rechazar(12, "could not create a depth render target");
       return nullptr;
     }
     imagen.ancho_guest = ancho_guest;
     imagen.alto_guest = alto_guest;
     imagen.admite_destino_de_copia = con_transfer_dst;
-    REXLOG_INFO("[nativo] C2: destino de profundidad base {:03X}, formato {}, {}x{}", base,
+    REXLOG_INFO("[nativo] C2: depth render target base {:03X}, format {}, {}x{}", base,
                 formato, pitch, alto);
     return &profundidades_.emplace(clave, imagen).first->second;
   }
@@ -4023,7 +4023,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   Resuelta* ObtenerResuelta(uint32_t base, uint32_t ancho, uint32_t alto, uint32_t formato,
                             bool intercambio_rb, VkFormat formato_host = kFormatoColor) {
     if (!ancho || !alto) {
-      Rechazar(9, "copia a una textura de tamano 0");
+      Rechazar(9, "copy to a texture of size 0");
       return nullptr;
     }
     auto it = resueltas_.find(base);
@@ -4062,13 +4062,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | uso_destino,
                formato_host)) {
-      Rechazar(10, "no se pudo crear una textura resuelta");
+      Rechazar(10, "could not create a resolved texture");
       return nullptr;
     }
     resuelta.formato_guest = formato;
     resuelta.intercambio_rb = intercambio_rb;
     resuelta.imagen.intercambio_rb = intercambio_rb;
-    REXLOG_INFO("[nativo] C2: textura resuelta en {:08X}, {}x{}, formato {}", base, ancho, alto,
+    REXLOG_INFO("[nativo] C2: resolved texture at {:08X}, {}x{}, format {}", base, ancho, alto,
                 formato);
     if (dibujos_) {
       dibujos_->InvalidarTexturas();  // that address is now sampled from the resolved texture
@@ -4101,7 +4101,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const bool sin_copia = (segundos / alternar) % 2 == 1;
     if (sin_copia != alternancia_anotada_) {
       alternancia_anotada_ = sin_copia;
-      REXLOG_INFO("[nativo] C2 resolucion: {}", sin_copia ? "sin copia (intercambio)" : "copiando");
+      REXLOG_INFO("[nativo] C2 resolve: {}", sin_copia ? "without copy (swap)" : "copying");
     }
     return sin_copia;
   }
@@ -4221,14 +4221,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     }
     // The content does not need duplicating, only to be in the render target: swapping the two images
     // back puts it where it belongs without moving a byte. The resolved texture stays lent until the next
-    // resolve to that address; 'prestadas leidas' checks that nobody looks at it in the meantime.
+    // resolve to that address; 'lent reads' checks that nobody looks at it in the meantime.
     // Both must already be in GENERAL: the swap moves the image, not its layout, and preparing after the
     // swap would put the barrier on the wrong image.
     /*
      * Why the restore does not swap.
      *
      * Restores copy 2.56 Mpixels per frame = 2.00 real ms, and 17 log reports in a row show a saving of
-     * 0.00. This path exists precisely to avoid the copy, and the counter says "0 por intercambio": it
+     * 0.00. This path exists precisely to avoid the copy, and the counter says "0 by swapping": it
      * never activates. It has three conditions, so each one is counted instead of guessing which one
      * fails. Three uint64 increments on a path that already copies 10 MB: zero cost.
      */
@@ -4355,15 +4355,15 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
 
   // --- nfsmw_nativo_sombra_minimo (see the cvar comment) --------------------------------------------------
 
-  // A failure while applying may change the image of this very frame: DIFERENCIA in the log and it
+  // A failure while applying may change the image of this very frame: DIFFERENCE in the log and it
   // switches off for the session. Textures that already hold only the cars keep being served with the
   // minimum until they are written again.
   void SombraMinimoDiferencia(const char* motivo, uint32_t dato) {
     ++sm_diferencias_;
     if (sm_fase_ != kSmApagada) {
       sm_fase_ = kSmApagada;
-      REXLOG_ERROR("[nativo] C2 sombra por minimo: DIFERENCIA ({}; dato {:08X}). Se apaga para la sesion: el mapa de "
-                   "sombras se vuelve a copiar como antes",
+      REXLOG_ERROR("[nativo] C2 shadow minimum: DIFFERENCE ({}; value {:08X}). Turned off for the session: the shadow "
+                   "map is copied again as before",
                    motivo, dato);
     }
   }
@@ -4372,14 +4372,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   void SombraMinimoNoApto(const char* motivo, uint32_t dato) {
     if (sm_fase_ != kSmApagada) {
       sm_fase_ = kSmApagada;
-      REXLOG_WARN("[nativo] C2 sombra por minimo: no se aplica en esta sesion ({}; dato {:08X}); el mapa de sombras se "
-                  "sigue copiando como siempre",
+      REXLOG_WARN("[nativo] C2 shadow minimum: not applied in this session ({}; value {:08X}); the shadow map is "
+                  "still copied as always",
                   motivo, dato);
     }
   }
 
   // A failure within the current cycle. If the render target was already cleared (applying) it is a
-  // DIFERENCIA; otherwise either the minimum does not work for this game (permanent) or the cycle simply
+  // DIFFERENCE; otherwise either the minimum does not work for this game (permanent) or the cycle simply
   // does not count (transient: menus, loading).
   void SombraMinimoFalloCiclo(const char* motivo, uint32_t dato, bool permanente) {
     sm_ciclo_limpio_ = false;
@@ -4405,7 +4405,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const bool con_minimo = (segundos / alternar) % 2 == 0;
     if (con_minimo != sm_tramo_anotado_) {
       sm_tramo_anotado_ = con_minimo;
-      REXLOG_INFO("[nativo] C2 sombra por minimo (alternancia): {}", con_minimo ? "con el minimo" : "copiando");
+      REXLOG_INFO("[nativo] C2 shadow minimum (alternation): {}", con_minimo ? "with the minimum" : "copying");
     }
     return con_minimo;
   }
@@ -4419,7 +4419,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     }
     if (!borrara) {
       if (sm_estado_ == kSmCoches && sm_ciclo_borrado_) {
-        SombraMinimoDiferencia("el destino con los coches solos se resuelve sin borrar", base);
+        SombraMinimoDiferencia("the render target with only the cars is resolved without a clear", base);
       }
       if (sm_estado_ != kSmLibre) {
         sm_limpios_seguidos_ = 0;  // the previous cycle did not close: count from scratch
@@ -4445,13 +4445,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     if (sm_ciclo_borrado_) {
       // The texture has just received only the cars: from here on it is sampled paired with the world.
       if (base != sm_coches_) {
-        SombraMinimoDiferencia("la resolucion de los coches va a otra textura", base);
+        SombraMinimoDiferencia("the cars' resolve goes to another texture", base);
         sm_coches_ = base;  // it holds only the cars: serve that one
       }
       sm_virtual_ = true;
       sm_virtual_valida_ = !sm_mundo_reescrito_;
       if (sm_mundo_reescrito_) {
-        SombraMinimoDiferencia("la textura del mundo se volvio a escribir dentro del ciclo", sm_mundo_);
+        SombraMinimoDiferencia("the world texture was written again within the cycle", sm_mundo_);
       }
       ++sm_ciclos_aplicados_;
       return;
@@ -4462,7 +4462,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       if (sm_fase_ == kSmAplicando) {
         // A cycle different from the learned one (split screen, another mode): it cannot be served.
         // Stop applying.
-        SombraMinimoNoApto("aparece un ciclo de mapa de sombras distinto del aprendido (el dato es su textura)", base);
+        SombraMinimoNoApto("a shadow map cycle different from the learned one appears (the value is its texture)", base);
         return;
       }
       sm_coches_ = base;  // learned (or changed): count again from zero
@@ -4473,8 +4473,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     sm_limpios_seguidos_ = (sm_ciclo_limpio_ && !sm_mundo_reescrito_) ? sm_limpios_seguidos_ + 1 : 0;
     if (sm_fase_ == kSmMirando && sm_encendido_ && sm_limpios_seguidos_ >= kSombraMinimoCiclos) {
       sm_fase_ = kSmAplicando;
-      REXLOG_INFO("[nativo] C2 sombra por minimo: APLICANDO tras {} ciclos limpios seguidos (destino {}x{}, mundo en "
-                  "{:08X}, coches en {:08X}): el pase de los coches se dibuja sobre el destino borrado y no se copia",
+      REXLOG_INFO("[nativo] C2 shadow minimum: APPLYING after {} clean cycles in a row (render target {}x{}, world at "
+                  "{:08X}, cars at {:08X}): the car pass is drawn on the cleared render target and nothing is copied",
                   sm_limpios_seguidos_, destino.ancho, destino.alto, sm_mundo_, sm_coches_);
     }
   }
@@ -4485,12 +4485,12 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   bool SombraMinimoEnVezDeRestaurar(Imagen& destino) {
     if (&destino != sm_destino_ciclo_ || sm_estado_ != kSmTrasMundo) {
       if (&destino == sm_destino_ciclo_ && sm_estado_ == kSmCoches) {
-        SombraMinimoFalloCiclo("el destino de los coches se restaura otra vez", destino.resuelta_base, false);
+        SombraMinimoFalloCiclo("the cars' render target is restored again", destino.resuelta_base, false);
       }
       return false;
     }
     if (destino.resuelta_base != sm_mundo_ciclo_) {
-      SombraMinimoFalloCiclo("el destino se restaura desde otra textura", destino.resuelta_base, false);
+      SombraMinimoFalloCiclo("the render target is restored from another texture", destino.resuelta_base, false);
       return false;
     }
     sm_estado_ = kSmCoches;
@@ -4515,7 +4515,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   // content mid-cycle. With the target already cleared, what gets copied is only the cars.
   void SombraMinimoCopiaDesde(const Imagen& origen) {
     if (&origen == sm_destino_ciclo_ && sm_estado_ != kSmLibre) {
-      SombraMinimoFalloCiclo("se copia del destino del mapa de sombras a mitad del ciclo", 0, false);
+      SombraMinimoFalloCiclo("a copy is made from the shadow map render target mid-cycle", 0, false);
     }
   }
 
@@ -4552,17 +4552,17 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const double fotogramas = double(presentados_ - presentados_informe_copias_);
     const double porFot = fotogramas > 0.0 ? 1.0 / fotogramas : 0.0;
     const double mp = double(sm_pixeles_ahorrados_ - sm_pixeles_ahorrados_previos_) / 1e6 * porFot;
-    static constexpr const char* kFases[3] = {"mirando", "APLICANDO", "apagada"};
+    static constexpr const char* kFases[3] = {"observing", "APPLYING", "off"};
     NFSMW_INFORME_ANILLO(
-        "[nativo] C2 sombra por minimo (build 184): fase {}; {} ciclos desde el arranque ({} limpios seguidos, {} "
-        "aplicados); {:.2f} Mpixeles por fotograma borrados en vez de copiados (~{:.2f} ms reales de copia menos y ~{:.2f} "
-        "de borrado mas); dibujos de los coches {} ({} no exactos); lecturas de {:08X} desde el arranque: {} con el mundo "
-        "de pareja, {} consigo misma, {} sin minimo, {} entre las dos resoluciones, {} sin tfetch2DSombraMin; "
-        "DIFERENCIAS {}{}",
+        "[nativo] C2 shadow minimum (build 184): phase {}; {} cycles since startup ({} clean in a row, {} "
+        "applied); {:.2f} Mpixels per frame cleared instead of copied (~{:.2f} ms real less copying and ~{:.2f} "
+        "more clearing); car draws {} ({} not exact); reads of {:08X} since startup: {} paired with the world, "
+        "{} with itself, {} without the minimum, {} between the two resolves, {} without tfetch2DSombraMin; "
+        "DIFFERENCES {}{}",
         kFases[sm_fase_ < 3 ? sm_fase_ : 2], sm_ciclos_, sm_limpios_seguidos_, sm_ciclos_aplicados_, mp, mp * 0.60,
         mp * 0.075, sm_dibujos_coches_, sm_dibujos_no_exactos_, sm_coches_, sm_lecturas_minimo_, sm_lecturas_si_misma_,
         sm_lecturas_normales_, sm_lecturas_a_destiempo_, sm_lecturas_incapaces_, sm_diferencias_,
-        sm_diferencias_ ? " *** LA IMAGEN PUEDE HABER CAMBIADO: ver el ERROR del log ***" : " (0 = la imagen es la misma)");
+        sm_diferencias_ ? " *** THE IMAGE MAY HAVE CHANGED: see the ERROR in the log ***" : " (0 = the image is the same)");
     sm_pixeles_ahorrados_previos_ = sm_pixeles_ahorrados_;
   }
 
@@ -4652,8 +4652,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
           !rex::ui::vulkan::util::CreateDedicatedAllocationImage(
               dispositivo_, info, rex::ui::vulkan::util::MemoryPurpose::kDeviceLocal, imagen.imagen,
               imagen.memoria)) {
-        REXLOG_ERROR("[nativo] C2: sin memoria en la GPU para un destino de {}x{} (formato {}) y soltar la cache "
-                     "no ha bastado",
+        REXLOG_ERROR("[nativo] C2: out of GPU memory for a {}x{} render target (format {}) and releasing the cache "
+                     "was not enough",
                      ancho, alto, uint32_t(formato));
         return false;
       }
@@ -4755,8 +4755,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       if (!imagen.admite_destino_de_copia && dibujos_) {
         if (!dibujos_->BorrarProfundidadEnPase(comandos, imagen, 1.0f, 0) &&
             ++borrados_en_pase_fallidos_ <= 8) {
-          REXLOG_WARN("[nativo] C2: NO se pudo preparar la profundidad {}x{} abriendo un pase de "
-                      "borrado (fallo {})",
+          REXLOG_WARN("[nativo] C2: could NOT prepare the {}x{} depth by opening a clear "
+                      "pass (failure {})",
                       imagen.ancho, imagen.alto, borrados_en_pase_fallidos_);
         }
       } else if (borrar_profundidad_) {
@@ -4844,7 +4844,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
      * opened), and the per-draw ones are only used one frame every 20 seconds.
      *
      * The reset comes before the first MarcarGpu, so its cost does not show up in any category of the
-     * breakdown: it is swallowed by the "hueco entre trabajos" (gap between submissions). Estimated at
+     * breakdown: it is swallowed by the "gap between submissions". Estimated at
      * 0.3-1.1 real ms per frame; the measured upper bound (the minimum gap over a whole session) is
      * 2.81 ms.
      *
@@ -4871,7 +4871,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const bool precisas = (segundos / alternar_marcas_s_) % 2 == 1;
       if (precisas != marcas_precisas_) {
         marcas_precisas_ = precisas;
-        REXLOG_INFO("[nativo] prueba de marcas: {} (trabajo {})", precisas ? "precisas" : "normales",
+        REXLOG_INFO("[nativo] timestamp test: {} (work {})", precisas ? "precise" : "normal",
                     generacion_comandos_);
       }
     }
@@ -4891,7 +4891,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
    * This was what prevented CPU and GPU from overlapping.
    *
    * It used to wait as well for every earlier slot still pending, so each frame drained the whole GPU
-   * before recording continued. That is why the report always said "trabajos solapados en la GPU 0",
+   * before recording continued. That is why the report always said "overlapping jobs on the GPU 0",
    * why adding a third slot changed nothing (it waited for all of them, however many there were) and
    * why the wait moved elsewhere instead of disappearing.
    *
@@ -5153,7 +5153,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       envio.commandBufferCount = n;
       envio.pCommandBuffers = bufers.data();
       {
-        const auto antes_candado = std::chrono::steady_clock::now();  // "C2: presentar" report
+        const auto antes_candado = std::chrono::steady_clock::now();  // "C2: present" report
         const auto cola = dispositivo_->AcquireQueue(familia_, 0);
         const auto antes_envio = std::chrono::steady_clock::now();
         if (dfn_.vkQueueSubmit(cola.queue(), 1, &envio, ranuras_[ranura_].fence) != VK_SUCCESS) {
@@ -5246,7 +5246,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     const auto ahora = std::chrono::steady_clock::now();
     if (ahora - ultimo_aviso_mosaico_ >= std::chrono::seconds(10)) {
       ultimo_aviso_mosaico_ = ahora;
-      REXLOG_INFO("[nativo] diag resueltas: {} en el fotograma (* = la del Swap):{}", bases.size(),
+      REXLOG_INFO("[nativo] resolved textures diag: {} in the frame (* = the Swap's):{}", bases.size(),
                   lista);
     }
     return true;
@@ -5281,7 +5281,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     uint32_t escritas = 0;
     for (const auto& [direccion, c] : orden) {
       if (++escritas > 48) {  // defensive cap: ~20 in a race, but a load can touch many more
-        lista += fmt::format(" (y {} direcciones mas)", orden.size() - 48);
+        lista += fmt::format(" (and {} more addresses)", orden.size() - 48);
         break;
       }
       const auto r = resueltas_.find(direccion);
@@ -5289,30 +5289,30 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       if (r != resueltas_.end()) {
         r->second.lecturas = 0;
       }
-      lista += fmt::format(" {:08X} {}x{}: {} copias, {} con dibujos ({:.1f} dibujos por copia), "
-                           "{:.2f} Mpixeles, {} lecturas{};",
+      lista += fmt::format(" {:08X} {}x{}: {} copies, {} with draws ({:.1f} draws per copy), "
+                           "{:.2f} Mpixels, {} reads{};",
                            direccion, c.ancho, c.alto, c.copias, c.con_dibujos,
                            c.copias ? double(c.dibujos) / double(c.copias) : 0.0,
                            double(c.pixeles) / 1e6, lecturas,
-                           c.copias && !lecturas ? " *** NADIE LA LEE ***" : "");
+                           c.copias && !lecturas ? " *** NOBODY READS IT ***" : "");
     }
     copias_por_destino_.clear();
-    NFSMW_INFORME_ANILLO("[nativo] C2 caras resueltas desde el informe anterior:{}", lista);
+    NFSMW_INFORME_ANILLO("[nativo] C2 faces resolved since the previous report:{}", lista);
     if (intercambios_ || restauraciones_) {
       // Restores are the verdict. If they go up, the swap without a clear saves nothing: the same copy is
       // paid, just later.
-      NFSMW_INFORME_ANILLO("[nativo] C2 resoluciones sin copia: {} intercambios ({} sin borrado, {} de COLOR) y {} "
-                  "restauraciones desde el arranque -> {}",
+      NFSMW_INFORME_ANILLO("[nativo] C2 resolves without copy: {} swaps ({} without a clear, {} of COLOR) and {} "
+                  "restores since startup -> {}",
                   intercambios_, intercambios_sin_borrado_, intercambios_color_, restauraciones_,
-                  restauraciones_ == 0 ? "ni una restauracion: el ahorro es limpio"
-                                       : "*** hay restauraciones: el ahorro NO es limpio ***");
+                  restauraciones_ == 0 ? "not a single restore: the saving is clean"
+                                       : "*** there are restores: the saving is NOT clean ***");
       // nfsmw_nativo_resolver_contenido_valido. In the menu, one per frame with shadows; in a race, 0. The
-      // "sin origen" count is resolves of a render target whose content is no longer anywhere (must be
+      // "without a source" count is resolves of a render target whose content is no longer anywhere (must be
       // 0); the other count is the resolves that, with the setting off, would read the stale image.
       if (restauraciones_para_resolver_ || resolver_sin_origen_ || resolver_contenido_viejo_) {
-        NFSMW_INFORME_ANILLO("[nativo] C2 resolver con contenido valido (build 193): {} veces se trajo de vuelta el "
-                             "contenido antes de resolver (antes el resolve leia la imagen del fotograma anterior: el "
-                             "parpadeo del menu); {} sin origen; {} leidas como la 192 (ajuste apagado)",
+        NFSMW_INFORME_ANILLO("[nativo] C2 resolve with valid content (build 193): {} times the content was brought back "
+                             "before resolving (previously the resolve read the previous frame's image: the "
+                             "menu flicker); {} without a source; {} read as in build 192 (setting off)",
                              restauraciones_para_resolver_, resolver_sin_origen_, resolver_contenido_viejo_);
       }
       // And what they cost per frame, which is the only thing that decides. 0.78 real ms per Mpixel
@@ -5322,20 +5322,20 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const double mp_rest = double(pixeles_restaurados_ - pixeles_restaurados_previos_) / 1e6;
       const double mp_ahorro =
           double(pixeles_restaurar_ahorrados_ - pixeles_restaurar_ahorrados_previos_) / 1e6;
-      NFSMW_INFORME_ANILLO("[nativo] C2 restauraciones por fotograma: {:.2f} Mpixeles copiados ({:.2f} ms "
-                  "reales) y {:.2f} Mpixeles ahorrados ({:.2f} ms); desde el arranque: {} recortadas "
-                  "al area util y {} por intercambio (prestadas leidas {}{})",
+      NFSMW_INFORME_ANILLO("[nativo] C2 restores per frame: {:.2f} Mpixels copied ({:.2f} ms "
+                  "real) and {:.2f} Mpixels saved ({:.2f} ms); since startup: {} trimmed "
+                  "to the useful area and {} by swapping (lent reads {}{})",
                   mp_rest * porFot, mp_rest * porFot * 0.78, mp_ahorro * porFot,
                   mp_ahorro * porFot * 0.78, restauraciones_recortadas_, prestamos_,
                   prestadas_leidas_,
-                  prestadas_leidas_ ? " *** EL PRESTAMO NO ES SEGURO ***" : ", limpio");
+                  prestadas_leidas_ ? " *** THE LENDING IS NOT SAFE ***" : ", clean");
       // And why the restore does not swap, which is what has to be known to fix it.
       if (no_swap_sin_transfer_dst_ || no_swap_destino_sin_preparar_ ||
           no_swap_resuelta_sin_preparar_ || no_swap_tamanos_distintos_) {
         NFSMW_INFORME_ANILLO(
-            "[nativo] C2 restaurar por intercambio, veces que NO se pudo: {} sin TRANSFER_DST, "
-            "{} con el destino sin preparar, {} con la resuelta sin preparar; y de las que si "
-            "cumplian, {} tenian tamanos distintos (esas romperian la imagen)",
+            "[nativo] C2 restore by swapping, times it could NOT be done: {} without TRANSFER_DST, "
+            "{} with the render target unprepared, {} with the resolved texture unprepared; and of the ones that "
+            "qualified, {} had different sizes (those would break the image)",
             no_swap_sin_transfer_dst_, no_swap_destino_sin_preparar_,
             no_swap_resuelta_sin_preparar_, no_swap_tamanos_distintos_);
       }
@@ -5348,8 +5348,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const double fotogramas = double(presentados_ - presentados_informe_copias_);
       const double porFot = fotogramas > 0.0 ? 1.0 / fotogramas : 0.0;
       const double mp = double(pixeles_borrados_saltados_ - pixeles_borrados_saltados_previos_) / 1e6;
-      NFSMW_INFORME_ANILLO("[nativo] C2 borrados saltados: {} de color y {} de profundidad desde el arranque; "
-                  "{:.2f} Mpixeles por fotograma sin borrar ({:.2f} ms reales)",
+      NFSMW_INFORME_ANILLO("[nativo] C2 skipped clears: {} color and {} depth since startup; "
+                  "{:.2f} Mpixels per frame not cleared ({:.2f} ms real)",
                   borrados_saltados_, borrados_saltados_profundidad_, mp * porFot,
                   mp * porFot * 0.075);
       pixeles_borrados_saltados_previos_ = pixeles_borrados_saltados_;
@@ -5360,9 +5360,9 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const double fotogramas = double(presentados_ - presentados_informe_copias_);
       const double porFot = fotogramas > 0.0 ? 1.0 / fotogramas : 0.0;
       const double mp = double(pixeles_borrados_inutiles_ - pixeles_borrados_inutiles_previos_) / 1e6;
-      NFSMW_INFORME_ANILLO("[nativo] C2 borrados que no sirvieron para nada (el destino cambio de contenido sin "
-                  "que se dibujara nada): {} desde el arranque; {:.2f} Mpixeles por fotograma "
-                  "({:.2f} ms reales)",
+      NFSMW_INFORME_ANILLO("[nativo] C2 clears that served no purpose (the render target changed content without "
+                  "anything being drawn): {} since startup; {:.2f} Mpixels per frame "
+                  "({:.2f} ms real)",
                   borrados_inutiles_, mp * porFot, mp * porFot * 0.075);
       pixeles_borrados_inutiles_previos_ = pixeles_borrados_inutiles_;
     }
@@ -5371,40 +5371,40 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const double fotogramas = double(presentados_ - presentados_informe_copias_);
       const double porFot = fotogramas > 0.0 ? 1.0 / fotogramas : 0.0;
       const double mp = double(perezosa_pixeles_ahorrados_ - perezosa_pixeles_ahorrados_previos_) / 1e6;
-      NFSMW_INFORME_ANILLO("[nativo] C2 profundidad perezosa (build 184): {} resoluciones de profundidad aplazadas "
-                           "desde el arranque; {} grabadas al muestrearlas, {} antes de volver a escribir su origen o "
-                           "de otro resolve, {} sustituidas por un intercambio y {} tiradas sin copiar (nadie las "
-                           "muestreo): {:.2f} Mpixeles por fotograma sin copiar (~{:.2f} ms reales); lecturas "
-                           "tardias {}{}",
+      NFSMW_INFORME_ANILLO("[nativo] C2 lazy depth (build 184): {} depth resolves deferred "
+                           "since startup; {} recorded when sampled, {} before their source was written again or "
+                           "before another resolve, {} replaced by a swap and {} dropped without copying (nobody "
+                           "sampled them): {:.2f} Mpixels per frame not copied (~{:.2f} ms real); late "
+                           "reads {}{}",
                            perezosa_aplazadas_, perezosa_copiadas_lectura_, perezosa_copiadas_escritura_,
                            perezosa_sustituidas_, perezosa_tiradas_, mp * porFot, mp * porFot * 0.60,
                            perezosa_lecturas_tardias_,
-                           perezosa_apagada_ ? " *** APAGADA POR LA GUARDIA ***" : " (0 = la imagen es la misma)");
+                           perezosa_apagada_ ? " *** TURNED OFF BY THE GUARD ***" : " (0 = the image is the same)");
       perezosa_pixeles_ahorrados_previos_ = perezosa_pixeles_ahorrados_;
     }
     if (frontal_aplazadas_ || frontal_lecturas_tardias_) {  // nfsmw_nativo_frontal_perezoso
       const double fotogramas = double(presentados_ - presentados_informe_copias_);
       const double porFot = fotogramas > 0.0 ? 1.0 / fotogramas : 0.0;
       const double mp = double(frontal_pixeles_ahorrados_ - frontal_pixeles_ahorrados_previos_) / 1e6;
-      NFSMW_INFORME_ANILLO("[nativo] C2 frontal perezoso (build 184): {} copias a frontales aplazadas desde el arranque; "
-                           "Swaps pintados desde el destino {} y desde una imagen retenida {}; {} borrados sobre una "
-                           "imagen de repuesto ({} sin repuesto); grabadas: {} al muestrearlas, {} antes de volver a "
-                           "escribir el destino u otro resolve, {} en el Swap (FXAA, sin rampa u otra salida); {} tiradas "
-                           "sin copiar (otro resolve las tapa enteras): {:.2f} Mpixeles por fotograma sin copiar (~{:.2f} "
-                           "ms reales); {} imagenes de repuesto; lecturas tardias {}{}",
+      NFSMW_INFORME_ANILLO("[nativo] C2 lazy front buffer (build 184): {} copies to front buffers deferred since startup; "
+                           "Swaps drawn from the render target {} and from a retained image {}; {} clears onto a "
+                           "spare image ({} without a spare); recorded: {} when sampled, {} before the render target was "
+                           "written again or another resolve, {} at the Swap (FXAA, no ramp or another output); {} dropped "
+                           "without copying (another resolve covers them entirely): {:.2f} Mpixels per frame not copied (~{:.2f} "
+                           "ms real); {} spare images; late reads {}{}",
                            frontal_aplazadas_, frontal_pintadas_destino_, frontal_pintadas_retenida_,
                            frontal_rotaciones_, frontal_sin_repuesto_, frontal_copiadas_lectura_,
                            frontal_copiadas_escritura_, frontal_copiadas_swap_, frontal_sustituidas_, mp * porFot,
                            mp * porFot * 0.60, frontales_imagenes_.size(), frontal_lecturas_tardias_,
-                           frontal_apagado_ ? " *** APAGADO POR LA GUARDIA ***" : " (0 = la imagen es la misma)");
+                           frontal_apagado_ ? " *** TURNED OFF BY THE GUARD ***" : " (0 = the image is the same)");
       frontal_pixeles_ahorrados_previos_ = frontal_pixeles_ahorrados_;
     }
     InformeSombraMinimo();  // nfsmw_nativo_sombra_minimo
     InformeBorrados();  // nfsmw_nativo_diag_borrados, every 20 s
     presentados_informe_copias_ = presentados_;
     if (sin_intercambio_[0] || sin_intercambio_[1] || sin_intercambio_[2]) {
-      NFSMW_INFORME_ANILLO("[nativo] C2 copias de profundidad sin intercambiar desde el informe anterior: {} porque la "
-                  "orden no borra el destino, {} porque no se resuelve entero, {} porque no se pudo",
+      NFSMW_INFORME_ANILLO("[nativo] C2 depth copies not swapped since the previous report: {} because the "
+                  "command does not clear the render target, {} because it is not resolved whole, {} because the swap failed",
                   sin_intercambio_[0], sin_intercambio_[1], sin_intercambio_[2]);
       sin_intercambio_ = {};
     }
@@ -5455,13 +5455,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
               dispositivo_, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
               rex::ui::vulkan::util::MemoryPurpose::kReadback, lectura.bufer, lectura.memoria, &tipo)) {
         lectura = Lectura{};
-        Rechazar(16, "no se pudo crear un bufer de lectura de una textura resuelta");
+        Rechazar(16, "could not create a readback buffer for a resolved texture");
         return;
       }
       void* mapeado = nullptr;
       if (dfn_.vkMapMemory(device_, lectura.memoria, 0, VK_WHOLE_SIZE, 0, &mapeado) != VK_SUCCESS) {
         DestruirLectura(lectura);
-        Rechazar(16, "no se pudo crear un bufer de lectura de una textura resuelta");
+        Rechazar(16, "could not create a readback buffer for a resolved texture");
         return;
       }
       lectura.datos = static_cast<uint8_t*>(mapeado);
@@ -5478,8 +5478,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
                                     reg.rb_copy_dest_pitch & 0x3FFF,
                                     (reg.rb_copy_dest_pitch >> 16) & 0x3FFF, reg.rb_copy_dest_info});
     if (lecturas_hechas_++ == 0) {
-      REXLOG_INFO("[nativo] C2: lectura de vuelta de texturas resueltas de hasta {} texels (la "
-                  "primera: {:08X}, {}x{})",
+      REXLOG_INFO("[nativo] C2: readback of resolved textures of up to {} texels (the "
+                  "first: {:08X}, {}x{})",
                   maximo, reg.rb_copy_dest_base, ancho, alto);
     }
   }
@@ -5494,7 +5494,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       for (auto it = lecturas_por_destino_.begin(); it != lecturas_por_destino_.end();) {
         DestinoLectura& d = it->second;
         if (!d.copias) {
-          it = lecturas_por_destino_.erase(it);  // no ha vuelto a aparecer
+          it = lecturas_por_destino_.erase(it);  // it has not shown up again
           continue;
         }
         lista += fmt::format(" {:08X} {}x{} {}/{};", d.base, d.ancho, d.alto, d.copias - d.saltadas,
@@ -5504,7 +5504,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         ++it;
       }
       if (!lista.empty()) {
-        NFSMW_INFORME_ANILLO("[nativo] C2 lecturas de vuelta por destino (hechas/copias):{}", lista);
+        NFSMW_INFORME_ANILLO("[nativo] C2 readbacks per render target (done/copies):{}", lista);
       }
       informe_lecturas_ = antes_lecturas;
     }
@@ -5590,7 +5590,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     // Without it, always slot 0: it waits for the previous output.
     const uint32_t s = salida_sin_espera_ ? (salida_actual_ + 1) % kRanurasSalida : 0;
     if (salidas_pendientes_[s]) {
-      const auto antes_espera = std::chrono::steady_clock::now();  // "C2: presentar" report
+      const auto antes_espera = std::chrono::steady_clock::now();  // "C2: present" report
       dfn_.vkWaitForFences(device_, 1, &fences_salida_[s], VK_TRUE, UINT64_MAX);
       ns_espera_salida_ += Ns(antes_espera, std::chrono::steady_clock::now());
       ++esperas_salida_;
@@ -5606,13 +5606,13 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
         posproceso_ = nfsmw::ajustes::LeerPosproceso();
         RecalcularRampa();
         const auto& p = posproceso_;
-        REXLOG_INFO("[nativo] C2: posproceso {}: brillo {:.2f}, contraste {:.2f}, saturacion {:.2f}, vibracion {:.2f}, "
-                    "temperatura {:.2f}, gamma {:.2f}, tinte {:.2f}/{:.2f}/{:.2f} al {:.2f}, vineta {:.2f}, lineas "
+        REXLOG_INFO("[nativo] C2: post-processing {}: brightness {:.2f}, contrast {:.2f}, saturation {:.2f}, vibrance {:.2f}, "
+                    "temperature {:.2f}, gamma {:.2f}, tint {:.2f}/{:.2f}/{:.2f} at {:.2f}, vignette {:.2f}, scanlines "
                     "{:.2f}; {}",
-                    p.activo ? "encendido" : "apagado", p.brillo, p.contraste, p.saturacion, p.vibracion,
+                    p.activo ? "on" : "off", p.brillo, p.contraste, p.saturacion, p.vibracion,
                     p.temperatura, p.gamma, p.tinte_r, p.tinte_g, p.tinte_b, p.tinte, p.vineta, p.lineas,
-                    graduacion_ ? "con trabajo por pixel (saturacion, vibracion, vineta o lineas)"
-                                : "todo en la tabla, sin trabajo por pixel");
+                    graduacion_ ? "with per-pixel work (saturation, vibrance, vignette or scanlines)"
+                                : "all in the table, no per-pixel work");
       }
     }
     // The gamma ramp, if it changed since this slot's last output (the GPU is no longer reading it).
@@ -5703,7 +5703,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       const bool fxaa = !desde_destino && nfsmw::ajustes::AntialiasingFxaa();
       if (fxaa != fxaa_anotado_) {
         fxaa_anotado_ = fxaa;
-        REXLOG_INFO("[nativo] C2: antialiasing en la salida: {}", fxaa ? "FXAA" : "ninguno");
+        REXLOG_INFO("[nativo] C2: antialiasing on the output: {}", fxaa ? "FXAA" : "none");
       }
       pipeline = PipelineRampa((fxaa ? 4 : 0) + (graduacion_ ? 2 : 0) + (exacta ? 1 : 0));
       if (pipeline == VK_NULL_HANDLE) {
@@ -5711,7 +5711,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
       }
       if (!exacta && !avisado_rampa_bilineal_) {
         avisado_rampa_bilineal_ = true;
-        REXLOG_INFO("[nativo] C2: salida de {}x{} desde un origen de {}x{}: rampa con muestreo bilineal", ancho,
+        REXLOG_INFO("[nativo] C2: {}x{} output from a {}x{} source: ramp with bilinear sampling", ancho,
                     alto, origen.ancho, origen.alto);
       }
     }
@@ -5744,7 +5744,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     envio.commandBufferCount = 1;
     envio.pCommandBuffers = &comandos_salida_[s];
     {
-      const auto antes_candado = std::chrono::steady_clock::now();  // "C2: presentar" report
+      const auto antes_candado = std::chrono::steady_clock::now();  // "C2: present" report
       const auto cola = dispositivo_->AcquireQueue(familia_, 0);
       const auto antes_envio = std::chrono::steady_clock::now();
       if (dfn_.vkQueueSubmit(cola.queue(), 1, &envio, fences_salida_[s]) != VK_SUCCESS) {
@@ -5781,8 +5781,8 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   // nfsmw_nativo_ranuras_trabajo, so configurations can be compared without another NRO.
   // The fourth: measured by regime, with few draws (open road, GPU-bound) the fence wait inside Grabar() is
   // 4.9-9.8 ms, while with many (alleys, CPU-bound) it is ~0. So the third slot falls short exactly where the
-  // GPU is the bottleneck. It fits easily: the log says "monton 0 (GPU): 482 MB usados de 1382 MB
-  // presupuestados".
+  // GPU is the bottleneck. It fits easily: the log says "heap 0 (GPU): 482 MB used of 1382 MB
+  // budgeted".
   std::array<RanuraTrabajo, 4> ranuras_{};
   uint32_t ranuras_usadas_ = 3;  // set by the cvar (nfsmw_nativo_ranuras_trabajo)
   uint32_t ranura_ = 1;  // Grabar starts with slot 0
@@ -5869,7 +5869,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   std::chrono::steady_clock::time_point ultimo_aviso_mosaico_{};
   // Read-back of small resolved textures (nfsmw_nativo_leer_resueltas_texels).
   std::unordered_map<uint64_t, Lectura> lecturas_;
-  std::unordered_map<uint64_t, DestinoLectura> lecturas_por_destino_;  // informe C2 y cadencia
+  std::unordered_map<uint64_t, DestinoLectura> lecturas_por_destino_;  // C2 report and cadence
   std::chrono::steady_clock::time_point informe_lecturas_{};
   std::vector<LecturaPendiente> lecturas_pendientes_;  // recorded in the current submission
   uint64_t lecturas_hechas_ = 0;
@@ -5904,7 +5904,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     uint32_t otros = 0;   // readers that do not fit in the list
     std::vector<LectorDiag> lectores;
   };
-  // A write classified as SOBRA in a window, watched in every frame since then.
+  // A write classified as UNNEEDED in a window, watched in every frame since then.
   struct VigiladaDiag {
     uint32_t direccion = 0;
     uint32_t origen = 0;          // EDRAM base | pitch << 12 of the watched writes
@@ -5947,7 +5947,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   bool compuesta_hay_ = false;
   bool compuesta_apagada_ = false;
   uint32_t compuesta_caducada_ = 0;   // address whose last copy was dropped; 0 = none
-  uint32_t compuesta_aplicando_ = 0;  // address of the last APLICANDO notice
+  uint32_t compuesta_aplicando_ = 0;  // address of the last APPLYING notice
   uint64_t compuesta_aplazadas_ = 0;
   uint64_t compuesta_grabadas_lectura_ = 0;
   uint64_t compuesta_grabadas_otras_ = 0;
@@ -6020,7 +6020,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   uint64_t intercambios_color_ = 0;  // color targets resolved without a copy
   // Copies and clears removed, and what they cost.
   std::unordered_map<const Imagen*, EstadoDestino> estado_destino_;
-  uint64_t borrados_saltados_ = 0;             // de color
+  uint64_t borrados_saltados_ = 0;             // color clears
   uint64_t borrados_saltados_profundidad_ = 0;
   uint64_t pixeles_borrados_saltados_ = 0;
   uint64_t borrados_inutiles_ = 0;             // clears wiped out by a swap with no draw in between
@@ -6028,7 +6028,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   uint64_t restauraciones_recortadas_ = 0;     // restores that did not copy the whole image
   uint64_t pixeles_restaurados_ = 0;           // the ones actually copied (so the report adds up)
   uint64_t pixeles_restaurar_ahorrados_ = 0;   // the ones not copied, due to useful area or swap
-  uint64_t prestamos_ = 0;                     // restauraciones hechas volviendo a intercambiar
+  uint64_t prestamos_ = 0;                     // restores done by swapping again
   uint64_t prestadas_leidas_ = 0;              // times a lent resolved texture was requested (must be 0)
   std::unordered_set<uint32_t> prestadas_;     // bases whose content is lent to the render target
   // nfsmw_nativo_sombra_minimo. State of the shadow map cycle and phase of the guard.
@@ -6084,14 +6084,14 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
     VkImage origen_vk = VK_NULL_HANDLE;
     VkImage destino_vk = VK_NULL_HANDLE;
     VkImageCopy copia{};
-    uint64_t fotograma = 0;     // presentados_ al aplazarla
+    uint64_t fotograma = 0;     // presentados_ when it was deferred
     bool leida_muerta = false;  // the composite without blur already requested it
   };
   std::unordered_map<uint32_t, CopiaPendiente> pendientes_;
   std::unordered_map<uint32_t, uint64_t> ultima_lectura_viva_;    // per address, in presentados_
   std::unordered_map<uint32_t, uint64_t> ultima_lectura_muerta_;
   std::unordered_set<uint32_t> caducadas_;     // dropped copies: their texture lacks the last resolve
-  bool lecturas_profundidad_muertas_ = false;  // lo pone DibujosVulkan (LecturasDeProfundidadMuertas)
+  bool lecturas_profundidad_muertas_ = false;  // set by DibujosVulkan (LecturasDeProfundidadMuertas)
   bool perezosa_apagada_ = false;              // the guard saw a late read
   uint64_t perezosa_aplazadas_ = 0;
   uint64_t perezosa_copiadas_lectura_ = 0;
@@ -6104,7 +6104,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   static constexpr uint64_t kPerezosaFotogramas = 30;  // ~1 s: window for "requested" and "nobody samples it"
   // nfsmw_nativo_frontal_perezoso (see FrontalPendiente).
   std::unordered_map<uint32_t, FrontalPendiente> frontales_pendientes_;  // per texture address
-  std::vector<ImagenFrontal> frontales_imagenes_;                         // repuestos y retenidas
+  std::vector<ImagenFrontal> frontales_imagenes_;                         // spare and retained ones
   std::unordered_map<uint32_t, uint64_t> frontales_presentados_;  // address -> presentados_ at its last Swap
   std::unordered_map<uint32_t, uint64_t> frontales_leidos_;       // address -> last sampling by a draw
   std::unordered_set<uint32_t> frontales_caducados_;              // missing a copy that can no longer be made
@@ -6132,7 +6132,7 @@ class DestinosVulkan final : public DestinosNativos, public ContextoDestinos {
   // State of the previous frame, for the stutter dump.
   uint64_t tiron_copias_ = 0, tiron_borrados_ = 0, tiron_resolves_ = 0;
   uint64_t tiron_restaura_ = 0, tiron_esperas_ = 0;
-  // Snapshot of the waits at the previous Swap, for the "[tiron] esperas" line.
+  // Snapshot of the waits at the previous Swap, for the "[tiron] waits" line.
   uint64_t tiron_esperas_ns_[nfsmw::esperas::kNumTipos] = {};
   uint64_t tiron_esperas_veces_[nfsmw::esperas::kNumTipos] = {};
   uint64_t tiron_ns_esperas_gpu_ = 0, tiron_ns_espera_salida_ = 0;
@@ -6173,7 +6173,7 @@ std::unique_ptr<DestinosNativos> DestinosNativos::Crear(const VulkanDevice* disp
   }
   auto destinos = std::make_unique<DestinosVulkan>(dispositivo, memoria);
   if (!destinos->Inicializar()) {
-    REXLOG_ERROR("[nativo] C2: no se pudo preparar la presentacion de destinos");
+    REXLOG_ERROR("[nativo] C2: could not set up the presentation of render targets");
     return nullptr;
   }
   return destinos;

@@ -9,7 +9,7 @@ TAG_RESUMEN = 0xA1000000
 def leer(ruta):
     b = open(ruta, 'rb').read()
     magia, version, sello, suma = struct.unpack_from('<4I', b, 0)
-    assert magia == 0x67636461, 'no es un .gcda'
+    assert magia == 0x67636461, 'not a .gcda file'
     o = 16
     registros = []
     while o + 8 <= len(b):

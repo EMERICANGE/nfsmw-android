@@ -19,9 +19,9 @@ class ShadersNativos;
 struct EntradaShader;
 
 enum class FuncionDibujo : uint8_t {
-  kVertices,      // DrawVertices(dispositivo, tipo, inicio, cuenta)
-  kIndexados,     // DrawIndexedVertices(dispositivo, tipo, base, inicio, cuenta)
-  kVerticesUP,    // DrawVerticesUP(dispositivo, tipo, cuenta, datos, zancada)
+  kVertices,      // DrawVertices(device, type, start, count)
+  kIndexados,     // DrawIndexedVertices(device, type, base, start, count)
+  kVerticesUP,    // DrawVerticesUP(device, type, count, data, stride)
   kIndexadosUP,   // DrawIndexedVerticesUP: argument order unconfirmed
 };
 
@@ -41,16 +41,16 @@ struct RegistroDibujo {
  * dumps it to the ring by dirty groups. If that mirror holds everything a draw needs, the renderer can
  * read it when drawing instead of reading the ~35 packets of each draw. This checks that without
  * touching anything: on 1 in 64 Draw* calls the mirror is snapshotted, and the ring, when pairing that
- * draw, compares the snapshot register by register with what it read from the packets ("sombra D3D"
+ * draw, compares the snapshot register by register with what it read from the packets ("D3D shadow"
  * line).
  */
 constexpr uint32_t kGruposEspejo = 9;  // 0x2000..0x2380 in steps of 0x80, and 0x4900 (booleans)
 struct InstantaneaEspejo {
   uint64_t mascara[kGruposEspejo] = {};         // registers of each group that D3D handles (learned)
   uint32_t base_registro[kGruposEspejo] = {};
-  uint32_t estado[kGruposEspejo][64] = {};      // estado[g][i] = registro base_registro[g] + i
+  uint32_t estado[kGruposEspejo][64] = {};      // estado[g][i] = register base_registro[g] + i
   uint32_t fetch[192] = {};                     // 0x4800.. (+0x480 of the device)
-  uint32_t constantes[2048] = {};               // 0x4000.. VS (+0x780) y 0x4400.. PS (+0x1780)
+  uint32_t constantes[2048] = {};               // 0x4000.. VS (+0x780) and 0x4400.. PS (+0x1780)
 };
 // From the register dump hook (825A2AA0): which registers of which group, and where their mirror is.
 void AprenderGrupoEspejo(uint32_t registro_base, uint64_t mascara, uint32_t desplazamiento);
@@ -153,10 +153,10 @@ constexpr uint32_t kVegMotivo = 8;          // bits 8-11: why the game says no (
 constexpr uint16_t kVegMotivoSinShaders = 1;    // no PS or no VS bound
 constexpr uint16_t kVegMotivoDesconocidos = 2;  // PS or VS not in the library
 constexpr uint16_t kVegMotivoModo = 3;          // the effective EDRAM mode is not 4 (color and depth)
-constexpr uint16_t kVegMotivoColor = 4;         // escribe color
+constexpr uint16_t kVegMotivoColor = 4;         // writes color
 constexpr uint16_t kVegMotivoSinDescarte = 5;   // no alpha test, no kill and no depth in the PS
 
-// What the ring sees for that draw, for the guard and the DIFERENCIA line.
+// What the ring sees for that draw, for the guard and the DIFFERENCE line.
 struct DetalleVegetacion {
   uint32_t modo = 0;        // RB_MODECONTROL
   uint32_t mascara = 0;     // RB_COLOR_MASK
@@ -207,7 +207,7 @@ void AnotarDibujo(FuncionDibujo funcion, const uint8_t* base, uint32_t dispositi
 
 // Ring thread only.
 bool SacarDibujo(RegistroDibujo& registro);
-const EntradaShader* ShaderDeObjeto(uint32_t objeto);  // nullptr si no se conoce
+const EntradaShader* ShaderDeObjeto(uint32_t objeto);  // nullptr if unknown
 uint64_t GeneracionObjetos();  // changes with every shader created
 EstadisticasGanchos EstadisticasDeGanchos();
 

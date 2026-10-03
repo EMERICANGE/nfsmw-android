@@ -72,7 +72,7 @@
 //   - The velocity is always restored on exit, to the exact previous value. GetPredictedZone does
 //     not write to the entry: it only reads. The window is microseconds long and on the same thread.
 //   - If sub_824BA290 were not FindZone, or if the map had no prediction zones, the change is not
-//     applied and the game behaves as always. The "aplicadas" counter says so.
+//     applied and the game behaves as always. The "applied" counter says so.
 //   - Safety net: with the diagnostic on, it is also called without the lookahead. If the lookahead
 //     overshoots and the prediction collapses (it returns 0, or stays in the current zone, which is
 //     what the function returns when it cannot predict), the earlier zone is used and it is counted
@@ -118,20 +118,20 @@
  * Both values can be changed from the toml without rebuilding; 100 % is exactly the original game.
  */
 REXCVAR_DEFINE_INT32(nfsmw_streaming_anticipacion, 250, "NFSMW",
-                     "Porcentaje sobre la anticipacion del streamer. 100 = el juego original "
-                     "(1,5 s por delante). 250 = mira 2,5 veces mas lejos. El popping de fachadas "
-                     "y el tiron al entrar en zona nueva salen de aqui")
+                     "Percentage of the streamer's lookahead. 100 = the original game "
+                     "(1.5 s ahead). 250 = looks 2.5 times farther. Facade popping "
+                     "and the stutter when entering a new zone come from here")
     .range(100, 600);
 
 REXCVAR_DEFINE_INT32(nfsmw_streaming_techo_m, 160, "NFSMW",
-                     "Metros maximos que se le deja mirar por delante al streamer. 0 = el tope del "
-                     "juego (100 m). Ojo: cada metro de mas son secciones de mas que leer de la SD")
+                     "Maximum meters the streamer is allowed to look ahead. 0 = the game's cap "
+                     "(100 m). Careful: every extra meter means extra sections to read from the SD card")
     .range(0, 400);
 
 REXCVAR_DEFINE_BOOL(nfsmw_streaming_diag, true, "NFSMW",
-                    "Llama a la prediccion tambien SIN adelanto para poder comparar zona a zona y "
-                    "para rescatar el resultado si el adelanto se pasa de largo. Cuesta dos "
-                    "llamadas por servicio del streamer (2 por fotograma como mucho)");
+                    "Also calls the prediction WITHOUT the lookahead, to compare zone by zone and "
+                    "to rescue the result if the lookahead overshoots. Costs two "
+                    "calls per streamer service (2 per frame at most)");
 
 namespace nfsmw::streaming_anticipacion {
 namespace {
@@ -206,8 +206,8 @@ std::atomic<uint64_t> g_suma_despues_mm{0};
 void Anotar(const uint8_t* base, int32_t mult_pct, int32_t techo_cvar) {
   if (g_presentado.exchange(true)) return;
   REXLOG_INFO(
-      "[stream] el juego mira {:.2f} s por delante y nunca mas de {:.1f} m (y deja de predecir por "
-      "encima de {:.1f} m/s); con anticipacion={} % y techo={} m se le pide mirar mas lejos",
+      "[stream] the game looks {:.2f} s ahead and never more than {:.1f} m (and stops predicting "
+      "above {:.1f} m/s); with anticipacion={} % and techo={} m it is asked to look farther",
       double(LeerFlotante(base, kDirSegundos)), double(LeerFlotante(base, kDirTecho)),
       double(LeerFlotante(base, kDirVelMax)), mult_pct,
       techo_cvar > 0 ? techo_cvar : int32_t(LeerFlotante(base, kDirTecho)));
@@ -221,8 +221,8 @@ void QuizaImprimir() {
   const double antes = act ? double(g_suma_antes_mm.load(std::memory_order_relaxed)) / act / 1000.0 : 0.0;
   const double desp = act ? double(g_suma_despues_mm.load(std::memory_order_relaxed)) / act / 1000.0 : 0.0;
   REXLOG_INFO(
-      "[stream] C8 anticipacion: {} llamadas, {} con adelanto, {} aplicadas ({} sin relevo); "
-      "mira {:.1f} m -> {:.1f} m de media; {} veces pide una zona distinta; {} rescates",
+      "[stream] C8 lookahead: {} calls, {} with lookahead, {} applied ({} without handoff); "
+      "looks {:.1f} m -> {:.1f} m on average; {} times it requests a different zone; {} rescues",
       n, act, apl, g_sin_relevo.load(std::memory_order_relaxed), antes, desp,
       g_distintas.load(std::memory_order_relaxed), g_rescates.load(std::memory_order_relaxed));
 }
@@ -280,8 +280,8 @@ REX_HOOK_RAW(sub_824BE0A8) {
   if (!(k_seg >= kSegundosMin && k_seg <= kSegundosMax) ||
       !(k_techo >= kTechoMin && k_techo <= kTechoMax)) {
     if (!g_constantes_mal.exchange(true)) {
-      REXLOG_WARN("[stream] las constantes del streamer no cuadran (segundos={} tope={}): "
-                  "anticipacion DESACTIVADA, el juego se queda como estaba",
+      REXLOG_WARN("[stream] the streamer's constants are not the expected ones (segundos={} tope={}): "
+                  "lookahead DISABLED, the game stays as it was",
                   double(k_seg), double(k_techo));
     }
     __imp__sub_824BE0A8(ctx, base);
@@ -363,7 +363,7 @@ REX_HOOK_RAW(sub_824BE0A8) {
     g_aplicadas.fetch_add(1, std::memory_order_relaxed);
   } else {
     // The handoff did not engage: FindZone was never called with this entry, so the velocity was
-    // never changed and the result is the game's own. If this number resembles the "con adelanto"
+    // never changed and the result is the game's own. If this number resembles the "with lookahead"
     // one, the hook is not doing anything and sub_824BA290 needs checking.
     g_sin_relevo.fetch_add(1, std::memory_order_relaxed);
   }
@@ -397,9 +397,9 @@ namespace nfsmw::streaming_anticipacion {
 std::string Resumen() {
   const uint64_t n = g_llamadas.load(std::memory_order_relaxed);
   const uint64_t act = g_actuadas.load(std::memory_order_relaxed);
-  return "anticipacion: " + std::to_string(n) + " predicciones, " + std::to_string(act) +
-         " con adelanto, " + std::to_string(g_aplicadas.load(std::memory_order_relaxed)) +
-         " aplicadas, " + std::to_string(g_distintas.load(std::memory_order_relaxed)) +
-         " zonas distintas";
+  return "lookahead: " + std::to_string(n) + " predictions, " + std::to_string(act) +
+         " with lookahead, " + std::to_string(g_aplicadas.load(std::memory_order_relaxed)) +
+         " applied, " + std::to_string(g_distintas.load(std::memory_order_relaxed)) +
+         " different zones";
 }
 }  // namespace nfsmw::streaming_anticipacion

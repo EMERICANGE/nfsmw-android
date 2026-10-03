@@ -74,7 +74,7 @@ RexSwitchHandle RexSwitchHandleFor(pthread_t thread) {
   return it == r.mapa.end() ? REX_SWITCH_INVALID_HANDLE : it->second;
 }
 
-/* --- afinidad ---------------------------------------------------------- */
+/* --- affinity ---------------------------------------------------------- */
 
 int pthread_getaffinity_np(pthread_t thread, size_t size, cpu_set_t* set) {
   if (set == nullptr || size < sizeof(cpu_set_t))
@@ -111,7 +111,7 @@ int pthread_setaffinity_np(pthread_t thread, size_t size, const cpu_set_t* set) 
     if (set->bits & (1ull << i)) { preferido = i; break; }
   }
   if (preferido < 0)
-    return EINVAL;  /* mascara vacia: POSIX tampoco lo permite */
+    return EINVAL;  /* empty mask: POSIX does not allow it either */
 
   /*
    * Only 4 cores exist. Asking for more is not a caller error (the SDK
@@ -170,7 +170,7 @@ int pthread_attr_setschedpolicy(pthread_attr_t* attr, int policy) {
   return 0;
 }
 
-/* --- mutex robustos: no existen ---------------------------------------- */
+/* --- robust mutexes: they do not exist --------------------------------- */
 
 int pthread_mutexattr_setrobust(pthread_mutexattr_t* attr, int robustness) {
   (void)attr;

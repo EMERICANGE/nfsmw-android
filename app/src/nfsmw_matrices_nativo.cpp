@@ -70,7 +70,7 @@
 //   the ones in nfsmw_material_nativo.cpp), it is undone, the original runs (with the real hooks) and the
 //   recorded bytes, the whole frame (416 bytes), r3, r1 and the FPCR are compared. The original's result is
 //   always kept. A single difference turns the native version off for the session and writes
-//   "[matrices] DIFERENCIA". "[matrices]" line every 10 s.
+//   "[matrices] DIFFERENCE". "[matrices]" line every 10 s.
 
 #include <rex/cvar.h>
 #include <rex/hook.h>
@@ -87,9 +87,9 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_matrices_nativo, true, "NFSMW",
-                    "Matrices por dibujo (sub_824538D0: A x P, A x Q, A x C y la inversa rigida de A) en nativo "
-                    "(build 176), identico bit a bit. Se comprueba contra la original (las primeras 100.000 llamadas "
-                    "de cada camino y despues 1 de cada 4096) y se apaga sola si difiere; false = la original")
+                    "Per-draw matrices (sub_824538D0: A x P, A x Q, A x C and the rigid inverse of A) in native code "
+                    "(build 176), bit-identical. Checked against the original (the first 100,000 calls "
+                    "of each path and then 1 of every 4096) and turns itself off if they differ; false = the original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_824538D0);
@@ -199,9 +199,9 @@ struct Memoria {
 // ---------------------------------------------------------------------------------------------------------------
 constexpr uint32_t kUltima = 0x82A2D190;        // lis r11,-32093; addi r11,r11,-11888: r5 (+0), r4 (+4), r3 (+8)
 constexpr uint32_t kIndicePase = 0x82A2D1A0;    // lwz r30,-11872(0x82A30000)
-constexpr uint32_t kPases = 0x82C3F590;         // lis r11,-32060; addi r28,r11,-2672: registros de 384 bytes
+constexpr uint32_t kPases = 0x82C3F590;         // lis r11,-32060; addi r28,r11,-2672: records of 384 bytes
 constexpr uint32_t kMatrizPase = 5936;          // addi r8,r28,5936: C in the pass record
-constexpr uint32_t kVectorPase = 5760 + 16;     // addi r10,r28,5760 ... addi r4,r11,16: vector a normalizar
+constexpr uint32_t kVectorPase = 5760 + 16;     // addi r10,r28,5760 ... addi r4,r11,16: vector to normalize
 constexpr uint32_t kPunteroG = 0x82A2C4F8;      // lwz r11,-15112(0x82A30000); addi r10,r11,288
 constexpr uint32_t kUno = 0x82063038;           // lfs f0,12344(0x82060000): w of E; the 1 of the normalization
 constexpr uint32_t kCero = 0x82061CE8;          // lfs f12,-4944(0x82063038): the 0 of the normalization
@@ -323,7 +323,7 @@ template <bool A>
   return simde_mm_castps_si128(f);
 }
 template <int kI>
-[[gnu::always_inline]] inline V Splat(V v) {  // vspltw: 0xFF = palabra 0, 0xAA = 1, 0x55 = 2, 0x00 = 3
+[[gnu::always_inline]] inline V Splat(V v) {  // vspltw: 0xFF = word 0, 0xAA = 1, 0x55 = 2, 0x00 = 3
   return simde_mm_shuffle_epi32(v, kI);
 }
 // vmulfp128 vD,vA,vB and vmaddfp vD,vA,vB,vC in the exact form of the generated code.
@@ -484,7 +484,7 @@ inline void Normalizar(Memoria<A>& m, PPCContext& ctx, uint32_t d, uint32_t s) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// sub_824538D0 entera.
+// The whole of sub_824538D0.
 // ---------------------------------------------------------------------------------------------------------------
 enum class Camino : uint8_t { kCache, kCalculo, kOriginal };
 enum Motivo : uint32_t { kPorPila = 0, kPorMarco = 1, kPorNaN = 2, kMotivos = 3 };
@@ -608,22 +608,22 @@ Salida Nativa(Memoria<A>& m, PPCContext& ctx, uint32_t r3, uint32_t r4, uint32_t
   const V s13 = Splat<0x00>(a1);     // vspltw v11,v11,3
   const F v4 = Madd(q2, s22, v1);    // vmaddfp v4,v8,v4,v1
   const V s23 = Splat<0x00>(a2);     // vspltw v10,v10,3
-  const F m1_0 = Madd(p3, s03, v30);  // vmaddfp v2,v0,v7,v30     M1 fila 0
-  const F m1_1 = Madd(p3, s13, v28);  // vmaddfp v1,v0,v11,v28    M1 fila 1
+  const F m1_0 = Madd(p3, s03, v30);  // vmaddfp v2,v0,v7,v30     M1 row 0
+  const F m1_1 = Madd(p3, s13, v28);  // vmaddfp v1,v0,v11,v28    M1 row 1
   const V s33 = Splat<0x00>(a3);      // vspltw v9,v9,3
   const F v3 = Madd(q2, s32, v31);    // vmaddfp v3,v8,v3,v31
-  const F m1_2 = Madd(p3, s23, v27);  // vmaddfp v31,v0,v10,v27   M1 fila 2
+  const F m1_2 = Madd(p3, s23, v27);  // vmaddfp v31,v0,v10,v27   M1 row 2
   const V c3 = Lvx(base, pase_c + 48);  // lvx128 v13,r0,r3
-  const F m3_0 = Madd(c3, s03, v29);  // vmaddfp v30,v13,v7,v29   M3 fila 0
+  const F m3_0 = Madd(c3, s03, v29);  // vmaddfp v30,v13,v7,v29   M3 row 0
   const V q3 = Lvx(base, r5 + 352);   // lvx128 v12,r0,r11
-  const F m1_3 = Madd(p3, s33, v26);  // vmaddfp v0,v0,v9,v26     M1 fila 3
-  const F m2_0 = Madd(q3, s03, v6);   // vmaddfp v7,v12,v7,v6     M2 fila 0
-  const F m3_1 = Madd(c3, s13, v25);  // vmaddfp v29,v13,v11,v25  M3 fila 1
-  const F m2_1 = Madd(q3, s13, v5);   // vmaddfp v11,v12,v11,v5   M2 fila 1
-  const F m3_2 = Madd(c3, s23, v24);  // vmaddfp v28,v13,v10,v24  M3 fila 2
-  const F m2_2 = Madd(q3, s23, v4);   // vmaddfp v10,v12,v10,v4   M2 fila 2
-  const F m3_3 = Madd(c3, s33, v23);  // vmaddfp v13,v13,v9,v23   M3 fila 3
-  const F m2_3 = Madd(q3, s33, v3);   // vmaddfp v9,v12,v9,v3     M2 fila 3
+  const F m1_3 = Madd(p3, s33, v26);  // vmaddfp v0,v0,v9,v26     M1 row 3
+  const F m2_0 = Madd(q3, s03, v6);   // vmaddfp v7,v12,v7,v6     M2 row 0
+  const F m3_1 = Madd(c3, s13, v25);  // vmaddfp v29,v13,v11,v25  M3 row 1
+  const F m2_1 = Madd(q3, s13, v5);   // vmaddfp v11,v12,v11,v5   M2 row 1
+  const F m3_2 = Madd(c3, s23, v24);  // vmaddfp v28,v13,v10,v24  M3 row 2
+  const F m2_2 = Madd(q3, s23, v4);   // vmaddfp v10,v12,v10,v4   M2 row 2
+  const F m3_3 = Madd(c3, s33, v23);  // vmaddfp v13,v13,v9,v23   M3 row 3
+  const F m2_3 = Madd(q3, s33, v3);   // vmaddfp v9,v12,v9,v3     M2 row 3
   mayor = Mayor(mayor, Mayor(Mayor(Abs(c2), Abs(p2)), Mayor(Mayor(Abs(q2), Abs(p3)), Mayor(Abs(c3), Abs(q3)))));
   // To the frame. If it turns out at the end that there was a NaN and it is left to the original, nothing
   // happens: it writes all of this again before reading it.
@@ -645,7 +645,7 @@ Salida Nativa(Memoria<A>& m, PPCContext& ctx, uint32_t r3, uint32_t r4, uint32_t
   const F uno = simde_mm_cvtepi32_ps(simde_mm_set1_epi32(1));                // vspltisw v27,1; vcfsx v12,v27,0
   const F menos_uno = Opaco(simde_mm_cvtepi32_ps(simde_mm_set1_epi32(-1)));  // vspltisw v6,-1; vcfsx v0,v6,0
   const V cero = simde_mm_set1_epi32(0);                                     // vspltisw v8,0
-  const V b3 = Lvx(base, r4 + 48);   // lvx128 v11,r0,r5 (segunda lectura de A: r31 = [r1+412] = r4)
+  const V b3 = Lvx(base, r4 + 48);   // lvx128 v11,r0,r5 (second read of A: r31 = [r1+412] = r4)
   const V b0 = Lvx(base, r4);        // lvx128 v10,r0,r31
   const V b2 = Lvx(base, r4 + 32);   // lvx128 v7,r0,r3
   const V b1 = Lvx(base, r4 + 16);   // lvx128 v9,r0,r4
@@ -655,7 +655,7 @@ Salida Nativa(Memoria<A>& m, PPCContext& ctx, uint32_t r3, uint32_t r4, uint32_t
   const F xyz1 = Opaco(Fl(simde_mm_alignr_epi8(En(uno), cero, 12)));         // vsldoi v12,v12,v8,4: (1,1,1,0)
   // E: the lvx128 of r1+80 (16-byte aligned) reads the words of the stfs at +80, +84, +88 and +92. Those stfs
   // are not written: the stvx of E' overwrites that same whole block.
-  const uint32_t ex = Leer32(base, r5 + 48);  // lfs f0,0(r11), f13,4(r11), f12,8(r11) con r11 = [r1+96] = r5+48
+  const uint32_t ex = Leer32(base, r5 + 48);  // lfs f0,0(r11), f13,4(r11), f12,8(r11) with r11 = [r1+96] = r5+48
   const uint32_t ey = Leer32(base, r5 + 52);
   const uint32_t ez = Leer32(base, r5 + 56);
   const uint32_t ew = Leer32(base, kUno);     // lfs f0,12344(r11); stfs f0,92(r1)
@@ -747,7 +747,7 @@ constexpr uint32_t kMaxAnotaciones = 96;      // 6 from the prologue and the cac
 constexpr uint32_t kMarcoVigilado = kMarco + 32;  // the frame and the caller's r3/r4 slots (up to r1+416)
 
 enum Tipo : uint32_t { kTipoCache = 0, kTipoCalculo = 1, kTipos = 2 };
-constexpr const char* kNombres[kTipos] = {"cache", "calculo"};
+constexpr const char* kNombres[kTipos] = {"cache", "computation"};
 
 struct Contadores {
   std::atomic<uint64_t> llamadas{0};
@@ -786,24 +786,24 @@ void Informe() {
   }
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[matrices] sub_824538D0 en nativo (build 176); se comprueban contra la original las primeras {} "
-                "llamadas de cada camino (cache y calculo) y despues 1 de cada {}",
+    REXLOG_INFO("[matrices] sub_824538D0 in native code (build 176); the first {} calls of each path (cache and "
+                "computation) are checked against the original, then 1 of every {}",
                 kComprobaciones, kPeriodo);
     return;
   }
   std::string linea;
   for (uint32_t t = 0; t < kTipos; ++t) {
     Contadores& c = g_c[t];
-    linea += fmt::format(" | {}: {} nativas, {} originales, {} comprobadas", kNombres[t],
+    linea += fmt::format(" | {}: {} native, {} original, {} checked", kNombres[t],
                          c.nativas.exchange(0, std::memory_order_relaxed),
                          c.originales.exchange(0, std::memory_order_relaxed),
                          c.comprobadas.exchange(0, std::memory_order_relaxed));
   }
-  NFSMW_INFORME_DIFERIDO("[matrices] ultimos 10 s{} | a la original por pila desalineada {}, entrada en el marco {}, NaN {}{}",
+  NFSMW_INFORME_DIFERIDO("[matrices] last 10 s{} | to the original for misaligned stack {}, input inside the frame {}, NaN {}{}",
               linea, g_motivos[kPorPila].exchange(0, std::memory_order_relaxed),
               g_motivos[kPorMarco].exchange(0, std::memory_order_relaxed),
               g_motivos[kPorNaN].exchange(0, std::memory_order_relaxed),
-              g_apagado.load(std::memory_order_relaxed) ? " | APAGADA por diferencia" : "");
+              g_apagado.load(std::memory_order_relaxed) ? " | OFF after a difference" : "");
 }
 
 std::string Hex(const uint8_t* bytes, uint32_t n) {
@@ -869,8 +869,8 @@ void NotarComprobada(uint32_t tipo) {
   const uint64_t total = c.comprobadas_total.load(std::memory_order_relaxed) + 1;
   c.comprobadas_total.store(total, std::memory_order_relaxed);
   if (total == kComprobaciones && !g_apagado.load(std::memory_order_relaxed)) {
-    REXLOG_INFO("[matrices] sub_824538D0 (camino {}): {} llamadas comprobadas contra la original byte a byte, 0 "
-                "diferencias: camino nativo en marcha",
+    REXLOG_INFO("[matrices] sub_824538D0 (path {}): {} calls checked against the original byte by byte, 0 "
+                "differences: native path running",
                 kNombres[tipo], kComprobaciones);
   }
 }
@@ -936,27 +936,27 @@ void NotarComprobada(uint32_t tipo) {
     }
   }
   const char* motivo = nullptr;
-  if (reg.lleno) motivo = "demasiadas escrituras";
-  else if (mala < reg.n) motivo = "bytes distintos";
-  else if (byte_marco < kMarcoVigilado) motivo = "marco de pila distinto";
-  else if (ctx.r3.u64 != r3_esperado) motivo = "r3 distinto";
-  else if (ctx.r1.u64 != r1x.u64) motivo = "r1 distinto";
-  else if (ctx.fpscr.csr != csr_esperado) motivo = "FPCR de la original distinto";
-  else if (csr_nativa != csr_esperado) motivo = "FPCR de la nativa distinto";
+  if (reg.lleno) motivo = "too many writes";
+  else if (mala < reg.n) motivo = "different bytes";
+  else if (byte_marco < kMarcoVigilado) motivo = "different stack frame";
+  else if (ctx.r3.u64 != r3_esperado) motivo = "different r3";
+  else if (ctx.r1.u64 != r1x.u64) motivo = "different r1";
+  else if (ctx.fpscr.csr != csr_esperado) motivo = "different FPCR in the original";
+  else if (csr_nativa != csr_esperado) motivo = "different FPCR in the native version";
   NotarComprobada(tipo);
   if (!motivo) {
     return;
   }
   g_apagado.store(true, std::memory_order_relaxed);  // the state is already the original's
   const Anotacion* a = mala < reg.n ? &reg.a[mala] : nullptr;
-  REXLOG_INFO("[matrices] DIFERENCIA en sub_824538D0 ({}; camino {}, comprobacion {}): r3 0x{:08X} r4 0x{:08X} r5 "
-              "0x{:08X} r1 0x{:08X}; escritoras {}; direccion 0x{:08X} nativa {} original {}; primer byte distinto "
-              "del marco: {}; r3 nativa 0x{:X} original 0x{:X}; FPCR entrada 0x{:X} nativa 0x{:X} original 0x{:X}. "
-              "Camino nativo APAGADO para siempre, se queda la original",
+  REXLOG_INFO("[matrices] DIFFERENCE in sub_824538D0 ({}; path {}, check {}): r3 0x{:08X} r4 0x{:08X} r5 "
+              "0x{:08X} r1 0x{:08X}; writers {}; address 0x{:08X} native {} original {}; first different byte "
+              "of the frame: {}; r3 native 0x{:X} original 0x{:X}; FPCR entry 0x{:X} native 0x{:X} original 0x{:X}. "
+              "Native path turned OFF for good, the original stays",
               motivo, kNombres[tipo], g_c[tipo].comprobadas_total.load(std::memory_order_relaxed), r3e.u32, r4e.u32,
               r5e.u32, r1e.u32, esc.llamadas, a ? a->direccion : 0u, a ? Hex(a->despues, a->bytes) : std::string("-"),
               a ? Hex(Puntero(base, a->direccion), a->bytes) : std::string("-"),
-              byte_marco < kMarcoVigilado ? fmt::format("r1+{}", byte_marco) : std::string("ninguno"), r3_esperado,
+              byte_marco < kMarcoVigilado ? fmt::format("r1+{}", byte_marco) : std::string("none"), r3_esperado,
               ctx.r3.u64, csr_e, csr_nativa, ctx.fpscr.csr);
 }
 

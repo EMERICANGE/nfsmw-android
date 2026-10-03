@@ -58,7 +58,7 @@
 //   streams, flags, virtual, second draw) and then 1 in every kPeriodo. Loop: the first kComprobacionesBucle
 //   and then 1 in every 4096 (lists with more than kMaxBucle draws are not compared; the loop picks them at
 //   random, not with a mask, because it is called almost the same number of times every frame). A mismatch
-//   writes "[pegamento] DIFERENCIA" (REXLOG_ERROR) and turns that native version off for the run.
+//   writes "[pegamento] DIFFERENCE" (REXLOG_ERROR) and turns that native version off for the run.
 //   Measured in the same run: the glue times 1 in 16 native calls and 1 in 64 through the original, and the
 //   loop 1 in 8 and 1 in 32 at random, per draw; the two "[pegamento]" lines every 10 s give the savings in
 //   ms/s (the loop one is approximate: each draw includes everything it calls, about 8 us).
@@ -80,10 +80,10 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_pegamento_nativo, true, "NFSMW",
-                    "El pegamento de dibujo (sub_82452730 con los flujos, los indices y el dibujo de cada objeto) y el "
-                    "bucle de la lista que lo llama (sub_82454B50) en nativo (build 186), identicos y con las pistas de "
-                    "cache (dcbt) del juego de Xbox 360. Se comprueban en seco contra una copia literal de la original y "
-                    "se apagan solos si difieren; false = las originales")
+                    "The draw glue (sub_82452730 with the streams, the indices and each object's draw) and the list "
+                    "loop that calls it (sub_82454B50) in native code (build 186), identical and with the cache hints "
+                    "(dcbt) of the Xbox 360 game. They are checked in dry runs against a literal copy of the original "
+                    "and turn themselves off if they differ; false = the originals")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_82452730);  // the original glue
@@ -92,7 +92,7 @@ REX_EXTERN(sub_82452730);         // this file's hook: the loop calls through it
 // The hooks the original calls, by name (nfsmw_d3d_trace.cpp and nfsmw_d3d_registros_nativo.cpp).
 REX_EXTERN(sub_8258D968);  // SetStreamSource
 REX_EXTERN(sub_8258DA60);  // SetIndices
-REX_EXTERN(sub_826992F0);  // parametros de efecto
+REX_EXTERN(sub_826992F0);  // effect parameters
 REX_EXTERN(sub_82593C50);  // DrawIndexedVertices
 // The rest, as the generated code calls them (8244_EA48 through its sub_ alias, the others directly). The
 // name is built in pieces on purpose: tools/llamadas_directas.py treats any address that appears whole in
@@ -211,7 +211,7 @@ enum Que : uint32_t {
   kVistaD60 = 2,      // 8245_3D60
   kFlujo = 3,         // SetStreamSource
   kIndices = 4,       // SetIndices
-  kEfecto = 5,        // parametros de efecto
+  kEfecto = 5,        // effect parameters
   kDibujar = 6,       // DrawIndexedVertices
   kSegundo = 7,       // 8244_EDF8
   kIndirecta = 8,     // [[E]+20]
@@ -229,8 +229,8 @@ enum Camino : uint32_t {
   kCaminos = 7,
   kCombinaciones = 1u << kCaminos
 };
-constexpr const char* kNombresCamino[kCaminos] = {"cambio de estado", "banderas", "vista E20", "2+ flujos",
-                                                  "SetIndices",       "virtual",  "segundo dibujo"};
+constexpr const char* kNombresCamino[kCaminos] = {"state change", "flags", "view E20", "2+ streams",
+                                                  "SetIndices",       "virtual",  "second draw"};
 constexpr uint32_t kCaminosRaros = kCaminoBanderas | kCaminoVistaE20 | kCaminoFlujos | kCaminoVirtual | kCaminoSegundo;
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -264,7 +264,7 @@ struct Reales {
 template <class L>
 uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
   uint32_t camino = 0;
-  // --- Prologo: mflr r12; stw r12,-8(r1); std r30,-24(r1); std r31,-16(r1); stwu r1,-112(r1) ---
+  // --- Prologue: mflr r12; stw r12,-8(r1); std r30,-24(r1); std r31,-16(r1); stwu r1,-112(r1) ---
   const uint64_t lr_entrada = ctx.lr;
   ctx.r12.u64 = lr_entrada;
   uint64_t r1 = ctx.r1.u64;
@@ -277,7 +277,7 @@ uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
     r1 = (r1 & 0xFFFFFFFF00000000ull) | ea;  // ctx.r1.u32 = ea: the high half is kept
   }
   const uint64_t r31 = ctx.r3.u64;  // mr r31,r3: the object
-  const uint64_t r30 = ctx.r4.u64;  // mr r30,r4: la vista
+  const uint64_t r30 = ctx.r4.u64;  // mr r30,r4: the view
   const uint32_t obj = uint32_t(r31);
   const uint64_t a0 = L32(base, obj + 0);   // lwz r11,0(r31): A
   const uint64_t x0 = L32(base, obj + 24);  // lwz r10,24(r31)
@@ -432,7 +432,7 @@ uint32_t Nativa(PPCContext& ctx, uint8_t* base) {
     L::Llamar(ctx, base, kIndices);  // SetIndices, through its hook
     r1f = ctx.r1.u64;
   }
-  // --- loc_82452714: la vuelta ---
+  // --- loc_82452714: the return ---
   {
     const uint64_t r7f = L32(base, uint32_t(r27) + 24);  // lwz r7,24(r27)
     const uint64_t r6f = L32(base, uint32_t(r28) + 24);  // lwz r6,24(r28)
@@ -549,8 +549,8 @@ uint32_t NativaBucle(PPCContext& ctx, uint8_t* base) {
     E32(base, ea, uint32_t(r1));
     r1 = (r1 & 0xFFFFFFFF00000000ull) | ea;
   }
-  const uint64_t r27 = ctx.r4.u64;  // mr r27,r4: la lista
-  const uint64_t r28 = ctx.r3.u64;  // mr r28,r3: la vista
+  const uint64_t r27 = ctx.r4.u64;  // mr r27,r4: the list
+  const uint64_t r28 = ctx.r3.u64;  // mr r28,r3: the view
   const uint64_t r11a = r27 + 8;    // addi r11,r27,8
   AnticiparBloque(base, uint32_t(r11a));  // the game's dcbt r0,r11: the entries
   const uint64_t r11b = L32(base, uint32_t(r11a) + 4);  // lwz r11,4(r11): the index of the first one
@@ -611,9 +611,9 @@ constexpr uint32_t kMaxZonas = 6;
 constexpr uint32_t kMaxBytesZonas = 512;
 
 static_assert(offsetof(PPCContext, r13) == offsetof(PPCContext, r3) + 13 * sizeof(PPCRegister),
-              "r3, r0, r1, r2, r4..r13 seguidos");
-static_assert(offsetof(PPCContext, f13) == offsetof(PPCContext, f0) + 13 * sizeof(PPCRegister), "f0..f13 seguidos");
-static_assert(offsetof(PPCContext, v13) == offsetof(PPCContext, v0) + 13 * sizeof(PPCVRegister), "v0..v13 seguidos");
+              "r3, r0, r1, r2, r4..r13 consecutive");
+static_assert(offsetof(PPCContext, f13) == offsetof(PPCContext, f0) + 13 * sizeof(PPCRegister), "f0..f13 consecutive");
+static_assert(offsetof(PPCContext, v13) == offsetof(PPCContext, v0) + 13 * sizeof(PPCVRegister), "v0..v13 consecutive");
 
 // What a call (or the exit) sees: all volatile registers, the FPCR, the last indirect target and the
 // memory written.
@@ -628,7 +628,7 @@ struct Foto {
   uint32_t csr;
   uint32_t ultimo_indirecto;
 };
-static_assert(sizeof(Foto) == 8 + 8 + 14 * 8 + 8 + 14 * 8 + 14 * 16 + 8, "Foto sin relleno");
+static_assert(sizeof(Foto) == 8 + 8 + 14 * 8 + 8 + 14 * 8 + 14 * 16 + 8, "Foto without padding");
 constexpr const char* kNombresR[14] = {"r3", "r0", "r1", "r2", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12",
                                        "r13"};
 
@@ -642,7 +642,7 @@ void Fotografiar(const PPCContext& c, Foto& f) {
 }
 
 uint64_t Resumen(const Foto& f) {  // of the full snapshot (no padding), 8 bytes at a time
-  static_assert(sizeof(Foto) % 8 == 0, "Foto en palabras de 8 bytes");
+  static_assert(sizeof(Foto) % 8 == 0, "Foto in 8-byte words");
   const uint8_t* p = reinterpret_cast<const uint8_t*>(&f);
   uint64_t h = 0xCBF29CE484222325ull;
   for (size_t i = 0; i < sizeof(Foto); i += 8) {
@@ -910,7 +910,7 @@ std::atomic<uint64_t> g_ns_original{0}, g_muestras_original{0};
 std::atomic<uint64_t> g_comprobadas{0};                   // since startup, all without mismatches
 std::atomic<uint64_t> g_comprobadas_camino[kCaminos];
 std::atomic<uint64_t> g_saltadas{0};                      // guard runs not compared (unbounded regions, too many calls)
-std::atomic<uint32_t> g_raros_listos{0};                  // caminos raros con kMinimoRaro comprobadas
+std::atomic<uint32_t> g_raros_listos{0};                  // rare paths with kMinimoRaro calls checked
 std::atomic<bool> g_raros_abiertos{true};
 std::atomic<bool> g_apagado{false};
 // The loop
@@ -958,9 +958,9 @@ void Informe() {
   }
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[pegamento] pegamento de dibujo (sub_82452730) y su bucle (sub_82454B50) {}",
-                Activo() ? "en nativo (build 186): empiezan comprobando contra la copia literal de la original"
-                         : "por la original (nfsmw_pegamento_nativo = false)");
+    REXLOG_INFO("[pegamento] draw glue (sub_82452730) and its loop (sub_82454B50) {}",
+                Activo() ? "in native code (build 186): they start by checking against the literal copy of the original"
+                         : "through the original (nfsmw_pegamento_nativo = false)");
     return;
   }
   // The glue
@@ -989,16 +989,16 @@ void Informe() {
   const double us_o = k_o ? double(ns_o) / double(k_o) / 1000.0 : 0.0;
   const double ahorro = (k_n && k_o) ? (us_o - us_n) * double(nativas) / 10.0 / 1000.0 : 0.0;
   NFSMW_INFORME_DIFERIDO(
-      "[pegamento] ultimos 10 s: {:.0f} llamadas/s; {} en nativo ({} {}, {} {}, {} {}, {} {}, {} {}, {} {}, {} {}), {} "
-      "por la original (apagada {}, comprobacion {}, medida {}); nativa {:.3f} us/llamada ({} cronometradas), original "
-      "{:.3f} us/llamada ({}) con todo lo que llaman: ahorro {:.2f} ms/s; comprobadas contra la copia literal desde el "
-      "arranque: {} (sin comparar {}){}",
+      "[pegamento] last 10 s: {:.0f} calls/s; {} native ({} {}, {} {}, {} {}, {} {}, {} {}, {} {}, {} {}), {} "
+      "through the original (off {}, check {}, measurement {}); native {:.3f} us/call ({} timed), original "
+      "{:.3f} us/call ({}) including everything they call: savings {:.2f} ms/s; checked against the literal copy since "
+      "startup: {} (not compared {}){}",
       double(nativas + total_originales) / 10.0, nativas, kNombresCamino[0], por_camino[0], kNombresCamino[1],
       por_camino[1], kNombresCamino[2], por_camino[2], kNombresCamino[3], por_camino[3], kNombresCamino[4],
       por_camino[4], kNombresCamino[5], por_camino[5], kNombresCamino[6], por_camino[6], total_originales,
       originales[kPorApagada], originales[kPorComprobacion], originales[kPorMedida], us_n, k_n, us_o, k_o, ahorro,
       g_comprobadas.load(std::memory_order_relaxed), g_saltadas.load(std::memory_order_relaxed),
-      g_apagado.load(std::memory_order_relaxed) ? " | APAGADA por diferencia" : "");
+      g_apagado.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "");
   // The loop
   const uint64_t nb = g_nativas_bucle.exchange(0, std::memory_order_relaxed);
   const uint64_t db = g_dibujos_bucle.exchange(0, std::memory_order_relaxed);
@@ -1016,13 +1016,13 @@ void Informe() {
   const double us_ob = d_ob ? double(ns_ob) / double(d_ob) / 1000.0 : 0.0;
   const double ahorro_b = (d_nb && d_ob) ? (us_ob - us_nb) * double(db) / 10.0 / 1000.0 : 0.0;
   NFSMW_INFORME_DIFERIDO(
-      "[pegamento] bucle de la lista, ultimos 10 s: {:.0f} llamadas/s y {:.0f} dibujos/s en nativo; {} por la original "
-      "(apagada {}, comprobacion {}, medida {}); nativa {:.3f} us/dibujo ({} dibujos cronometrados), original {:.3f} "
-      "us/dibujo ({}): ahorro {:.2f} ms/s; comprobadas desde el arranque: {} (sin comparar {}){}",
+      "[pegamento] list loop, last 10 s: {:.0f} calls/s and {:.0f} draws/s native; {} through the original "
+      "(off {}, check {}, measurement {}); native {:.3f} us/draw ({} draws timed), original {:.3f} "
+      "us/draw ({}): savings {:.2f} ms/s; checked since startup: {} (not compared {}){}",
       double(nb) / 10.0, double(db) / 10.0, total_ob, ob[kPorApagada], ob[kPorComprobacion], ob[kPorMedida], us_nb,
       d_nb, us_ob, d_ob, ahorro_b, g_comprobadas_bucle.load(std::memory_order_relaxed),
       g_saltadas_bucle.load(std::memory_order_relaxed),
-      g_apagado_bucle.load(std::memory_order_relaxed) ? " | APAGADO por diferencia" : "");
+      g_apagado_bucle.load(std::memory_order_relaxed) ? " | OFF due to a difference" : "");
 }
 
 std::string Hex(const uint8_t* bytes, uint32_t n) {
@@ -1038,34 +1038,34 @@ std::string Hex(const uint8_t* bytes, uint32_t n) {
 // The first difference between two snapshots ("" if they are equal).
 std::string Diferencia(const Foto& a, const Foto& b) {
   if (a.que != b.que || a.destino != b.destino) {
-    return fmt::format("llamada {}/0x{:08X} frente a {}/0x{:08X}", a.que, a.destino, b.que, b.destino);
+    return fmt::format("call {}/0x{:08X} vs {}/0x{:08X}", a.que, a.destino, b.que, b.destino);
   }
   for (uint32_t i = 0; i < 14; ++i) {
     if (a.r[i] != b.r[i]) {
-      return fmt::format("{} 0x{:X} frente a 0x{:X}", kNombresR[i], a.r[i], b.r[i]);
+      return fmt::format("{} 0x{:X} vs 0x{:X}", kNombresR[i], a.r[i], b.r[i]);
     }
   }
   if (a.lr != b.lr) {
-    return fmt::format("lr 0x{:X} frente a 0x{:X}", a.lr, b.lr);
+    return fmt::format("lr 0x{:X} vs 0x{:X}", a.lr, b.lr);
   }
   for (uint32_t i = 0; i < 14; ++i) {
     if (a.f[i] != b.f[i]) {
-      return fmt::format("f{} 0x{:016X} frente a 0x{:016X}", i, a.f[i], b.f[i]);
+      return fmt::format("f{} 0x{:016X} vs 0x{:016X}", i, a.f[i], b.f[i]);
     }
   }
   for (uint32_t i = 0; i < 14; ++i) {
     if (std::memcmp(a.v + 16 * i, b.v + 16 * i, 16) != 0) {
-      return fmt::format("v{} {} frente a {}", i, Hex(a.v + 16 * i, 16), Hex(b.v + 16 * i, 16));
+      return fmt::format("v{} {} vs {}", i, Hex(a.v + 16 * i, 16), Hex(b.v + 16 * i, 16));
     }
   }
   if (a.csr != b.csr) {
-    return fmt::format("FPCR 0x{:X} frente a 0x{:X}", a.csr, b.csr);
+    return fmt::format("FPCR 0x{:X} vs 0x{:X}", a.csr, b.csr);
   }
   if (a.ultimo_indirecto != b.ultimo_indirecto) {
-    return fmt::format("ultimo indirecto 0x{:X} frente a 0x{:X}", a.ultimo_indirecto, b.ultimo_indirecto);
+    return fmt::format("last indirect 0x{:X} vs 0x{:X}", a.ultimo_indirecto, b.ultimo_indirecto);
   }
   if (a.memoria != b.memoria) {
-    return fmt::format("la memoria escrita hasta ahi (suma 0x{:016X} frente a 0x{:016X})", a.memoria, b.memoria);
+    return fmt::format("the memory written up to there (sum 0x{:016X} vs 0x{:016X})", a.memoria, b.memoria);
   }
   return std::string();
 }
@@ -1077,7 +1077,7 @@ std::string DiferenciaMemoria(const Zonas& z, const uint8_t* copia, const uint8_
     for (uint32_t b = 0; b < z.bytes[i]; ++b) {
       if (copia[o + b] != nativa[o + b]) {
         const uint32_t m = z.bytes[i] - b < 8u ? z.bytes[i] - b : 8u;
-        return fmt::format("memoria en 0x{:08X} (zona {} +{}): original {} nativa {}", z.direccion[i] + b, i, b,
+        return fmt::format("memory at 0x{:08X} (region {} +{}): original {} native {}", z.direccion[i] + b, i, b,
                            Hex(copia + o + b, m), Hex(nativa + o + b, m));
       }
     }
@@ -1131,7 +1131,7 @@ std::string DiferenciaMemoria(const Zonas& z, const uint8_t* copia, const uint8_
   std::string que;
   uint32_t donde = 0;
   if (copia.n != nativa.n) {
-    que = fmt::format("{} llamadas frente a {}", copia.n, nativa.n);
+    que = fmt::format("{} calls vs {}", copia.n, nativa.n);
   } else if (copia.n <= kMaxLlamadas) {
     for (uint32_t k = 0; k < copia.n && que.empty(); ++k) {
       que = Diferencia(copia.llamadas[k], nativa.llamadas[k]);
@@ -1162,25 +1162,25 @@ std::string DiferenciaMemoria(const Zonas& z, const uint8_t* copia, const uint8_
         g_comprobadas_camino[b].store(k, std::memory_order_relaxed);
         if (k == kMinimoRaro && ((1u << b) & kCaminosRaros) != 0) {
           g_raros_listos.store(g_raros_listos.load(std::memory_order_relaxed) | (1u << b), std::memory_order_relaxed);
-          REXLOG_INFO("[pegamento] camino {}: {} llamadas comprobadas contra la copia literal de la original, 0 "
-                      "diferencias",
+          REXLOG_INFO("[pegamento] path {}: {} calls checked against the literal copy of the original, 0 "
+                      "differences",
                       kNombresCamino[b], kMinimoRaro);
         }
       }
     }
     if (total == kComprobaciones) {
-      REXLOG_INFO("[pegamento] {} llamadas comprobadas contra la copia literal de la original (en cada llamada que "
-                  "hace: r0-r13, lr, f0-f13, v0-v13, FPCR, ultimo indirecto y la memoria escrita; y la salida, la pila, "
-                  "[r5], [r6] y la global de indices), 0 diferencias: en nativo, y sigue comprobando 1 de cada {}",
+      REXLOG_INFO("[pegamento] {} calls checked against the literal copy of the original (in every call it "
+                  "makes: r0-r13, lr, f0-f13, v0-v13, FPCR, last indirect and memory written; and the exit, the stack, "
+                  "[r5], [r6] and the index global), 0 differences: native, and still checking 1 of every {}",
                   total, kPeriodo);
     }
     return;
   }
   g_apagado.store(true, std::memory_order_relaxed);  // the state is already the original's
-  REXLOG_ERROR("[pegamento] DIFERENCIA con la original ({}{}; camino 0x{:X}): entrada objeto 0x{:08X}, vista 0x{:08X}, "
-               "r5 0x{:08X}, r6 0x{:08X}, pila 0x{:08X}. Pegamento nativo APAGADO para el resto de la sesion: se "
-               "queda la original",
-               que, donde ? fmt::format(", en la llamada {}", donde) : std::string(", a la salida"), camino,
+  REXLOG_ERROR("[pegamento] DIFFERENCE from the original ({}{}; path 0x{:X}): entry object 0x{:08X}, view 0x{:08X}, "
+               "r5 0x{:08X}, r6 0x{:08X}, stack 0x{:08X}. Native glue OFF for the rest of the session: the "
+               "original stays",
+               que, donde ? fmt::format(", in call {}", donde) : std::string(", at the exit"), camino,
                entrada.r3.u32, entrada.r4.u32, entrada.r5.u32, entrada.r6.u32, entrada.r1.u32);
 }
 
@@ -1229,13 +1229,13 @@ std::string DiferenciaMemoria(const Zonas& z, const uint8_t* copia, const uint8_
   std::string que;
   uint32_t donde = 0;
   if (copia.n != nativa.n) {
-    que = fmt::format("{} llamadas frente a {}", copia.n, nativa.n);
+    que = fmt::format("{} calls vs {}", copia.n, nativa.n);
   } else if (copia.n <= kMaxBucle) {
     for (uint32_t k = 0; k < copia.n && que.empty(); ++k) {
       if (k < kFotosBucle) {
         que = Diferencia(copia.llamadas[k], nativa.llamadas[k]);
       } else if (copia.resumen[k] != nativa.resumen[k]) {
-        que = "lo que ve la llamada (registros o memoria escrita; resumen distinto)";
+        que = "what the call sees (registers or memory written; different summary)";
       }
       donde = k + 1;
     }
@@ -1259,18 +1259,18 @@ std::string DiferenciaMemoria(const Zonas& z, const uint8_t* copia, const uint8_
     const uint64_t total = g_comprobadas_bucle.load(std::memory_order_relaxed) + 1;
     g_comprobadas_bucle.store(total, std::memory_order_relaxed);
     if (total == kComprobacionesBucle) {
-      REXLOG_INFO("[pegamento] bucle de la lista: {} llamadas comprobadas contra la copia literal de la original (cada "
-                  "dibujo que manda y la salida, su marco, [lista+0] y la global de indices), 0 diferencias: en nativo, "
-                  "y sigue comprobando 1 de cada {} al azar",
+      REXLOG_INFO("[pegamento] list loop: {} calls checked against the literal copy of the original (every "
+                  "draw it submits and the exit, its frame, [lista+0] and the index global), 0 differences: native, "
+                  "and still checking 1 of every {} at random",
                   total, 1u << kBitsPeriodoBucle);
     }
     return;
   }
   g_apagado_bucle.store(true, std::memory_order_relaxed);
-  REXLOG_ERROR("[pegamento] DIFERENCIA en el bucle de la lista con la original ({}{}): entrada vista 0x{:08X}, lista "
-               "0x{:08X} ({} dibujos), pila 0x{:08X}. Bucle nativo APAGADO para el resto de la sesion: se queda la "
-               "original",
-               que, donde ? fmt::format(", en la llamada {}", donde) : std::string(", a la salida"), entrada.r3.u32,
+  REXLOG_ERROR("[pegamento] DIFFERENCE in the list loop from the original ({}{}): entry view 0x{:08X}, list "
+               "0x{:08X} ({} draws), stack 0x{:08X}. Native loop OFF for the rest of the session: the original "
+               "stays",
+               que, donde ? fmt::format(", in call {}", donde) : std::string(", at the exit"), entrada.r3.u32,
                entrada.r4.u32, cuenta, entrada.r1.u32);
 }
 

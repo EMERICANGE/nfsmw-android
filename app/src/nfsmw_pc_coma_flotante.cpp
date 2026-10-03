@@ -76,7 +76,7 @@ Sitio* BuscarOCrear(uint64_t rip) {
       }
     }
   }
-  return nullptr;  // tabla llena
+  return nullptr;  // table full
 }
 
 LONG CALLBACK ManejadorComaFlotante(EXCEPTION_POINTERS* info) {
@@ -131,14 +131,14 @@ void Informador() {
       }
       const uint64_t base = uint64_t(reinterpret_cast<uintptr_t>(modulo));
       REXLOG_WARN(
-          "[pc] excepcion de coma flotante {:08X} en {}+0x{:X} (MXCSR {:08X}, hilo {}); se "
-          "enmascara y sigue",
+          "[pc] floating-point exception {:08X} at {}+0x{:X} (MXCSR {:08X}, thread {}); it is "
+          "masked and execution continues",
           sitio.codigo.load(), nombre, rip - base, sitio.mxcsr.load(), sitio.hilo.load());
     }
     const uint64_t total = g_total.load(std::memory_order_relaxed);
     if (total != total_anotado) {
       total_anotado = total;
-      REXLOG_INFO("[pc] excepciones de coma flotante enmascaradas hasta ahora: {}", total);
+      REXLOG_INFO("[pc] floating-point exceptions masked so far: {}", total);
     }
   }
 }

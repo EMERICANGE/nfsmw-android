@@ -194,11 +194,11 @@ def main():
             enganchadas.add('sub_%08X' % (d if d is not None else int(x, 16)))
     escribir('enganchadas.txt', '\n'.join(sorted(enganchadas)) + '\n')
 
-    print('ficheros reescritos: %s' % (', '.join(escritos) or 'ninguno'))
-    print('%s: %d fuentes con cambios; %d funciones sembradas; %d huecos quitados %s; %d con gancho' % (
+    print('files rewritten: %s' % (', '.join(escritos) or 'none'))
+    print('%s: %d sources with changes; %d functions seeded; %d gaps removed %s; %d hooked' % (
         destino, cambios, len(sembrado), len(quitados), quitados, len(enganchadas)))
     if faltan:
-        print('SIN TRADUCCION SEGURA (revisar a mano): %s' % ', '.join(sorted(faltan)))
+        print('NO SAFE TRANSLATION (check by hand): %s' % ', '.join(sorted(faltan)))
         sys.exit(1)
 
 

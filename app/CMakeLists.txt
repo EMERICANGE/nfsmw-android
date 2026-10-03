@@ -192,7 +192,7 @@ target_include_directories(nfsmw PRIVATE "${NFSMW_XXHASH_INCLUDE}")
 
 # Experimental library: the synthetic tests do not validate the full game.
 # Regression confirmed on Switch: the release build excludes this path.
-option(NFSMW_NATIVE_SHADER_LIBRARY "Integrar la biblioteca experimental de shaders nativos" OFF)
+option(NFSMW_NATIVE_SHADER_LIBRARY "Include the experimental native shader library" OFF)
 if(NFSMW_NATIVE_SHADER_LIBRARY)
     target_sources(nfsmw PRIVATE
         src/nfsmw_shader_vulkan.cpp
@@ -215,7 +215,7 @@ if(REXGLUE_PLATFORM_SWITCH)
     # (calls to functions without a hook go to __imp__, which is not weak) the compiler can inline small
     # game functions across files. -flto=2 and partitions: the whole-program phase handles 144 MB of
     # generated source; with more processes it does not fit in 16 GB.
-    option(NFSMW_LTO "LTO en el codigo del juego y de la app (Switch)" ON)
+    option(NFSMW_LTO "LTO on the game and app code (Switch)" ON)
     if(NFSMW_LTO)
         foreach(objetivo nfsmw_recomp nfsmw)
             if(TARGET ${objetivo})
@@ -234,7 +234,7 @@ if(REXGLUE_PLATFORM_SWITCH)
     # Profile folder: one per edition under pgo/ at the root of the repository (tools/editions/crear_arbol.py
     # points each edition tree to its own).
     get_filename_component(NFSMW_PGO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../pgo/pal_es" ABSOLUTE)
-    set(NFSMW_PGO "" CACHE STRING "Optimizacion por perfil: vacio, generar o usar")
+    set(NFSMW_PGO "" CACHE STRING "Profile-guided optimization: empty, generar or usar")
     if(NFSMW_PGO)
         file(TO_NATIVE_PATH "${CMAKE_BINARY_DIR}" NFSMW_PGO_PREFIJO)
         if(NFSMW_PGO STREQUAL "generar")
@@ -256,7 +256,7 @@ if(REXGLUE_PLATFORM_SWITCH)
             # treated that as a corrupt profile and stopped. This option corrects them.
             target_link_options(nfsmw PRIVATE -fprofile-use -fprofile-partial-training -fprofile-correction)
         else()
-            message(FATAL_ERROR "NFSMW_PGO tiene que ser vacio, generar o usar (es '${NFSMW_PGO}')")
+            message(FATAL_ERROR "NFSMW_PGO must be empty, generar or usar (it is '${NFSMW_PGO}')")
         endif()
         foreach(objetivo nfsmw_recomp nfsmw)
             if(TARGET ${objetivo})
@@ -268,11 +268,11 @@ if(REXGLUE_PLATFORM_SWITCH)
     # the code (53 MB) and the A57 has 48 KB of instruction cache: -O2 gives smaller code. It comes after the
     # -O3 of CMAKE_CXX_FLAGS_RELEASE, so it takes precedence. With LTO, GCC records each function's level at
     # compile time.
-    option(NFSMW_RECOMP_O2 "Compilar el codigo traducido con -O2 en vez de -O3" OFF)
+    option(NFSMW_RECOMP_O2 "Build the recompiled code with -O2 instead of -O3" OFF)
     if(NFSMW_RECOMP_O2 AND TARGET nfsmw_recomp)
         target_compile_options(nfsmw_recomp PRIVATE -O2)
     endif()
-    option(NFSMW_ORDEN_FUNCIONES "Juntar las funciones calientes al principio de .text" ON)
+    option(NFSMW_ORDEN_FUNCIONES "Group the hot functions at the start of .text" ON)
     if(NFSMW_ORDEN_FUNCIONES)
         target_link_options(nfsmw PRIVATE
             "-Wl,--section-ordering-file,${CMAKE_CURRENT_SOURCE_DIR}/orden_funciones.ld")
@@ -373,7 +373,7 @@ if(WIN32)
                 -D "D_MATRIZ=${CMAKE_CURRENT_SOURCE_DIR}/../tools/matriz.ps1"
                 -D "D_PROBAR=${CMAKE_CURRENT_SOURCE_DIR}/dist_probar.bat"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/hacer_dist.cmake"
-        COMMENT "Armando la carpeta portable en ${NFSMW_DIST_DIR}"
+        COMMENT "Assembling the portable folder in ${NFSMW_DIST_DIR}"
         VERBATIM
     )
 endif()

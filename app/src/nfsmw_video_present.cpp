@@ -24,7 +24,7 @@ extern "C" bool RexNativeVideoPresent(const rex::ui::vulkan::VulkanDevice* dispo
     const auto& p=dispositivo->properties();
     if (!p.shaderInt64 || !p.shaderSampledImageArrayDynamicIndexing || !p.bufferDeviceAddress ||
         !p.runtimeDescriptorArray || !p.scalarBlockLayout) {
-      nfsmw::native::DesactivarVideo("faltan capacidades Vulkan habilitadas"); return false;
+      nfsmw::native::DesactivarVideo("missing enabled Vulkan features"); return false;
     }
     if (!ancho || !alto || ancho>1920 || alto>1080) return false;
     if (!g_sesion) {
@@ -46,7 +46,7 @@ extern "C" bool RexNativeVideoPresent(const rex::ui::vulkan::VulkanDevice* dispo
     if (ok) {
       ++g_presentados;
       if (g_presentados==1 || g_presentados%300==0)
-        REXLOG_INFO("[video nativo] presentado {}: YUV {}x{}, salida {}x{}, variante {}",g_presentados,f->ancho,f->alto,ancho,alto,f->variante);
+        REXLOG_INFO("[video nativo] presented {}: YUV {}x{}, output {}x{}, variant {}",g_presentados,f->ancho,f->alto,ancho,alto,f->variante);
     }
     return ok;
   } catch (const std::exception& e) {
@@ -54,6 +54,6 @@ extern "C" bool RexNativeVideoPresent(const rex::ui::vulkan::VulkanDevice* dispo
   }
 }
 extern "C" void RexNativeVideoShutdown() {
-  nfsmw::native::DesactivarVideo("cierre del dispositivo");
+  nfsmw::native::DesactivarVideo("device shutdown");
   g_fotograma.reset(); g_sesion.reset();
 }

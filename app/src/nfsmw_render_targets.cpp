@@ -76,8 +76,8 @@
 #include <rex/platform.h>
 
 REXCVAR_DEFINE_BOOL(nfsmw_render_sin_mosaico, REX_PLATFORM_SWITCH != 0, "NFSMW",
-                    "Dibujar la escena una sola vez, sin tiling de 3 tiras ni MSAA "
-                    "(evita repetir la escena por tira bajo la emulacion de Xenos)")
+                    "Draw the scene only once, without the 3-tile tiling or MSAA "
+                    "(avoids repeating the scene per tile under the Xenos emulation)")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 // With the mode 4 table made equal to mode 2's, the game stayed in mode 4 with a one-tile scene. With
 // this it really uses its mode 2, the game's own mode without antialiasing (sub_82441990 picks it when
@@ -85,19 +85,19 @@ REXCVAR_DEFINE_BOOL(nfsmw_render_sin_mosaico, REX_PLATFORM_SWITCH != 0, "NFSMW",
 // but no: they look the same in both modes and in the emulated renderer; they come from the game's bright
 // pass (see nfsmw_resplandor_cielo).
 REXCVAR_DEFINE_BOOL(nfsmw_render_modo_sin_aa, true, "NFSMW",
-                    "Con nfsmw_render_sin_mosaico: el juego usa de verdad su modo 2 (una tira sin antialiasing) en vez "
-                    "del 3, 4 o 5 con la tabla del 2. No cambia los bordes azules del cielo (eso es "
-                    "nfsmw_resplandor_cielo). false: como antes de la build 148")
+                    "With nfsmw_render_sin_mosaico: the game really uses its mode 2 (one tile without antialiasing) instead "
+                    "of 3, 4 or 5 with mode 2's table. It does not change the blue edges against the sky (that is "
+                    "nfsmw_resplandor_cielo). false: as before build 148")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 // Testing only: split the two parts of the hook to see which one causes the blue edges.
 REXCVAR_DEFINE_BOOL(nfsmw_render_prueba_mantener_tiras, false, "NFSMW",
-                    "Solo pruebas: con nfsmw_render_sin_mosaico, no igualar los modos 3-5 al 2 (se quedan sus tiras)")
+                    "Testing only: with nfsmw_render_sin_mosaico, do not make modes 3-5 equal to mode 2 (they keep their tiles)")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 REXCVAR_DEFINE_BOOL(nfsmw_render_prueba_mantener_msaa, false, "NFSMW",
-                    "Solo pruebas: con nfsmw_render_sin_mosaico, no quitar el MSAA ni de los modos ni de los conjuntos")
+                    "Testing only: with nfsmw_render_sin_mosaico, do not remove MSAA from the modes or from the sets")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
-// The internal resolution comes from nfsmw_resolucion_interna (Graficos category), and with
+// The internal resolution comes from nfsmw_resolucion_interna (Graphics category), and with
 // "automatico" it follows the dock live: 1920x1080 docked and 1280x720 handheld.
 //
 // How it works without a restart: the game already switches AA mode on the fly (sub_82441990 jumps
@@ -124,7 +124,7 @@ constexpr uint32_t kOffAncho = 28;
 constexpr uint32_t kOffAlto = 52;
 constexpr uint32_t kOffMsaa = 76;
 constexpr uint32_t kOffRects = 100;
-constexpr uint32_t kBytesPorModoRects = 64;  // 4 D3DRECT de 16 bytes
+constexpr uint32_t kBytesPorModoRects = 64;  // 4 D3DRECT of 16 bytes
 constexpr uint32_t kModoSinAa = 2;
 constexpr uint32_t kModo1080p = 4;  // its set becomes the 1920x1088 one
 constexpr uint32_t kAncho1080p = 1920;
@@ -138,9 +138,9 @@ constexpr uint32_t kGlobalAlto0 = 0x82A2CF6C;
 constexpr uint32_t kGlobalAncho1 = 0x82A2CF70;
 constexpr uint32_t kGlobalAlto1 = 0x82A2CF74;
 constexpr uint32_t kGlobalModoSalida = 0x82A2CF80;
-constexpr uint32_t kModoSalida1080p = 3;  // su tabla: 0 -> 640x480, 2 -> 1280x720, 3 -> 1920x1080
+constexpr uint32_t kModoSalida1080p = 3;  // its table: 0 -> 640x480, 2 -> 1280x720, 3 -> 1920x1080
 
-// Puntero global al renderizador (lis r11,-32093 / lwz -11860).
+// Global pointer to the renderer (lis r11,-32093 / lwz -11860).
 constexpr uint32_t kRenderizadorGlobal = 0x82A2D1AC;
 
 // Set descriptor that sub_8245D320 receives in r5.
@@ -176,14 +176,14 @@ Modo LeerModo(const uint8_t* base, uint32_t obj, uint32_t m) {
 
 void IgualarModosAlModoSinAa(uint8_t* base, uint32_t obj) {
   if (obj == 0) {
-    REXLOG_WARN("[render] renderizador nulo al registrar los modos: no se toca nada");
+    REXLOG_WARN("[render] null renderer when registering the modes: nothing is touched");
     return;
   }
 
   const uint32_t modo_actual = Leer32(base, kRenderizadorGlobal) == obj ? Leer32(base, obj) : ~0u;
   for (uint32_t m = 0; m < kModos; ++m) {
     const Modo x = LeerModo(base, obj, m);
-    REXLOG_INFO("[render] modo {} del juego: {} tira(s), {}x{}, MSAA {}", m, x.tiras, x.ancho,
+    REXLOG_INFO("[render] game mode {}: {} tile(s), {}x{}, MSAA {}", m, x.tiras, x.ancho,
                 x.alto, x.msaa);
   }
 
@@ -197,8 +197,8 @@ void IgualarModosAlModoSinAa(uint8_t* base, uint32_t obj) {
                               base_2.alto >= 720 && r2_x1 == 0 && r2_y1 == 0 &&
                               r2_x2 == base_2.ancho && r2_y2 >= 720 && r2_y2 <= base_2.alto;
   if (!tabla_esperada) {
-    REXLOG_WARN("[render] la tabla de modos no coincide con la analizada "
-                "(modo 2: {} tira(s) {}x{} MSAA {}, rect {},{},{},{}): se deja como esta",
+    REXLOG_WARN("[render] the mode table does not match the analyzed one "
+                "(mode 2: {} tile(s) {}x{} MSAA {}, rect {},{},{},{}): left as it is",
                 base_2.tiras, base_2.ancho, base_2.alto, base_2.msaa, r2_x1, r2_y1, r2_x2, r2_y2);
     return;
   }
@@ -209,7 +209,7 @@ void IgualarModosAlModoSinAa(uint8_t* base, uint32_t obj) {
   }
   g_tabla_igualada.store(true, std::memory_order_relaxed);
   if (REXCVAR_GET(nfsmw_render_prueba_mantener_tiras)) {
-    REXLOG_INFO("[render] prueba: los modos 3-5 se quedan con sus tiras (nfsmw_render_prueba_mantener_tiras)");
+    REXLOG_INFO("[render] test: modes 3-5 keep their tiles (nfsmw_render_prueba_mantener_tiras)");
     return;
   }
   // Mode 2 keeps its usual size (1280x736). The 1080p one is mode 4, below: that way two sets are
@@ -239,12 +239,12 @@ void IgualarModosAlModoSinAa(uint8_t* base, uint32_t obj) {
     Escribir32(base, rect4 + 4, 0);
     Escribir32(base, rect4 + 8, kAncho1080p);
     Escribir32(base, rect4 + 12, kVisible1080p);
-    REXLOG_INFO("[resolucion] modo {} preparado a {}x{} (area visible {}x{}): es el de sobremesa", kModo1080p,
+    REXLOG_INFO("[resolucion] mode {} set up at {}x{} (visible area {}x{}): it is the docked one", kModo1080p,
                 kAncho1080p, kAlto1080p, kAncho1080p, kVisible1080p);
   }
 
-  REXLOG_INFO("[render] modos 3-5 igualados al modo 2: 1 tira {}x{} sin MSAA "
-              "(modo seleccionado ahora: {}). La escena ya no se repite por tira.",
+  REXLOG_INFO("[render] modes 3-5 made equal to mode 2: 1 tile {}x{} without MSAA "
+              "(mode selected now: {}). The scene is no longer repeated per tile.",
               ancho, alto, modo_actual);
 }
 
@@ -290,8 +290,8 @@ std::atomic<int> g_salida_latch{-1};
  *
  * The output latch decides, not the current Reverse-NX mode.
  *
- * The game's front buffer is created once at startup and never changes (log: "salida del juego al
- * arrancar: 1920x1080, impuesta"). If the scene followed Reverse-NX live and the front buffer did not,
+ * The game's front buffer is created once at startup and never changes (log: "game output at
+ * startup: 1920x1080, forced"). If the scene followed Reverse-NX live and the front buffer did not,
  * the scene ended up drawn at 1280x720 in the corner of a 1920x1080 front buffer, with the HUD spanning
  * the 1920 width and the rest uninitialized: the cropping and the white blotch seen on the console. It is
  * the same reasoning already written in EscribirTamanoVideo: the logical screen size and the front buffer
@@ -311,9 +311,9 @@ uint32_t ModoQueToca() {
         REXCVAR_GET(nfsmw_resolucion_interna) == "automatico") {
       const bool sobremesa = EnSobremesa();
       if ((sobremesa ? kModo1080p : kModoSinAa) != quiero && !avisado.exchange(true)) {
-        REXLOG_INFO("[resolucion] Reverse-NX dice {} pero la salida del juego ya se creo para {}: la "
-                    "resolucion interna NO cambia en marcha, hay que reiniciar el juego",
-                    sobremesa ? "sobremesa" : "portatil",
+        REXLOG_INFO("[resolucion] Reverse-NX says {} but the game's output was already created for {}: the "
+                    "internal resolution does NOT change on the fly, the game has to be restarted",
+                    sobremesa ? "docked" : "handheld",
                     pestillo > 0 ? "1920x1080" : "1280x720");
       }
     }
@@ -347,13 +347,13 @@ void ForzarModoSinAa(uint8_t* base) {
   if (modo < kModos) {
     const uint32_t antes = g_modo_pedido.exchange(modo, std::memory_order_relaxed);
     if (antes != modo && g_avisos_modo.fetch_add(1, std::memory_order_relaxed) < 16) {
-      REXLOG_INFO("[render] el juego eligio el modo {}: se usa el {}", modo, quiero);
+      REXLOG_INFO("[render] the game chose mode {}: mode {} is used", modo, quiero);
     }
   }
   Escribir32(base, obj, quiero);
   if (g_modo_puesto.exchange(quiero, std::memory_order_relaxed) != quiero) {
-    REXLOG_INFO("[resolucion] {} ({}): modo {}", quiero == kModo1080p ? "1920x1080" : "1280x720",
-                EnSobremesa() ? "sobremesa" : "portatil", quiero);
+    REXLOG_INFO("[resolucion] {} ({}): mode {}", quiero == kModo1080p ? "1920x1080" : "1280x720",
+                EnSobremesa() ? "docked" : "handheld", quiero);
 #if REX_PLATFORM_SWITCH
     RexSwitchPerfResolution(quiero == kModo1080p ? kAncho1080p : 1280, quiero == kModo1080p ? kVisible1080p : 720);
 #endif
@@ -396,8 +396,8 @@ void ImponerTamanoDeSalida(uint8_t* base, const char* donde) {
     if (g_salida_latch.compare_exchange_strong(esperado, quiero, std::memory_order_acq_rel)) {
       // 0 does not mean "1280x720": nothing is touched and the game picks the size, which with 1024x576 is
       // not 720p.
-      REXLOG_INFO("[resolucion] salida del juego al arrancar: {} ({})",
-                  quiero ? "1920x1080, impuesta" : "la que elija el juego", donde);
+      REXLOG_INFO("[resolucion] game output at startup: {} ({})",
+                  quiero ? "1920x1080, forced" : "whatever the game picks", donde);
     } else {
       quiero = esperado;
     }
@@ -412,7 +412,7 @@ void ImponerTamanoDeSalida(uint8_t* base, const char* donde) {
   Escribir32(base, kGlobalModoSalida, kModoSalida1080p);
   static std::atomic<uint32_t> avisos{0};
   if (avisos.fetch_add(1, std::memory_order_relaxed) < 8) {
-    REXLOG_INFO("[resolucion] bufer frontal del juego: {}x{} ({})", kAncho1080p, kVisible1080p, donde);
+    REXLOG_INFO("[resolucion] game front buffer: {}x{} ({})", kAncho1080p, kVisible1080p, donde);
   }
 }
 
@@ -430,7 +430,7 @@ void EscribirTamanoVideo(uint8_t* base) {
   Escribir32(base, kGlobalModoSalida, kModoSalida1080p);
   static std::atomic<uint32_t> avisos{0};
   if (avisos.fetch_add(1, std::memory_order_relaxed) < 4) {
-    REXLOG_INFO("[resolucion] tamano de video del juego: {}x{}, modo de salida {}", kAncho1080p, kVisible1080p,
+    REXLOG_INFO("[resolucion] game video size: {}x{}, output mode {}", kAncho1080p, kVisible1080p,
                 kModoSalida1080p);
   }
 }
@@ -440,7 +440,7 @@ void EscribirSalida1080p(uint8_t* base, uint32_t direccion_ancho, uint32_t direc
   Escribir32(base, direccion_alto, kVisible1080p);
   static std::atomic<uint32_t> avisos{0};
   if (avisos.fetch_add(1, std::memory_order_relaxed) < 4) {
-    REXLOG_INFO("[resolucion] salida del juego: {}x{}", kAncho1080p, kVisible1080p);
+    REXLOG_INFO("[resolucion] game output: {}x{}", kAncho1080p, kVisible1080p);
   }
 }
 
@@ -475,7 +475,7 @@ uint32_t MuestrasOriginalesModoActual(const uint8_t* base) {
 // resolved (locked with LockRect) and sub_822234F0 stores the result as the target luminance for
 // brightness adaptation (g_fAdaptedLum). The address, the first bytes and the result are logged.
 REXCVAR_DEFINE_BOOL(nfsmw_diag_luminancia, false, "NFSMW",
-                    "Solo pruebas: anota cada segundo la medida de luminancia del brillo (sub_82223308)");
+                    "Testing only: logs the brightness luminance measurement every second (sub_82223308)");
 REX_EXTERN(__imp__sub_82223308);
 REX_HOOK_RAW(sub_82223308) {
   const uint32_t direccion = ctx.r3.u32;
@@ -501,7 +501,7 @@ REX_HOOK_RAW(sub_82223308) {
   for (uint32_t i = 0; i < 16; ++i) {
     bytes += fmt::format("{:02X}{}", base[direccion + i], (i % 4) == 3 ? " " : "");
   }
-  REXLOG_INFO("[luminancia] sub_82223308({:08X}, {}) = {:.4f}; primeros bytes {}; media byte 0 {:.1f}, byte 3 {:.1f}",
+  REXLOG_INFO("[luminancia] sub_82223308({:08X}, {}) = {:.4f}; first bytes {}; average of byte 0 {:.1f}, byte 3 {:.1f}",
               direccion, texels, ctx.f1.f64, bytes, double(suma_b0) / std::max<uint32_t>(texels, 1),
               double(suma_b3) / std::max<uint32_t>(texels, 1));
 }
@@ -519,7 +519,7 @@ REX_HOOK_RAW(sub_824402F0) {
 // last chance to change the front buffer size: after that it already exists.
 REX_EXTERN(__imp__sub_82440420);
 REX_HOOK_RAW(sub_82440420) {
-  nfsmw::render_targets::ImponerTamanoDeSalida(base, "antes de CreateDevice");
+  nfsmw::render_targets::ImponerTamanoDeSalida(base, "before CreateDevice");
   __imp__sub_82440420(ctx, base);
 }
 REX_EXTERN(__imp__sub_82441990);
@@ -590,7 +590,7 @@ REX_HOOK_RAW(sub_8245D320) {
     // is the 1080p path; if they stay at 1280x720, they come from somewhere else.
     static std::atomic<uint32_t> avisos{0};
     if (avisos.fetch_add(1, std::memory_order_relaxed) < 32) {
-      REXLOG_INFO("[1080p] conjunto registrado: {}x{}, MSAA {}, tiling {} con {} tira(s)",
+      REXLOG_INFO("[1080p] set registered: {}x{}, MSAA {}, tiling {} with {} tile(s)",
                   Leer32(base, desc + kDescAncho), Leer32(base, desc + kDescAlto), Leer32(base, desc + kDescMsaa),
                   base[desc + kDescTiling], Leer32(base, desc + kDescTiras));
     }
@@ -600,8 +600,8 @@ REX_HOOK_RAW(sub_8245D320) {
     if (msaa != 0) {
       Escribir32(base, desc + kDescMsaa, 0);
       const uint32_t n = g_conjuntos_sin_msaa.fetch_add(1, std::memory_order_relaxed) + 1;
-      REXLOG_INFO("[render] conjunto {}x{} registrado sin MSAA (pedia {}), tiling {} con {} tira(s); "
-                  "{} conjunto(s) corregidos",
+      REXLOG_INFO("[render] set {}x{} registered without MSAA (it asked for {}), tiling {} with {} tile(s); "
+                  "{} set(s) corrected",
                   Leer32(base, desc + kDescAncho), Leer32(base, desc + kDescAlto), msaa,
                   base[desc + kDescTiling], Leer32(base, desc + kDescTiras), n);
     }

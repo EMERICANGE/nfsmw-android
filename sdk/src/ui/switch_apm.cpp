@@ -22,8 +22,8 @@
  *
  * The three rounds it took, and what each one taught
  *
- *   1. It applied the configuration and read the clocks on the next line. The log said "la
- *      memoria se queda en 1331.2" and the session profile recorded 1600.0 in every sample. They
+ *   1. It applied the configuration and read the clocks on the next line. The log said "the
+ *      memory stays at 1331.2" and the session profile recorded 1600.0 in every sample. They
  *      did not contradict each other: it was checked too early. apm hands the change to pcv and
  *      the clocks are applied later, so the immediate read returned the old value. The same bug
  *      left dead a fix that only lowered the EMC by hand "if it is detected that it went up": it
@@ -101,8 +101,8 @@ constexpr int kMaxCorreccionesEmc = 3;
 /*
  * What is watched after requesting the configuration, before accepting anything.
  *
- * Waiting 250 ms was still not enough: the log said "la memoria se queda en 1331.2 MHz (comprobado
- * 250 ms despues)" and one second later the watchdog already found it at 1600. So the raise takes
+ * Waiting 250 ms was still not enough: the log said "the memory stays at 1331.2 MHz (checked
+ * 250 ms later)" and one second later the watchdog already found it at 1600. So the raise takes
  * between 0.25 and ~1 s. Now it polls every 150 ms for 1.5 s, and a single read that sees it moved
  * is enough to reject the configuration. It only costs that second and a half when the candidate is
  * good; when it is bad it stops as soon as it shows.
@@ -184,8 +184,8 @@ struct Candidata {
 /*
  * The correct table. The first two are confirmed by a console log:
  *
- *   0x00020003  GPU 307.2  EMC 1331.2   <- "de partida: config 0x00020003 ... memoria 1331.2"
- *   0x92220007  GPU 460.8  EMC 1600     <- "PUESTA 0x92220007" and the memory ended at 1600
+ *   0x00020003  GPU 307.2  EMC 1331.2   <- "starting point: config 0x00020003 ... memory 1331.2"
+ *   0x92220007  GPU 460.8  EMC 1600     <- "SET 0x92220007" and the memory ended at 1600
  *
  * and they match Horizon's PerformanceConfiguration table exactly. The one we want is the sibling of
  * the last one, 0x92220008 = GPU 460.8 with EMC 1331.2, which is exactly the pair a commercial game
@@ -196,7 +196,7 @@ struct Candidata {
  * exist returns an error and changes nothing, so it is enough to list them and let the check decide.
  */
 constexpr Candidata kCandidatas[] = {
-    {460, 0x92220008u, 1331},  // GPU 460,8 + EMC 1331,2: la buena
+    {460, 0x92220008u, 1331},  // GPU 460.8 + EMC 1331.2: the good one
     {460, 0x92220007u, 1600},  // GPU 460.8 + EMC 1600: raises the RAM clock
     {384, 0x00020004u, 1331},  // GPU 384 + EMC 1331,2
     {384, 0x00010000u, 1600},  // GPU 384 + EMC 1600
@@ -221,11 +221,11 @@ extern "C" void RexSwitchApmAplicar(void) {
 
   ApmPerformanceMode modo = ApmPerformanceMode_Invalid;
   if (R_FAILED(apmGetPerformanceMode(&modo))) {
-    std::fprintf(stderr, "[apm] no se pudo leer el modo de rendimiento; no se toca nada\n");
+    std::fprintf(stderr, "[apm] could not read the performance mode; nothing is touched\n");
     return;
   }
   if (modo != ApmPerformanceMode_Normal) {
-    std::fprintf(stderr, "[apm] la consola esta en sobremesa (modo %d): no se pide nada\n", int(modo));
+    std::fprintf(stderr, "[apm] the console is docked (mode %d): nothing is requested\n", int(modo));
     return;
   }
 
@@ -235,11 +235,11 @@ extern "C" void RexSwitchApmAplicar(void) {
   u32 gpu0 = 0, emc0 = 0;
   if (!LeerRelojes(gpu0, emc0)) {
     std::fprintf(stderr,
-                 "[apm] no se pueden leer los relojes reales (clkrst): NO se cambia nada, porque sin "
-                 "comprobar no se puede garantizar que la memoria se quede donde esta\n");
+                 "[apm] cannot read the real clocks (clkrst): NOTHING is changed, because without "
+                 "checking there is no guarantee that the memory stays where it is\n");
     return;
   }
-  std::fprintf(stderr, "[apm] de partida: config 0x%08X, GPU %.1f MHz, memoria %.1f MHz\n",
+  std::fprintf(stderr, "[apm] starting point: config 0x%08X, GPU %.1f MHz, memory %.1f MHz\n",
                hay_original ? config_original : 0u, double(gpu0) / 1e6, double(emc0) / 1e6);
 
   const u32 objetivo_gpu_hz = u32(mhz) * 1000000u;
@@ -264,10 +264,10 @@ extern "C" void RexSwitchApmAplicar(void) {
     if (gpu_subio && memoria_quieta) {
       if (!quieta_de_verdad) {
         std::fprintf(stderr,
-                     "[apm] 0x%08X sube la memoria a %.1f MHz, pero nfsmw_switch_ram_1600 esta en "
-                     "true: se acepta y NO se vigila la memoria\n",
+                     "[apm] 0x%08X raises the memory to %.1f MHz, but nfsmw_switch_ram_1600 is "
+                     "true: it is accepted and the memory is NOT watched\n",
                      c.config, double(emc1) / 1e6);
-        std::fprintf(stderr, "[apm] PUESTA 0x%08X: GPU %.1f MHz (era %.1f), memoria %.1f MHz\n",
+        std::fprintf(stderr, "[apm] SET 0x%08X: GPU %.1f MHz (was %.1f), memory %.1f MHz\n",
                      c.config, double(gpu1) / 1e6, double(gpu0) / 1e6, double(emc1) / 1e6);
         return;  // watchdog not armed: lowering it would fight what the cvar asks for
       }
@@ -277,16 +277,16 @@ extern "C" void RexSwitchApmAplicar(void) {
        */
       g_emc_original.store(emc0, std::memory_order_relaxed);
       std::fprintf(stderr,
-                   "[apm] PUESTA la configuracion 0x%08X (tabla: GPU %d, EMC %d): GPU %.1f MHz (era "
-                   "%.1f) y la memoria se queda en %.1f MHz, comprobada durante %.1f s seguidos; "
-                   "queda vigilada\n",
+                   "[apm] SET configuration 0x%08X (table: GPU %d, EMC %d): GPU %.1f MHz (was "
+                   "%.1f) and the memory stays at %.1f MHz, checked for %.1f s in a row; "
+                   "now watched\n",
                    c.config, c.mhz, c.emc, double(gpu1) / 1e6, double(gpu0) / 1e6,
                    double(emc1) / 1e6, double(kSondeoPasoNs) * kSondeoPasos / 1e9);
       return;
     }
-    std::fprintf(stderr, "[apm] descartada 0x%08X: GPU %.1f MHz, memoria %.1f MHz (%s)\n", c.config,
+    std::fprintf(stderr, "[apm] rejected 0x%08X: GPU %.1f MHz, memory %.1f MHz (%s)\n", c.config,
                  double(gpu1) / 1e6, double(emc1) / 1e6,
-                 !gpu_subio ? "la GPU no sube lo pedido" : "MUEVE LA MEMORIA");
+                 !gpu_subio ? "the GPU does not reach the requested clock" : "IT MOVES THE MEMORY");
   }
 
   /*
@@ -301,14 +301,14 @@ extern "C" void RexSwitchApmAplicar(void) {
     u32 gpu2 = 0, emc2 = 0;
     MemoriaQuietaDurante(emc0, gpu2, emc2);
     std::fprintf(stderr,
-                 "[apm] este firmware NO tiene ninguna configuracion de %d MHz que deje la memoria "
-                 "en %.1f MHz; se vuelve a la original 0x%08X (GPU %.1f MHz, memoria %.1f MHz).\n"
-                 "[apm] SI PREFIERES LA GPU ALTA AUNQUE LA RAM SUBA A 1600: pon "
-                 "nfsmw_switch_ram_1600 = true en nfsmw.toml\n",
+                 "[apm] this firmware has NO %d MHz configuration that leaves the memory "
+                 "at %.1f MHz; going back to the original 0x%08X (GPU %.1f MHz, memory %.1f MHz).\n"
+                 "[apm] IF YOU PREFER THE HIGH GPU CLOCK EVEN IF THE RAM GOES UP TO 1600: set "
+                 "nfsmw_switch_ram_1600 = true in nfsmw.toml\n",
                  mhz, double(emc0) / 1e6, config_original, double(gpu2) / 1e6, double(emc2) / 1e6);
   } else {
-    std::fprintf(stderr, "[apm] ninguna configuracion de %d MHz sirvio y NO se pudo restaurar la "
-                         "original: revisa los relojes en el overlay\n",
+    std::fprintf(stderr, "[apm] no %d MHz configuration worked and the original could NOT be "
+                         "restored: check the clocks in the overlay\n",
                  mhz);
   }
 }
@@ -334,15 +334,15 @@ extern "C" void RexSwitchApmVigilar(void) {
   const int n = g_correcciones_emc.fetch_add(1, std::memory_order_relaxed) + 1;
   if (!g_aviso_emc.exchange(true)) {
     std::fprintf(stderr,
-                 "[apm] la memoria habia subido sola a %.1f MHz (t=%d s): se baja a %.1f con clkrst "
+                 "[apm] the memory had gone up on its own to %.1f MHz (t=%d s): lowering it to %.1f with clkrst "
                  "(%s)\n",
-                 double(emc) / 1e6, tic, double(emc0) / 1e6, bajada ? "aceptado" : "RECHAZADO");
+                 double(emc) / 1e6, tic, double(emc0) / 1e6, bajada ? "accepted" : "REJECTED");
   }
   if (!bajada || n >= kMaxCorreccionesEmc) {
     g_rendido_emc.store(true, std::memory_order_relaxed);
     std::fprintf(stderr,
-                 "[apm] se deja de insistir con la memoria tras %d intento(s): este firmware la "
-                 "reimpone. La GPU se queda en lo pedido; la RAM, en lo que mande el sistema\n",
+                 "[apm] giving up on the memory after %d attempt(s): this firmware "
+                 "reimposes it. The GPU stays at the requested clock; the RAM, wherever the system sets it\n",
                  n);
   }
 }

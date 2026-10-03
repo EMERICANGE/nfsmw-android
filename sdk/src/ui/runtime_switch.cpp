@@ -36,7 +36,7 @@ namespace {
  * errors what() includes the path. It ends with error 2345-0104.
  */
 [[noreturn]] void RexSwitchTerminate() {
-  char reason[768] = "std::terminate sin excepcion activa";
+  char reason[768] = "std::terminate without an active exception";
   if (std::exception_ptr current = std::current_exception()) {
     const std::type_info* type = abi::__cxa_current_exception_type();
     int status = -1;
@@ -78,8 +78,8 @@ u32 __nx_applet_type = AppletType_Application;
  * the kernel to reserve memory of its own for the page tables. If the heap takes
  * everything, that memory does not exist.
  *
- * Measured on the console: with an uncapped heap, the game died with "no se pudo
- * confirmar 0x1000 bytes" (kernel 2001-0103, out of memory) at ~1.8 GB mapped,
+ * Measured on the console: with an uncapped heap, the game died with "could not
+ * commit 0x1000 bytes" (kernel 2001-0103, out of memory) at ~1.8 GB mapped,
  * and even a 4 KB request and thread creation failed.
  *
  * It was lowered from 1,536 to 1,024 MB in case the NVIDIA driver was short of

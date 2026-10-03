@@ -214,7 +214,7 @@ void __assert_func(const char* file, int line, const char* func, const char* exp
         snprintf(ruta, sizeof(ruta), "%srex_assert.log", RexSwitchLogDir());
         FILE* f = fopen(ruta, "a");
         if (f) {
-            fprintf(f, "assert fallido: %s\n  en %s:%d (%s)\n", expr ? expr : "?",
+            fprintf(f, "assert failed: %s\n  at %s:%d (%s)\n", expr ? expr : "?",
                     file ? file : "?", line, func ? func : "?");
             fclose(f);
         }

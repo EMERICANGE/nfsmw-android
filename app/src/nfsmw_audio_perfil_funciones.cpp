@@ -41,8 +41,8 @@
 #include "nfsmw_audio_nativo.h"
 
 REXCVAR_DEFINE_BOOL(nfsmw_audio_diag_funciones, false, "NFSMW",
-                    "Diagnostico: tiempo propio, tiempo inclusivo y llamadas de las funciones del motor de sonido del "
-                    "juego en el hilo servidor de audio, con un resumen cada 10 s en el log");
+                    "Diagnostics: self time, inclusive time and calls of the game's sound engine functions on the "
+                    "audio server thread, with a summary in the log every 10 s");
 
 namespace nfsmw::hilos {
 // nfsmw_hilos_switch.cpp
@@ -101,40 +101,40 @@ struct Funcion {
 // Call tree seen in the recompiled code and in a PC profiling run: the server loop (sub_825E3E28) calls the
 // commands and sub_825E4160 and sub_825D07C8; sub_825ED350 runs once per packet; sub_825EB0E8, once per voice.
 constexpr std::array<Funcion, kNumero> kFunciones = {{
-    {"sub_825CF780", "ordenes de audio"},
-    {"sub_825E4160", "del bucle"},
-    {"sub_825D07C8", "del bucle y del grafo"},
-    {"sub_825CFCC8", "grafo de sonido"},
-    {"sub_825ED350", "una vez por paquete"},
-    {"sub_825DD288", "de 825ED350"},
-    {"sub_825DCED8", "de 825DD288"},
-    {"sub_825D2538", "de 825ED350"},
-    {"sub_825ED568", "de 825ED350"},
-    {"sub_825DBD68", "de 825DCED8, hoja"},
-    {"sub_825DCCB0", "de 825DCED8"},
-    {"sub_825DC0C0", "de 825DCED8"},
-    {"sub_825EB0E8", "una vez por voz"},
-    {"sub_82602BE0", "llama a los remuestreadores"},
-    {"sub_826031C0", "remuestreador lineal"},
-    {"sub_826033A0", "otro remuestreador"},
-    {"sub_826022C8", "de 825EB0E8"},
-    {"sub_826047B0", "de 826022C8, 9 veces"},
-    {"sub_8262E220", "de 825EB0E8"},
-    {"sub_82619820", "hoja"},
-    {"sub_82612270", "llamada indirecta"},
-    {"sub_825E1370", "cambio de bytes"},
-    {"sub_825CD088", "llamada desde 1 sitio"},
-    {"sub_826BDD90", "ayuda con 950 llamadores"},
-    {"sub_82601A08", "de 825E4160, hoja"},
-    {"sub_825D05F8", "de 825D07C8, hoja"},
-    {"sub_825DE890", "memoria de trabajo de la voz y del paquete"},
-    {"sub_826027F0", "de 825EB0E8"},
-    {"sub_825F2F60", "de 825ED350"},
-    {"sub_825D24E0", "lista de 0x82C5E214, por tramo"},
-    {"sub_825ED268", "de 825ED350, por tramo"},
-    {"sub_825DA1E0", "cola de ordenes de 0x82A2AD38, por tramo"},
-    {"sub_825FDFB0", "suma con ganancia, de 825DCED8"},
-    {"sub_825E1CD0", "lectura de la voz (XMA)"},
+    {"sub_825CF780", "audio commands"},
+    {"sub_825E4160", "from the loop"},
+    {"sub_825D07C8", "from the loop and the graph"},
+    {"sub_825CFCC8", "sound graph"},
+    {"sub_825ED350", "once per packet"},
+    {"sub_825DD288", "from 825ED350"},
+    {"sub_825DCED8", "from 825DD288"},
+    {"sub_825D2538", "from 825ED350"},
+    {"sub_825ED568", "from 825ED350"},
+    {"sub_825DBD68", "from 825DCED8, leaf"},
+    {"sub_825DCCB0", "from 825DCED8"},
+    {"sub_825DC0C0", "from 825DCED8"},
+    {"sub_825EB0E8", "once per voice"},
+    {"sub_82602BE0", "calls the resamplers"},
+    {"sub_826031C0", "linear resampler"},
+    {"sub_826033A0", "another resampler"},
+    {"sub_826022C8", "from 825EB0E8"},
+    {"sub_826047B0", "from 826022C8, 9 times"},
+    {"sub_8262E220", "from 825EB0E8"},
+    {"sub_82619820", "leaf"},
+    {"sub_82612270", "indirect call"},
+    {"sub_825E1370", "byte swap"},
+    {"sub_825CD088", "called from 1 site"},
+    {"sub_826BDD90", "helper with 950 callers"},
+    {"sub_82601A08", "from 825E4160, leaf"},
+    {"sub_825D05F8", "from 825D07C8, leaf"},
+    {"sub_825DE890", "working memory of the voice and the packet"},
+    {"sub_826027F0", "from 825EB0E8"},
+    {"sub_825F2F60", "from 825ED350"},
+    {"sub_825D24E0", "list at 0x82C5E214, per slice"},
+    {"sub_825ED268", "from 825ED350, per slice"},
+    {"sub_825DA1E0", "command queue at 0x82A2AD38, per slice"},
+    {"sub_825FDFB0", "gain-scaled sum, from 825DCED8"},
+    {"sub_825E1CD0", "voice read (XMA)"},
 }};
 
 struct Cuenta {
@@ -178,7 +178,7 @@ struct Destinos {
         texto += fmt::format("{}sub_{:08X} {}", texto.empty() ? "" : ", ", d.direccion, d.veces);
       }
     }
-    return fmt::format("{}; otros destinos {}, sin leer {}", texto.empty() ? std::string("ninguna") : texto, otros,
+    return fmt::format("{}; other targets {}, unread {}", texto.empty() ? std::string("none") : texto, otros,
                        sin_leer);
   }
 };
@@ -275,20 +275,20 @@ void Informar(int64_t ahora) {
     if (c.llamadas == 0) {
       continue;
     }
-    texto += fmt::format("{} ({}) {} llamadas, propio {:.1f} ms, inclusivo {:.1f} ms, maximo propio {:.1f} ms en "
+    texto += fmt::format("{} ({}) {} calls, self {:.1f} ms, inclusive {:.1f} ms, max self {:.1f} ms in "
                          "500 ms; ",
                          kFunciones[i].nombre, kFunciones[i].papel, c.llamadas, double(c.propio_ns) / 1e6,
                          double(c.inclusivo_ns) / 1e6, double(c.max_propio_ventana_ns) / 1e6);
   }
   const double segundos = double(ahora - g_desde_ns) / 1e9;
-  REXLOG_INFO("[audio] funciones del servidor en {:.1f} s, CPU del hilo {} ms, tiempo propio medido {:.1f} ms: {}",
+  REXLOG_INFO("[audio] server functions in {:.1f} s, thread CPU {} ms, measured self time {:.1f} ms: {}",
               segundos, cpu_ms, double(g_medido_ns) / 1e6, texto);
-  REXLOG_INFO("[audio] llamada virtual de sub_825EB0E8 en {:.1f} s: {}", segundos, g_destinos_voz.Texto());
-  REXLOG_INFO("[audio] efecto de sub_825DCED8 (puntero en 0x{:08X}) en {:.1f} s: {}", kPunteroEfecto, segundos,
+  REXLOG_INFO("[audio] virtual call of sub_825EB0E8 in {:.1f} s: {}", segundos, g_destinos_voz.Texto());
+  REXLOG_INFO("[audio] effect of sub_825DCED8 (pointer at 0x{:08X}) in {:.1f} s: {}", kPunteroEfecto, segundos,
               g_destinos_efecto.Texto());
-  REXLOG_INFO("[audio] lista de sub_825D24E0 (0x{:08X}) en {:.1f} s: {}", kCabezaLista, segundos,
+  REXLOG_INFO("[audio] list of sub_825D24E0 (0x{:08X}) in {:.1f} s: {}", kCabezaLista, segundos,
               g_destinos_lista.Texto());
-  REXLOG_INFO("[audio] cola de sub_825DA1E0 (0x{:08X}) en {:.1f} s: {}", kColaOrdenes, segundos,
+  REXLOG_INFO("[audio] queue of sub_825DA1E0 (0x{:08X}) in {:.1f} s: {}", kColaOrdenes, segundos,
               g_destinos_cola.Texto());
   g_cuentas = {};
   g_destinos_voz = {};

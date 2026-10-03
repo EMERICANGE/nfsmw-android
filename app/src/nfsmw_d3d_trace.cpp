@@ -55,13 +55,13 @@
 #endif
 
 REXCVAR_DEFINE_BOOL(nfsmw_nativo_gotas_lluvia, true, "NFSMW",
-                    "Renderizador nativo (25/09, build 174): anotar los dibujos que el juego hace con la rutina "
-                    "interna del D3D sub_825932D8 (las gotas de lluvia en la pantalla y el cuadrilatero del "
-                    "VisualTreatment). Sin esto las gotas no salen. false = como antes")
+                    "Native renderer (25/09, build 174): record the draws the game makes with the D3D internal "
+                    "routine sub_825932D8 (the raindrops on the screen and the VisualTreatment quad). "
+                    "Without this the drops do not show. false = as before")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_BOOL(nfsmw_d3d_trace, false, "NFSMW",
-                    "Registrar las llamadas al Direct3D del juego en rex_d3d.log")
+                    "Log the game's Direct3D calls to rex_d3d.log")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 namespace nfsmw::d3d_trace {
@@ -79,7 +79,7 @@ constexpr uint32_t kDeviceDumpEnd = 0x400;
 
 constexpr size_t kMaxDetail = 24;   // detailed calls per function
 constexpr size_t kMaxCallers = 12;  // distinct callers per function
-constexpr size_t kMaxShaders = 1024;  // objetos de shader recordados
+constexpr size_t kMaxShaders = 1024;  // remembered shader objects
 
 /*
  * The driver separates the virtual part from the physical one: PS at object+0x34 and
@@ -181,7 +181,7 @@ struct Detail {
   uint64_t lr;
   uint32_t r[8];  // r3..r10
   double f1;
-  uint32_t ret;  // r3 al volver
+  uint32_t ret;  // r3 on return
 };
 
 struct CallerCount {
@@ -220,7 +220,7 @@ struct ShaderSeen {
 };
 ShaderSeen g_shaders[kMaxShaders]{};
 size_t g_shader_count = 0;
-size_t g_shaders_volcados = 0;      // contenedores escritos a la SD
+size_t g_shaders_volcados = 0;      // containers written to the SD card
 size_t g_shaders_sin_contenedor = 0; // objects without a container inside
 
 uint32_t LoadGuestU32(const uint8_t* base, uint32_t address) {
@@ -242,16 +242,16 @@ void WriteReport() {
   }
 
   const uint64_t frames = g_frames.load(std::memory_order_relaxed);
-  std::fprintf(f, "==== fotogramas %llu\n", static_cast<unsigned long long>(frames));
+  std::fprintf(f, "==== frames %llu\n", static_cast<unsigned long long>(frames));
   for (uint32_t i = 0; i < kFnCount; ++i) {
     const uint64_t calls = g_slots[i].calls.load(std::memory_order_relaxed);
     if (calls == 0) {
       continue;
     }
-    std::fprintf(f, "  %-26s %10llu llamadas", kFns[i].name,
+    std::fprintf(f, "  %-26s %10llu calls", kFns[i].name,
                  static_cast<unsigned long long>(calls));
     if (frames) {
-      std::fprintf(f, "  (%.1f por fotograma)", double(calls) / double(frames));
+      std::fprintf(f, "  (%.1f per frame)", double(calls) / double(frames));
     }
     std::fputc('\n', f);
   }
@@ -261,7 +261,7 @@ void WriteReport() {
 
   if (g_device_pending.load(std::memory_order_acquire) &&
       !g_device_written.load(std::memory_order_relaxed)) {
-    std::fprintf(f, "\n-- dispositivo en 0x%08X, palabras 0x%X..0x%X\n", g_device_addr,
+    std::fprintf(f, "\n-- device at 0x%08X, words 0x%X..0x%X\n", g_device_addr,
                  kDeviceDumpStart, kDeviceDumpEnd);
     for (uint32_t off = 0; off < kDeviceDumpEnd - kDeviceDumpStart; off += 32) {
       std::fprintf(f, "   +0x%04X:", kDeviceDumpStart + off);
@@ -283,7 +283,7 @@ void WriteReport() {
         continue;
       }
       if (!header) {
-        std::fprintf(f, "\n-- %s (0x%08X): primeras llamadas\n", kFns[i].name, kFns[i].address);
+        std::fprintf(f, "\n-- %s (0x%08X): first calls\n", kFns[i].name, kFns[i].address);
         header = true;
       }
       std::fprintf(f,
@@ -298,7 +298,7 @@ void WriteReport() {
         continue;
       }
       if (!header) {
-        std::fprintf(f, "   llamantes: ");
+        std::fprintf(f, "   callers: ");
         header = true;
       }
       std::fprintf(f, "%08X x%llu  ", static_cast<uint32_t>(s.callers[k].lr),
@@ -308,7 +308,7 @@ void WriteReport() {
       std::fputc('\n', f);
     }
   }
-  std::fprintf(f, "\nshaders: %llu vistos, %llu volcados a shaders/, %llu sin contenedor\n",
+  std::fprintf(f, "\nshaders: %llu seen, %llu dumped to shaders/, %llu without a container\n",
                (unsigned long long)g_shader_count, (unsigned long long)g_shaders_volcados,
                (unsigned long long)g_shaders_sin_contenedor);
 
@@ -317,10 +317,10 @@ void WriteReport() {
     if (sh.written) {
       continue;
     }
-    std::fprintf(f, "\n-- shader %s objeto 0x%08X (enlazado desde %08X)\n",
-                 sh.pixel ? "de pixeles" : "de vertices", sh.object,
+    std::fprintf(f, "\n-- %s shader, object 0x%08X (bound from %08X)\n",
+                 sh.pixel ? "pixel" : "vertex", sh.object,
                  static_cast<uint32_t>(sh.lr));
-    std::fprintf(f, "   cabecera:");
+    std::fprintf(f, "   header:");
     for (uint32_t w : sh.header) {
       std::fprintf(f, " %08X", w);
     }
@@ -366,10 +366,10 @@ void MaybeReport() {
     return;
   }
   if (FILE* f = std::fopen(ReportPath().c_str(), "w")) {
-    std::fprintf(f, "Trazas del Direct3D de NFSMW\n\n");
+    std::fprintf(f, "NFSMW Direct3D traces\n\n");
     std::fclose(f);
   }
-  REXLOG_INFO("Trazas de D3D activas: {}", ReportPath());
+  REXLOG_INFO("D3D traces enabled: {}", ReportPath());
 }
 
 // Every hook in this file calls StartOnce on every call: in a race about 11,000-13,000 times per frame

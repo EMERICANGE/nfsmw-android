@@ -29,15 +29,15 @@ extern "C" void RexSwitchPerfMax(unsigned id, u64 value);
 
 REXCVAR_DEFINE_BOOL(audio_mute, false, "Audio", "Mute audio output");
 REXCVAR_DEFINE_BOOL(audio_switch_bomba, true, "Audio",
-                    "Pedir al juego una trama cada 5,333 ms (bomba de 187,5 Hz, como "
-                    "MarathonRecomp-NX) en vez de 4 seguidas al consumir cada bufer de audout, que "
-                    "dejaban sin paquete a la voz del servidor de audio del juego (audio robotico); "
-                    "se lee al abrir el audio");
+                    "Request one block from the game every 5.333 ms (187.5 Hz pump, like "
+                    "MarathonRecomp-NX) instead of 4 in a row whenever an audout buffer is consumed, which "
+                    "left the voice of the game's audio server without a packet (robotic audio); "
+                    "read when audio is opened");
 REXCVAR_DEFINE_INT32(audio_switch_tramas_en_cola, 10, "Audio",
-                     "Con audio_switch_bomba: tramas del juego que se mantienen en cola antes de audout "
-                     "(colchon; 10 = 53 ms, 6 hasta la build 105). Mas cola deja esperar al juego sin cortar la "
-                     "salida, a cambio de latencia: nfsmw_audio_esperar_servidor_ms espera hasta 30 ms; se lee "
-                     "al abrir el audio");
+                     "With audio_switch_bomba: game blocks kept queued before audout "
+                     "(cushion; 10 = 53 ms, 6 until build 105). A longer queue lets the game wait without cutting the "
+                     "output, at the cost of latency: nfsmw_audio_esperar_servidor_ms waits up to 30 ms; read "
+                     "when audio is opened");
 
 namespace rex::audio::nx {
 
@@ -203,7 +203,7 @@ bool SwitchAudioSystem::StartOutput() {
   auto output = std::make_unique<Output>();
   output->pump = REXCVAR_GET(audio_switch_bomba);
   output->tramas_en_cola = static_cast<size_t>(std::clamp(REXCVAR_GET(audio_switch_tramas_en_cola), 2, 32));
-  REXLOG_INFO("SwitchAudioSystem: bomba de 187,5 Hz {}, {} tramas en cola", output->pump ? "activa" : "apagada",
+  REXLOG_INFO("SwitchAudioSystem: 187.5 Hz pump {}, {} blocks queued", output->pump ? "on" : "off",
               output->tramas_en_cola);
 
   Result rc = audoutInitialize();

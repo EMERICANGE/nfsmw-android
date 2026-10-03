@@ -12,8 +12,8 @@
 //       coherent) = 2462 MB/s  ->  3.09 ms per frame just writing
 //
 //   PC, with the nfsmw_nativo_diag_vertices_repetidos diagnostic on, steady race:
-//       "5954.9 MB copiados; 2584.2 MB repetidos en el mismo fotograma y
-//        3329.2 MB iguales a un fotograma anterior"
+//       "5954.9 MB copied; 2584.2 MB repeated in the same frame and
+//        3329.2 MB equal to an earlier frame"
 //       -> 99.0-99.6 % of the bytes are byte-for-byte repeats, in eight reports in a row.
 //          Of those, 41-49 % repeat within the same frame.
 //
@@ -169,7 +169,7 @@ class DedupeVertices {
     uint32_t bytes = 0;
     uint32_t generacion = 0;      // incremented by every Olvidar()
   };
-  static_assert(sizeof(Entrada) == 40, "la entrada tiene que caber en 40 bytes");
+  static_assert(sizeof(Entrada) == 40, "the entry must fit in 40 bytes");
 
   static uint64_t Clave(uint64_t direccion, uint32_t orden) {
     return (direccion << 2) | (uint64_t(orden) & 0x3);

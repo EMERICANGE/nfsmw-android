@@ -49,26 +49,23 @@ final class Diagnostics {
         return cachedGpu;
     }
 
-    static String incompatibility() {
+    static String incompatibility(Context context) {
         JSONObject result = gpu();
         if (result.optBoolean("compatible", true)) return null;
-        StringBuilder message = new StringBuilder("El controlador de ")
-                .append(result.optString("gpu", "esta GPU"))
-                .append(" no ofrece las funciones que necesita el renderizador nativo.");
-        message.append("\n\nVulkan del dispositivo: ").append(result.optString("vulkan", "no disponible"));
-        message.append("\n\nBajar la resolución no resuelve esta incompatibilidad. Puedes enviar el diagnóstico para ayudarnos a estudiar soporte.");
-        return message.toString();
+        return context.getString(R.string.incompatible_driver,
+                result.optString("gpu", context.getString(R.string.this_gpu)),
+                result.optString("vulkan", context.getString(R.string.not_available)));
     }
 
     static String summary(Context context) {
-        String version = "desconocida";
+        String version = context.getString(R.string.unknown_version);
         try { version = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName; }
         catch (Exception ignored) { }
         JSONObject device = gpu();
-        return "NFSMW Android Evolved " + version + "\nTeléfono: " + Build.MANUFACTURER + " " + Build.MODEL
-                + "\nAndroid: " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")"
-                + "\nGPU: " + device.optString("gpu", "no disponible")
-                + "\nVulkan: " + device.optString("vulkan", "no disponible") + "\n";
+        String unavailable = context.getString(R.string.not_available);
+        return context.getString(R.string.report_summary, version, Build.MANUFACTURER, Build.MODEL,
+                Build.VERSION.RELEASE, Build.VERSION.SDK_INT,
+                device.optString("gpu", unavailable), device.optString("vulkan", unavailable));
     }
 
     static void recordLaunch(Context context) {
@@ -78,7 +75,7 @@ final class Diagnostics {
 
     static File createReport(Context context) throws Exception {
         File directory = new File(context.getCacheDir(), "reports");
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("No se pudo crear el informe.");
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException(context.getString(R.string.cannot_create_report));
         // Leave recent attachments available while a mail app or document picker
         // still reads them. Remove only reports older than seven days.
         File[] old = directory.listFiles();
@@ -92,14 +89,13 @@ final class Diagnostics {
             ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
             if (manager != null) manager.getMemoryInfo(memory);
             StringBuilder info = new StringBuilder(summary(context));
-            info.append("Fecha: ").append(new Date()).append("\nABI: ").append(Arrays.toString(Build.SUPPORTED_ABIS))
-                    .append("\nRAM total: ").append(memory.totalMem).append("\nRAM disponible: ").append(memory.availMem)
-                    .append("\nÚltimo intento de iniciar: ").append(context.getSharedPreferences("nfsmw_diagnostics", 0)
-                            .getLong("last_launch_ms", 0)).append("\n\nOpciones:\n");
+            info.append(context.getString(R.string.report_details, new Date().toString(), Arrays.toString(Build.SUPPORTED_ABIS),
+                    memory.totalMem, memory.availMem,
+                    context.getSharedPreferences("nfsmw_diagnostics", 0).getLong("last_launch_ms", 0)));
             for (GameOptions.Option option : GameOptions.ALL) info.append(option.key).append('=').append(GameOptions.get(context, option.key)).append('\n');
-            info.append("\nArgumentos efectivos:\n");
+            info.append(context.getString(R.string.report_arguments));
             for (String argument : GameOptions.arguments(context)) info.append(argument).append('\n');
-            info.append("\nDescribe qué ocurrió, cómo reproducirlo y la edición del juego.\n");
+            info.append(context.getString(R.string.report_describe));
             add(zip, "informe.txt", info.toString().getBytes(StandardCharsets.UTF_8));
             add(zip, "gpu.json", gpu().toString(2).getBytes(StandardCharsets.UTF_8));
             addFile(zip, "last-java-crash.txt", new File(context.getFilesDir(), "last-java-crash.txt"));
@@ -136,7 +132,7 @@ final class Diagnostics {
             output.write(bytes);
             if (size > head) {
                 int tail = (int) Math.min(size - head, LIMIT / 2);
-                if (size > LIMIT) output.write("\n[... registro recortado: inicio y final ...]\n".getBytes(StandardCharsets.UTF_8));
+                if (size > LIMIT) output.write("\n[... log trimmed: start and end kept ...]\n".getBytes(StandardCharsets.UTF_8));
                 input.seek(size - tail);
                 bytes = new byte[tail];
                 input.readFully(bytes);
@@ -195,7 +191,7 @@ final class Diagnostics {
             }
             add(zip, "process-exits.txt", info.toString().getBytes(StandardCharsets.UTF_8));
         } catch (RuntimeException error) {
-            Log.w("NFSMW", "Historial de cierres no disponible", error);
+            Log.w("NFSMW", "Exit history unavailable", error);
             add(zip, "process-exits.txt", error.toString().getBytes(StandardCharsets.UTF_8));
         }
     }

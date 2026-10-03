@@ -48,12 +48,12 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_espera_anillo_bloqueante, true, "NFSMW",
-                    "Renderizador nativo: el D3D del juego duerme mientras espera a que el hilo del anillo "
-                    "avance, en vez de dar vueltas en sub_825A5D18")
+                    "Native renderer: the game's D3D sleeps while it waits for the ring thread to "
+                    "advance, instead of spinning in sub_825A5D18")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_INT32(nfsmw_espera_anillo_max_us, 2000, "NFSMW",
-                     "Renderizador nativo: espera maxima por vuelta de las esperas del D3D del juego, en "
-                     "microsegundos")
+                     "Native renderer: maximum wait per iteration of the game's D3D waits, in "
+                     "microseconds")
     .range(100, 100000)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -166,8 +166,8 @@ void Informe() {
   const uint64_t avances = g_avances.exchange(0);
   const uint64_t ns = g_ns_esperando.exchange(0);
   const uint64_t ns_max = g_ns_maxima.exchange(0);
-  REXLOG_INFO("[espera_anillo] ultimos 10 s: {} vueltas del D3D, {} esperas ({} terminadas por avance del "
-              "anillo, {} agotaron el plazo de {} us), {:.1f} ms durmiendo, peor {:.2f} ms",
+  REXLOG_INFO("[espera_anillo] last 10 s: {} D3D loops, {} waits ({} ended by the ring "
+              "advancing, {} used up the {} us timeout), {:.1f} ms sleeping, worst {:.2f} ms",
               vueltas, esperas, avances, esperas > avances ? esperas - avances : uint64_t(0),
               REXCVAR_GET(nfsmw_espera_anillo_max_us), double(ns) / 1e6, double(ns_max) / 1e6);
   InformeEsperasCompletas();
@@ -213,7 +213,7 @@ void AnotarEsperaCompleta(uint32_t lr, uint64_t ns) {
     }
   }
   // Slot per caller: the first one with that lr, or the first empty one. With 13 possible callers and 12
-  // slots, in the worst case one is left without a slot and shows up as "otros" in the total.
+  // slots, in the worst case one is left without a slot and shows up as "others" in the total.
   for (size_t i = 0; i < kLlamantes; ++i) {
     uint32_t esperado = 0;
     if (g_llamantes[i].lr.load(std::memory_order_relaxed) == lr ||
@@ -249,12 +249,12 @@ void InformeEsperasCompletas() {
     const uint64_t lmax = g_llamantes[i].ns_max.exchange(0);
     const uint64_t llargas = g_llamantes[i].largas.exchange(0);
     char buf[96];
-    std::snprintf(buf, sizeof(buf), " %08X:%llu/%.1fms/peor%.1f/largas%llu", lr, (unsigned long long)ln,
+    std::snprintf(buf, sizeof(buf), " %08X:%llu/%.1fms/worst%.1f/long%llu", lr, (unsigned long long)ln,
                   double(lns) / 1e6, double(lmax) / 1e6, (unsigned long long)llargas);
     por_llamante += buf;
   }
-  REXLOG_INFO("[espera_anillo] esperas COMPLETAS del D3D (sub_82597690) en 10 s: {} en {:.1f} ms, {} de mas "
-              "de 8 ms, peor {:.1f} ms; por llamante (lr:n/ms/peor/largas):{}",
+  REXLOG_INFO("[espera_anillo] COMPLETE D3D waits (sub_82597690) in 10 s: {} in {:.1f} ms, {} longer "
+              "than 8 ms, worst {:.1f} ms; per caller (lr:n/ms/worst/long):{}",
               n, double(ns) / 1e6, largas, double(ns_max) / 1e6, por_llamante);
 }
 

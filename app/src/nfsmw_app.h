@@ -9,8 +9,8 @@
 #include <rex/logging.h>
 #include <rex/rex_app.h>
 #include <rex/ui/overlay/debug_overlay.h>
-#include <rex/system/kernel_state.h>  // VIGILANTE DE CUELGUES
-#include <rex/system/xthread.h>       // VIGILANTE DE CUELGUES
+#include <rex/system/kernel_state.h>  // HANG WATCHDOG
+#include <rex/system/xthread.h>       // HANG WATCHDOG
 
 #include <algorithm>
 #include <atomic>
@@ -134,7 +134,7 @@ class NfsmwApp : public rex::ReXApp {
     }
     const auto destino = carpeta / "saves";
     if (!rex::cvar::SetFlagByName("content_backup_root", rex::path_to_utf8(destino))) {
-      REXLOG_WARN("[guardado] no se pudo fijar la carpeta de copias en {}",
+      REXLOG_WARN("[guardado] could not set the backup folder to {}",
                   rex::path_to_utf8(destino));
     }
   }
@@ -243,7 +243,7 @@ class NfsmwApp : public rex::ReXApp {
     // the game requests it, and the settings that do nothing are removed from the F4 menu.
     nfsmw::ajustes::AplicarAjustesGraficos();
     nfsmw::ajustes::OcultarAjustesSinEfecto();
-    // Optional post-processing (Graficos/Posproceso) and antialiasing: the output pass picks them up live.
+    // Optional post-processing (Graphics/Post-processing) and antialiasing: the output pass picks them up live.
     nfsmw::ajustes::VigilarAjustesEnVivo();
     // Without a GPU plugin the screen stays black: the game runs, but the
     // runtime discards its graphics calls with "no GPU emulation loaded".
@@ -298,14 +298,14 @@ class NfsmwApp : public rex::ReXApp {
  private:
   static void PonerSiNadieLoPidio(const char* nombre, const char* valor) {
     if (rex::cvar::GetFlagInfo(nombre) == nullptr) {
-      REXLOG_DEBUG("Ajuste '{}' no registrado todavia; no lo toco.", nombre);
+      REXLOG_DEBUG("Setting '{}' not registered yet; leaving it alone.", nombre);
       return;
     }
     if (rex::cvar::HasNonDefaultValue(nombre)) {
       return;  // set explicitly: do not override it.
     }
     if (rex::cvar::SetFlagByName(nombre, valor)) {
-      REXLOG_DEBUG("Ajuste por defecto de la build portable: {} = {}", nombre, valor);
+      REXLOG_DEBUG("Portable build default setting: {} = {}", nombre, valor);
     }
   }
 
@@ -442,14 +442,14 @@ class NfsmwApp : public rex::ReXApp {
       if (estado && estado->context()) {
         const auto& c = *estado->context();
         if (grave) {
-          REXLOG_ERROR("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
+          REXLOG_ERROR("[vigilante]   thread id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
                        "lr=0x{:08X} r1=0x{:08X} r13=0x{:08X} r3=0x{:08X} ctr=0x{:08X} "
                        "ultimo_indirecto=0x{:08X}",
                        h->thread_id(), cp->start_address, h->main_thread(), h->is_running(),
                        static_cast<uint32_t>(c.lr), c.r1.u32, c.r13.u32, c.r3.u32, c.ctr.u32,
                        c.last_indirect_target);
         } else {
-          REXLOG_DEBUG("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
+          REXLOG_DEBUG("[vigilante]   thread id=0x{:X} entrada=0x{:08X} principal={} corriendo={} | "
                        "lr=0x{:08X} r1=0x{:08X} r13=0x{:08X} r3=0x{:08X} ctr=0x{:08X} "
                        "ultimo_indirecto=0x{:08X}",
                        h->thread_id(), cp->start_address, h->main_thread(), h->is_running(),
@@ -457,7 +457,7 @@ class NfsmwApp : public rex::ReXApp {
                        c.last_indirect_target);
         }
       } else {
-        REXLOG_DEBUG("[vigilante]   hilo id=0x{:X} entrada=0x{:08X} sin contexto", h->thread_id(),
+        REXLOG_DEBUG("[vigilante]   thread id=0x{:X} entrada=0x{:08X} no context", h->thread_id(),
                      cp->start_address);
       }
     }
@@ -545,13 +545,13 @@ class NfsmwApp : public rex::ReXApp {
       // lines every ten seconds.
       if (++desde_instantanea >= 10) {
         desde_instantanea = 0;
-        REXLOG_DEBUG("[vigilante] instantanea: {} hilos del juego", hilos.size());
+        REXLOG_DEBUG("[vigilante] snapshot: {} game threads", hilos.size());
         VolcarHilos(hilos, false);
       }
 
       if (firma != firma_anterior) {
         if (avisado) {
-          REXLOG_WARN("[vigilante] el juego ha vuelto a moverse despues de {} s parado.", quietos);
+          REXLOG_WARN("[vigilante] the game is moving again after being stopped for {} s.", quietos);
           avisado = false;
         }
         firma_anterior = firma;
@@ -566,8 +566,8 @@ class NfsmwApp : public rex::ReXApp {
       if (avisado && desde_ultimo_volcado < kSegundosEntreVolcados) continue;
       desde_ultimo_volcado = 0;
 
-      REXLOG_ERROR("[vigilante] {} s sin que se mueva ni un registro en ninguno de los {} hilos "
-                   "del juego. Esto no es lentitud: esta parado.",
+      REXLOG_ERROR("[vigilante] {} s without a single register moving in any of the {} game "
+                   "threads. This is not slowness: it has stopped.",
                    quietos, hilos.size());
       VolcarHilos(hilos, true);
       // And the stacks of every thread in the process, host ones included (ring, audio, copies): on PC it

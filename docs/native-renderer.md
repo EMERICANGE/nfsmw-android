@@ -153,7 +153,7 @@ Every one is protected by the same [guard](glossary.md#guard):
 - for the first 50,000 to 200,000 calls, and then one in 4,096, the port runs both the native and the original
   function and compares everything they produce;
 - the original's result is the one used;
-- any difference turns the native version off until the game is closed, and writes `DIFERENCIA` in the log.
+- any difference turns the native version off until the game is closed, and writes `DIFFERENCE` in the log.
 
 Getting exactly the same results needs care:
 

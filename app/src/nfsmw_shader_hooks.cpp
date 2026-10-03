@@ -42,7 +42,7 @@ void Recordar(uint32_t objeto, const Shader* shader) {
     // Never let an exception from the experimental registry reach the guest.
     // Disabling all lookups avoids using stale associations.
     g_lista.store(false, std::memory_order_release);
-    REXLOG_WARN("Registro de shaders nativos desactivado: {}", e.what());
+    REXLOG_WARN("Native shader registry disabled: {}", e.what());
   }
 }
 }  // namespace
@@ -53,10 +53,10 @@ void IniciarBibliotecaShaders() {
     try {
       g_biblioteca.Cargar(rex::filesystem::GetExecutableFolder() / "nfsmw_shaders.nfsp");
       g_lista.store(true, std::memory_order_release);
-      REXLOG_INFO("Biblioteca experimental: {} shaders nativos; video disponible, resto de dibujados Xenos",
+      REXLOG_INFO("Experimental library: {} native shaders; video available, the remaining draws go through Xenos",
                   g_biblioteca.shaders().size());
     } catch (const std::exception& e) {
-      REXLOG_WARN("Biblioteca de shaders nativos no disponible: {}", e.what());
+      REXLOG_WARN("Native shader library not available: {}", e.what());
     }
   });
 }

@@ -81,28 +81,28 @@
  * It is applied on each thread's first wait, which is when we know which is which.
  */
 REXCVAR_DEFINE_BOOL(nfsmw_ejecutor_sin_vueltas, true, "NFSMW",
-                    "24/09 (build 169): el Main XThread espera las ordenes del preparador DURMIENDO en pausas cortas "
-                    "en vez de dar vueltas sin parar en sub_82441CC8 (12,6 % de un nucleo en la 162). false = como "
-                    "antes");
+                    "24/09 (build 169): the Main XThread waits for the preparer's commands SLEEPING in short pauses "
+                    "instead of spinning nonstop in sub_82441CC8 (12.6 % of a core in build 162). false = as "
+                    "before");
 REXCVAR_DEFINE_INT32(nfsmw_ejecutor_pausa_us, 100, "NFSMW",
-                     "Pausa del ejecutor mientras espera ordenes (us). Menos = responde antes y gasta mas CPU");
+                     "Pause of the executor while it waits for commands (us). Less = responds sooner and uses more CPU");
 REXCVAR_DEFINE_INT32(nfsmw_ejecutor_espera_max_us, 2000, "NFSMW",
-                     "Como mucho esto (us) por espera del ejecutor; luego el bucle del juego vuelve a mirar");
+                     "At most this long (us) per executor wait; then the game's loop checks again");
 
 REXCVAR_DEFINE_INT32(nfsmw_relevo_prioridad, 0x3A, "NFSMW",
-                     "Switch: prioridad de Horizon de los dos hilos del relevo de fotogramas (el que "
-                     "prepara y el que ejecuta, Main XThread). 0 = no tocar (0x3B, como el resto del "
-                     "juego). 0x3A = un escalon por encima de los demas hilos del juego, para que al "
-                     "despertar no esperen un turno de 10 ms")
+                     "Switch: Horizon priority of the two frame handoff threads (the one that "
+                     "prepares and the one that executes, Main XThread). 0 = leave as is (0x3B, like the rest of the "
+                     "game). 0x3A = one step above the other game threads, so that on "
+                     "wakeup they do not wait for a 10 ms time slice")
     .range(0, 0x3B)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REXCVAR_DEFINE_BOOL(nfsmw_espera_fotograma_bloqueante, true, "NFSMW",
-                    "Relevo de fotogramas entre los dos hilos del juego (bandera 0x82A2CF40): duermen hasta el "
-                    "cambio en vez de llamar a Sleep(0) en bucle")
+                    "Frame handoff between the game's two threads (flag 0x82A2CF40): they sleep until the "
+                    "change instead of calling Sleep(0) in a loop")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 REXCVAR_DEFINE_INT32(nfsmw_espera_fotograma_max_us, 1000, "NFSMW",
-                     "Espera maxima por vuelta del relevo de fotogramas, en microsegundos")
+                     "Maximum wait per iteration of the frame handoff, in microseconds")
     .range(100, 100000)
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
@@ -122,7 +122,7 @@ std::atomic<uint64_t> g_esperas_ejecutor{0};
 std::atomic<uint64_t> g_ns_preparador{0};
 std::atomic<uint64_t> g_ns_ejecutor{0};
 // How many waits end because the notification arrives and how many use up the timeout, as in
-// nfsmw_espera_anillo.cpp ("N terminadas por avance del anillo"). Without this, "the handoff wakes up
+// nfsmw_espera_anillo.cpp ("N ended by the ring advancing"). Without this, "the handoff wakes up
 // immediately" cannot be told apart from "the notification never arrives and the whole timeout is always
 // paid", and in a console measurement the average per wait (1.23 ms with a cap of 1.00) fit both. The
 // answer tells whether nfsmw_espera_fotograma_max_us can be raised (fewer wakeups, same delay) or whether
@@ -186,10 +186,10 @@ void SubirPrioridadUnaVez(bool& hecho, const char* papel) {
   const int32_t prioridad = REXCVAR_GET(nfsmw_relevo_prioridad);
   if (prioridad >= 0x1C && prioridad <= 0x3B) {
     const bool ok = RexSwitchSetCurrentThreadPriorityOk(int(prioridad));
-    REXLOG_INFO("[espera_fotograma] hilo {} del relevo a prioridad {:#x} ({})", papel,
-                uint32_t(prioridad), ok ? "aceptada" : "RECHAZADA por el kernel");
+    REXLOG_INFO("[espera_fotograma] {} handoff thread at priority {:#x} ({})", papel,
+                uint32_t(prioridad), ok ? "accepted" : "REJECTED by the kernel");
   } else {
-    REXLOG_INFO("[espera_fotograma] hilo {} del relevo: prioridad sin tocar (0x3B)", papel);
+    REXLOG_INFO("[espera_fotograma] {} handoff thread: priority left as is (0x3B)", papel);
   }
 #else
   (void)papel;
@@ -202,7 +202,7 @@ void Maximo(std::atomic<uint64_t>& destino, uint64_t valor) {
   }
 }
 
-uint32_t Leer32(const uint8_t* base, uint32_t direccion) {  // direccion < 0xE0000000: sin desplazamiento fisico
+uint32_t Leer32(const uint8_t* base, uint32_t direccion) {  // direccion < 0xE0000000: no physical offset
   uint32_t v = 0;
   std::memcpy(&v, base + direccion, sizeof(v));
   return __builtin_bswap32(v);
@@ -277,23 +277,23 @@ void Informe() {
   }
   const uint64_t esperas_p = g_esperas_preparador.exchange(0);
   const uint64_t esperas_e = g_esperas_ejecutor.exchange(0);
-  NFSMW_INFORME_DIFERIDO("[espera_fotograma] ultimos 10 s: preparador {} esperas ({} por aviso, {:.1f} ms durmiendo, "
-              "peor {:.2f} ms), ejecutor {} esperas ({} por aviso, {:.1f} ms durmiendo, peor {:.2f} ms); "
-              "plazo {} us",
+  NFSMW_INFORME_DIFERIDO("[espera_fotograma] last 10 s: preparer {} waits ({} by notification, {:.1f} ms asleep, "
+              "worst {:.2f} ms), executor {} waits ({} by notification, {:.1f} ms asleep, worst {:.2f} ms); "
+              "timeout {} us",
               esperas_p, g_avisos_preparador.exchange(0), double(g_ns_preparador.exchange(0)) / 1e6,
               double(g_ns_max_preparador.exchange(0)) / 1e6, esperas_e, g_avisos_ejecutor.exchange(0),
               double(g_ns_ejecutor.exchange(0)) / 1e6, double(g_ns_max_ejecutor.exchange(0)) / 1e6,
               REXCVAR_GET(nfsmw_espera_fotograma_max_us));
   // The executor sleeps while waiting for commands instead of spinning.
-  NFSMW_INFORME_DIFERIDO("[espera_fotograma] ejecutor sin ordenes: {} esperas, {} pausas de {} us, {:.1f} ms durmiendo "
-              "(antes, dando vueltas)",
+  NFSMW_INFORME_DIFERIDO("[espera_fotograma] executor without commands: {} waits, {} pauses of {} us, {:.1f} ms asleep "
+              "(previously, spinning)",
               g_sin_ordenes_esperas.exchange(0), g_sin_ordenes_pausas.exchange(0),
               REXCVAR_GET(nfsmw_ejecutor_pausa_us), double(g_sin_ordenes_ns.exchange(0)) / 1e6);
   // What decides whether nfsmw_relevo_prioridad helps. See g_despertar_*.
   const uint64_t n = g_despertar_n.exchange(0);
   const uint64_t ns = g_despertar_ns.exchange(0);
-  NFSMW_INFORME_DIFERIDO("[espera_fotograma] despertar: medio {:.3f} ms, peor {:.2f} ms, {} TARDIOS (mas de 3 ms) de {}; "
-              "prioridad del relevo {:#x}",
+  NFSMW_INFORME_DIFERIDO("[espera_fotograma] wakeup: mean {:.3f} ms, worst {:.2f} ms, {} LATE (over 3 ms) of {}; "
+              "handoff priority {:#x}",
               n ? double(ns) / 1e6 / double(n) : 0.0, double(g_despertar_max_ns.exchange(0)) / 1e6,
               g_despertar_tardios.exchange(0), n, uint32_t(REXCVAR_GET(nfsmw_relevo_prioridad)));
 }
@@ -309,7 +309,7 @@ REX_HOOK_RAW(sub_8262D988) {
     const uint32_t retorno = uint32_t(ctx.lr);
     if (retorno == kRetornoPreparador) {
       thread_local bool prioridad_puesta = false;
-      SubirPrioridadUnaVez(prioridad_puesta, "preparador");
+      SubirPrioridadUnaVez(prioridad_puesta, "preparer");
       bool por_aviso = false;
       const uint64_t ns = Esperar(base, 1, por_aviso);
       g_esperas_preparador.fetch_add(1, std::memory_order_relaxed);
@@ -325,7 +325,7 @@ REX_HOOK_RAW(sub_8262D988) {
     }
     if (retorno == kRetornoEjecutor) {
       thread_local bool prioridad_puesta = false;
-      SubirPrioridadUnaVez(prioridad_puesta, "ejecutor (Main XThread)");
+      SubirPrioridadUnaVez(prioridad_puesta, "executor (Main XThread)");
       bool por_aviso = false;
       const uint64_t ns = Esperar(base, 0, por_aviso);
       g_esperas_ejecutor.fetch_add(1, std::memory_order_relaxed);
@@ -408,7 +408,7 @@ REX_HOOK_RAW(sub_823C83F8) {
                                                    std::chrono::steady_clock::now() - antes)
                                                    .count());
       g_sin_ordenes_ns.fetch_add(ns_sin_ordenes, std::memory_order_relaxed);
-      // Also in the stutter frame ("[tiron] juego" line, nfsmw_esperas_tiron.h).
+      // Also in the stutter frame ("[tiron] game" line, nfsmw_esperas_tiron.h).
       nfsmw::esperas::Sumar(nfsmw::esperas::kEjecutorSinOrdenes, ns_sin_ordenes);
     }
   }
@@ -417,7 +417,7 @@ REX_HOOK_RAW(sub_823C83F8) {
 
 // Right after the flag is set to 1 (sub_82442058).
 // Also how long the preparer takes to fill the list (the whole call) and the time spent outside it between two
-// fills (its simulation plus its handoff wait), for the "[tiron] juego" line. Once per frame.
+// fills (its simulation plus its handoff wait), for the "[tiron] game" line. Once per frame.
 REX_EXTERN(__imp__sub_82445660);
 REX_HOOK_RAW(sub_82445660) {
   Avisar();

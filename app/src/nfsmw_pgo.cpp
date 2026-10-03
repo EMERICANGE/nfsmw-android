@@ -51,7 +51,7 @@ void HiloPgo(void*) {
     __gcov_reset();
     const double ms = double(armTicksToNs(armGetSystemTick() - antes)) / 1e6;
     if (FILE* f = __real_fopen("sdmc:/switch/nfsmw/pgo/volcados.txt", "a")) {
-      std::fprintf(f, "volcado %d: %.0f ms\n", volcado, ms);
+      std::fprintf(f, "dump %d: %.0f ms\n", volcado, ms);
       std::fclose(f);
     }
   }

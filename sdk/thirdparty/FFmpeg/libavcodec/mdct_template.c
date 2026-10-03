@@ -24,7 +24,7 @@
 #include "libavutil/common.h"
 #include "libavutil/libm.h"
 #include "libavutil/mathematics.h"
-#include "libavutil/thread.h"  /* NFSMW: cache de tablas */
+#include "libavutil/thread.h"  /* NFSMW: table cache */
 #include "fft.h"
 #include "fft-internal.h"
 

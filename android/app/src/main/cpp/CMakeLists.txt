@@ -54,7 +54,7 @@ endforeach()
 # ThinLTO over the translated game and the app, as the Switch build does with GCC's LTO. The generated code
 # already calls __imp__sub_X directly (tools/llamadas_directas.py), so clang can inline game functions across
 # the 265 files. Release only: in Debug it would just slow the link down.
-option(NFSMW_ANDROID_LTO "ThinLTO en el codigo del juego y de la app (Android, Release)" ON)
+option(NFSMW_ANDROID_LTO "ThinLTO on the game and app code (Android, Release)" ON)
 if(NFSMW_ANDROID_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
     foreach(objetivo nfsmw_recomp nfsmw)
         if(TARGET ${objetivo})

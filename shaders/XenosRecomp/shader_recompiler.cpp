@@ -191,7 +191,7 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
 
     auto findResult = vertexElements.find(address);
     if (findResult == vertexElements.end())
-        throw std::runtime_error("FETCH de vertices sin elemento declarado");
+        throw std::runtime_error("vertex FETCH without a declared element");
 
 #ifdef NFSMW_RECOMP
     // NFSMW: D3D patches the fetch swizzle according to the vertex declaration; the
@@ -506,14 +506,14 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                     else
                     {
                         if (relativa)
-                            throw std::runtime_error("direccionamiento relativo de constante escalar pendiente");
+                            throw std::runtime_error("relative addressing of a scalar constant not implemented yet");
                         regFormatted = constantName;
                     }
                 }
                 else
                 {
                     if (relativa)
-                        throw std::runtime_error("direccionamiento relativo sin constante declarada pendiente");
+                        throw std::runtime_error("relative addressing without a declared constant not implemented yet");
                     regFormatted = fmt::format("c{}", reg);
                 }
             }
@@ -658,7 +658,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             {
                 auto findResult = interpolators.find(instr.vectorDest);
                 if (findResult == interpolators.end())
-                    throw std::runtime_error("exportacion de vertices sin interpolador declarado");
+                    throw std::runtime_error("vertex export without a declared interpolator");
                 exportRegister = findResult->second;
                 break;
             }
@@ -1721,7 +1721,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     // return. Per-instruction ALU predication does not replace it.
                     const auto booleano = boolConstants.find(cfInstr.condExec.boolAddress);
                     if (booleano == boolConstants.end())
-                        throw std::runtime_error("EXEC condicional sin constante booleana declarada");
+                        throw std::runtime_error("conditional EXEC without a declared boolean constant");
                     indent();
                     println("if ((g_Booleans & {}) {}= 0)", booleano->second, cfInstr.condExec.condition ? "!" : "=");
                     indent();

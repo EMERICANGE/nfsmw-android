@@ -59,7 +59,7 @@
 namespace nfsmw::nativo::microcodigo {
 
 constexpr uint32_t kBitsRanura = 12;
-constexpr uint32_t kRanuras = uint32_t(1) << kBitsRanura;  // 4.096 ranuras de 8 bytes: 32 KB
+constexpr uint32_t kRanuras = uint32_t(1) << kBitsRanura;  // 4,096 slots of 8 bytes: 32 KB
 
 struct Ranura {
   std::atomic<uint32_t> inicio{0};

@@ -30,11 +30,11 @@
 #include <rex/logging.h>
 
 REXCVAR_DEFINE_INT32(nfsmw_crt_memset_nativo, 1, "NFSMW",
-                     "memset del CRT del juego (sub_826BE610): 0 = codigo recompilado, 1 = memset del host (la memoria "
-                     "queda igual; por defecto), 2 = validar el nativo contra el recompilado");
+                     "memset of the game's CRT (sub_826BE610): 0 = recompiled code, 1 = host memset (memory ends up "
+                     "identical; default), 2 = validate the native one against the recompiled one");
 REXCVAR_DEFINE_BOOL(nfsmw_crt_diag, false, "NFSMW",
-                    "Diagnostico: cuenta las llamadas y los bytes del memset del juego (sub_826BE610) y anota un "
-                    "resumen cada 10 s");
+                    "Diagnostics: counts the calls and bytes of the game's memset (sub_826BE610) and logs a "
+                    "summary every 10 s");
 
 REX_EXTERN(__imp__sub_826BE610);
 
@@ -66,8 +66,8 @@ void Informar(int32_t modo) {
   if (ahora - ultimo < 10000 || !g_ultimo_informe_ms.compare_exchange_strong(ultimo, ahora, std::memory_order_relaxed)) {
     return;
   }
-  REXLOG_INFO("[crt] memset del juego (modo {}) en {:.1f} s: {} llamadas y {} KB; validadas {}, sin validar (mas de "
-              "1 MB) {}, diferencias con el recompilado {}",
+  REXLOG_INFO("[crt] game memset (mode {}) in {:.1f} s: {} calls and {} KB; validated {}, not validated (over "
+              "1 MB) {}, differences with the recompiled code {}",
               modo, double(ahora - ultimo) / 1000.0, g_llamadas.exchange(0), g_bytes.exchange(0) >> 10,
               g_validadas.exchange(0), g_sin_validar.exchange(0), g_diferencias.exchange(0));
 }
@@ -104,8 +104,8 @@ void Validar(PPCContext& ctx, uint8_t* base) {
   if (std::memcmp(p, recompilado.data(), n) != 0 || r3_recompilado != destino) {
     g_diferencias.fetch_add(1, std::memory_order_relaxed);
     if (!g_diferencia_anotada.exchange(true, std::memory_order_relaxed)) {
-      REXLOG_WARN("[crt] memset del juego: primera diferencia en 0x{:08X}, {} bytes, valor 0x{:02X}, r3 del "
-                  "recompilado 0x{:08X}",
+      REXLOG_WARN("[crt] game memset: first difference at 0x{:08X}, {} bytes, value 0x{:02X}, r3 of the "
+                  "recompiled code 0x{:08X}",
                   destino, n, valor, r3_recompilado);
     }
   }

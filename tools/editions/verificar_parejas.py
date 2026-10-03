@@ -93,13 +93,13 @@ def main():
                     if s in ('.text', '.data'):
                         esperada = traducir(da)
                         if esperada is None:
-                            problemas.append('+%X: %08X (%s) sin traduccion segura; la otra usa %08X' % (k, da, s, db))
+                            problemas.append('+%X: %08X (%s) has no safe translation; the other edition uses %08X' % (k, da, s, db))
                         elif esperada != db:
-                            problemas.append('+%X: %08X (%s) deberia ser %08X y la otra usa %08X' % (k, da, s, esperada, db))
+                            problemas.append('+%X: %08X (%s) should be %08X and the other edition uses %08X' % (k, da, s, esperada, db))
                     elif s != 'fuera':
                         # constants: the same contents
                         if img_a[da - BASE:da - BASE + 16] != img_b[db - BASE:db - BASE + 16]:
-                            problemas.append('+%X: %08X (%s) con otro contenido en %08X' % (k, da, s, db))
+                            problemas.append('+%X: %08X (%s) with different contents at %08X' % (k, da, s, db))
             # any write to the base register ends the pair (approximate: destination in bits 21-25)
             if op not in (36, 37, 38, 39, 44, 45, 47, 52, 53, 54, 55, 62) and op != 24:
                 rd = (a >> 21) & 31
@@ -110,8 +110,8 @@ def main():
                 alta_b.pop((b >> 16) & 31, None)
         if problemas:
             malas += 1
-            print('%08X (funcion %08X -> %08X): %s' % (d, ini, e, '; '.join(problemas[:5])))
-    print('parejas comprobadas: %d; funciones con problemas: %d de %d' % (parejas, malas, len(pedidas)))
+            print('%08X (function %08X -> %08X): %s' % (d, ini, e, '; '.join(problemas[:5])))
+    print('pairs checked: %d; functions with problems: %d of %d' % (parejas, malas, len(pedidas)))
 
 
 if __name__ == '__main__':

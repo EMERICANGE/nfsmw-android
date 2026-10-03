@@ -195,7 +195,7 @@ static_assert(kBotonA == HidNpadButton_A && kBotonB == HidNpadButton_B &&
                   kBotonPlus == HidNpadButton_Plus && kBotonMinus == HidNpadButton_Minus &&
                   kBotonIzquierda == HidNpadButton_Left && kBotonArriba == HidNpadButton_Up &&
                   kBotonDerecha == HidNpadButton_Right && kBotonAbajo == HidNpadButton_Down,
-              "switch_imgui_input.h: los bits no coinciden con HidNpadButton de libnx");
+              "switch_imgui_input.h: the bits do not match libnx's HidNpadButton");
 
 void LeerEntradaUi(EntradaUi& salida, float toque_a_logico_x, float toque_a_logico_y) {
   // Only called by ImGuiDrawer::Draw, on the UI thread, so the state can be

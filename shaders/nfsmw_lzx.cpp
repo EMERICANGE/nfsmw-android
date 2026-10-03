@@ -9,7 +9,7 @@ extern "C" struct mspack_system* mspack_default_system;
 
 int main(int argc, char** argv) {
   if (argc != 5) {
-    std::fprintf(stderr, "uso: nfsmw_lzx <entrada> <salida nueva> <bits ventana> <bytes salida>\n");
+    std::fprintf(stderr, "usage: nfsmw_lzx <input> <new output> <window bits> <output bytes>\n");
     return 1;
   }
   const int bits = std::atoi(argv[3]);
@@ -26,9 +26,9 @@ int main(int argc, char** argv) {
   sistema->close(entrada);
   sistema->close(salida);
   if (estado || std::filesystem::file_size(argv[2]) != size_t(bytes)) {
-    std::fprintf(stderr, "LZX fallo: %d; la salida no es valida\n", estado);
+    std::fprintf(stderr, "LZX failed: %d; the output is not valid\n", estado);
     return 2;
   }
-  std::printf("LZX: %ld bytes descomprimidos\n", bytes);
+  std::printf("LZX: %ld bytes decompressed\n", bytes);
   return 0;
 }

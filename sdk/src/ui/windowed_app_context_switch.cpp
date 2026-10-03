@@ -191,8 +191,8 @@ int SwitchWindowedAppContext::RunMainMessageLoop() {
         impl_->sobremesa_efectivo = sobremesa;
       } else if (sobremesa != impl_->sobremesa_efectivo) {
         impl_->sobremesa_efectivo = sobremesa;
-        REXLOG_INFO("Switch: Reverse-NX ahora dice {}: se cambia el tamano de la ventana",
-                    sobremesa ? "sobremesa" : "portatil");
+        REXLOG_INFO("Switch: Reverse-NX now says {}: resizing the window",
+                    sobremesa ? "docked" : "handheld");
         display_changed_ = true;
       }
     }

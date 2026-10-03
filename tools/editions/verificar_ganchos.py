@@ -81,7 +81,7 @@ def main():
                 if (a & ~0x03FFFFFC & 0xFFFFFFFF) == (b & ~0x03FFFFFC & 0xFFFFFFFF) if op == 18 else (a & 0xFFFF0003) == (b & 0xFFFF0003):
                     if traducir(destino(a, ini + k)) == destino(b, e + k):
                         continue
-                problemas.append('+%X: salto %08X / %08X' % (k, a, b))
+                problemas.append('+%X: branch %08X / %08X' % (k, a, b))
                 continue
             if (a & 0xFFFF0000) == (b & 0xFFFF0000):
                 if op == 15 and (a >> 16) & 31 == 0:
@@ -91,14 +91,14 @@ def main():
                 if op in (14, 24) or 32 <= op <= 55:
                     if base in lis:
                         continue
-                problemas.append('+%X: inmediato %08X / %08X' % (k, a, b))
+                problemas.append('+%X: immediate %08X / %08X' % (k, a, b))
                 continue
             problemas.append('+%X: %08X / %08X' % (k, a, b))
         if problemas:
             malas += 1
-            print('%08X (funcion %08X, %d bytes) -> %08X: %d diferencias; %s' % (
+            print('%08X (function %08X, %d bytes) -> %08X: %d differences; %s' % (
                 d, ini, fin - ini, mapa[d], len(problemas), '; '.join(problemas[:6])))
-    print('funciones comprobadas: %d, con diferencias: %d' % (len(pedidas), malas))
+    print('functions checked: %d, with differences: %d' % (len(pedidas), malas))
 
 
 if __name__ == '__main__':

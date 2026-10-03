@@ -36,12 +36,12 @@
  * 128 x 64 KB = 8 MB.
  */
 REXCVAR_DEFINE_INT32(nfsmw_io_ventana_kb, 256, "Filesystem",
-                     "Lectura anticipada por fichero, en KB (0 = apagada). Solo datos de solo lectura.");
+                     "Read-ahead per file, in KB (0 = off). Read-only data only.");
 
 // How many windows can exist at once. A hard cap so that opening many files does not eat the RAM.
 // 128 was an arbitrary number; in a whole measured session there were never more than 10 live windows.
 REXCVAR_DEFINE_INT32(nfsmw_io_ventanas_max, 16, "Filesystem",
-                     "Maximo de ficheros con lectura anticipada a la vez.");
+                     "Maximum number of files with read-ahead at the same time.");
 
 /*
  * Split large direct reads into pieces of this many MB. 0 = a single call.
@@ -66,18 +66,18 @@ REXCVAR_DEFINE_INT32(nfsmw_io_ventanas_max, 16, "Filesystem",
  * bounds the worst case and fixes short reads, not because a gain is expected.
  */
 REXCVAR_DEFINE_INT32(nfsmw_io_trozo_mb, 4, "Filesystem",
-                     "Parte las lecturas directas grandes en trozos de estos MB (0 = de una sola vez).");
+                     "Splits large direct reads into chunks of this many MB (0 = all at once).");
 
 /*
  * RAM read cache by blocks (nfsmw_io_cache_mb, off). The game rereads the same data from the SD
  * every lap.
  *
- * Measured over 5 minutes of racing (line `[io] rangos:`):
+ * Measured over 5 minutes of racing (line `[io] ranges:`):
  *     from minute 2 on, between 79 % and 95 % of the bytes the game reads from disk had already
  *     been read before, and the sizes repeat with the lap period (20.9 MB three times, 13.0-13.6 MB
  *     twice...).
  * NFSMW streaming works per zone pack (eStreamingPack): on leaving a zone it releases the whole
- * pack and on entering again it asks for it again. We evict nothing (`0 desalojos` in every
+ * pack and on entering again it asks for it again. We evict nothing (`0 evictions` in every
  * report): the one releasing it is the game's memory manager, and it cannot be told no.
  *
  * What can be done is make the second time not cost a trip to the SD. In a race that is 441
@@ -110,17 +110,17 @@ REXCVAR_DEFINE_INT32(nfsmw_io_trozo_mb, 4, "Filesystem",
  * ================================================================================================
  */
 REXCVAR_DEFINE_INT32(nfsmw_io_cache_mb, 0, "Filesystem",
-                     "Cache en RAM de lo ya leido del disco, en MB (0 = apagada). Solo datos de solo "
-                     "lectura. El juego relee cada vuelta lo mismo.");
+                     "RAM cache of what was already read from disk, in MB (0 = off). Read-only data "
+                     "only. The game rereads the same data every lap.");
 
 /*
  * Read cache by exact range. This is the second attempt, not the block cache above.
  *
  * What was measured. Across two different builds the per-lap stutter pattern is identical: a period
  * of 62-68 s, three or four fixed places, always in the same order and with the same size. In those
- * frames the breakdown says GPU 27-29 ms (normal) and the `grabar` stage 0.2-0.4 ms: the time is
- * neither in the GPU nor in recording. What does go together with the big stutters are `[io] LENTO`
- * reads of NFS\ZZDATA6.BIN marked (RELEIDA), of 11 to 20 ms, and the worst one of the session
+ * frames the breakdown says GPU 27-29 ms (normal) and the `record` stage 0.2-0.4 ms: the time is
+ * neither in the GPU nor in recording. What does go together with the big stutters are `[io] SLOW`
+ * reads of NFS\ZZDATA6.BIN marked (REREAD), of 11 to 20 ms, and the worst one of the session
  * blocks for 132 to 140 ms. They are rereads of the zone pack: the game releases the pack on
  * leaving and asks for it again on entering, with the same offset and the same size.
  *
@@ -169,21 +169,21 @@ REXCVAR_DEFINE_INT32(nfsmw_io_cache_mb, 0, "Filesystem",
  * and the thread stacks, 64 MB leaves margin; 128 would not in the pessimistic case.
  */
 REXCVAR_DEFINE_INT32(nfsmw_io_rangos_mb, 64, "Filesystem",
-                     "Cache de lecturas por rango exacto, tope total en MB (0 = apagada). 64 = la huella "
-                     "medida de una carrera (56,6 MB) sin expulsiones; mas no compra nada.");
+                     "Read cache by exact range, total cap in MB (0 = off). 64 = the measured footprint "
+                     "of a race (56.6 MB) without evictions; more buys nothing.");
 
 // Floor, in KB. At 4 MB it left out everything that is reread during a race (0.14-2.0 MB).
 REXCVAR_DEFINE_INT32(nfsmw_io_rangos_min_kb, 256, "Filesystem",
-                     "Solo se cachean las lecturas de estos KB o mas. 256 = el punto donde la simulacion "
-                     "deja de ganar (con 128 suben las expulsiones y bajan los aciertos).");
+                     "Only reads of this many KB or more are cached. 256 = the point where the simulation "
+                     "stops gaining (with 128 evictions go up and hits go down).");
 
 // Compatibility: the old cvar in MB. If a toml sets it to a value > 0, it overrides the KB one.
 REXCVAR_DEFINE_INT32(nfsmw_io_rangos_min_mb, 0, "Filesystem",
-                     "OBSOLETO (build 131): usar nfsmw_io_rangos_min_kb. Si es > 0 manda sobre el de KB.");
+                     "OBSOLETE (build 131): use nfsmw_io_rangos_min_kb. If > 0 it overrides the KB one.");
 
 // Per-entry ceiling: a single read cannot take more than this out of the total cap.
 REXCVAR_DEFINE_INT32(nfsmw_io_rangos_max_mb, 12, "Filesystem",
-                     "Ninguna entrada de la cache de rangos pasa de estos MB.");
+                     "No entry of the range cache may exceed this many MB.");
 
 namespace rex::filesystem {
 
@@ -195,7 +195,7 @@ std::atomic<uint64_t> g_bytes_ram{0};
 std::atomic<int64_t> g_ventanas_vivas{0};
 
 // Above this it does not pay off: the request is already large and the window would only add an extra copy.
-constexpr size_t kPeticionMaxFraccion = 4;  // pedido <= ventana/4
+constexpr size_t kPeticionMaxFraccion = 4;  // pedido <= window/4
 
 /* The read cache (see nfsmw_io_cache_mb). */
 constexpr size_t kBloqueCache = 256 * 1024;
@@ -206,7 +206,7 @@ struct BloqueCache {
 };
 
 std::mutex g_cache_mutex;
-std::unordered_map<uint64_t, BloqueCache> g_cache;   // clave: id de fichero << 32 | bloque
+std::unordered_map<uint64_t, BloqueCache> g_cache;   // key: file id << 32 | block
 std::map<uint64_t, uint64_t> g_cache_lru;            // use -> key, oldest first
 std::unordered_map<std::string, uint32_t> g_cache_ids;  // path -> id, so the key is exact
 uint64_t g_cache_bytes = 0;
@@ -305,7 +305,7 @@ bool LeerConCache(FileHandle* fh, uint32_t id, std::span<uint8_t> buffer, size_t
             break;
           }
           if (n == 0) {
-            break;  // fin de fichero
+            break;  // end of file
           }
           leidos += n;
         }
@@ -314,7 +314,7 @@ bool LeerConCache(FileHandle* fh, uint32_t id, std::span<uint8_t> buffer, size_t
         for (uint64_t k = b; k <= fin; ++k) {
           const size_t desde = static_cast<size_t>(k - b) * kBloqueCache;
           if (desde >= leidos) {
-            break;  // fin de fichero
+            break;  // end of file
           }
           const size_t n = std::min(kBloqueCache, leidos - desde);
           const uint64_t ck = (static_cast<uint64_t>(id) << 32) | k;
@@ -329,8 +329,8 @@ bool LeerConCache(FileHandle* fh, uint32_t id, std::span<uint8_t> buffer, size_t
         g_cache.clear();
         g_cache_lru.clear();
         g_cache_bytes = 0;
-        REXLOG_WARN("[io] cache en RAM: sin memoria, se apaga (iba por {} MB). El juego sigue leyendo "
-                    "del disco como antes",
+        REXLOG_WARN("[io] RAM cache: out of memory, turning it off (it was at {} MB). The game keeps reading "
+                    "from disk as before",
                     tenia);
         return false;
       }
@@ -360,9 +360,9 @@ bool LeerConCache(FileHandle* fh, uint32_t id, std::span<uint8_t> buffer, size_t
   const uint64_t vueltas = g_cache_aciertos + g_cache_fallos;
   if (vueltas >= g_cache_informe + 200) {
     g_cache_informe = vueltas;
-    REXLOG_INFO("[io] cache en RAM: {} bloques ({} MB de {}), {} servidas de RAM y {} del disco "
-                "({:.1f} % de aciertos); {:.1f} MB entregados, {:.1f} leidos de la SD, {} bloques "
-                "expulsados",
+    REXLOG_INFO("[io] RAM cache: {} blocks ({} MB of {}), {} served from RAM and {} from disk "
+                "({:.1f} % hits); {:.1f} MB delivered, {:.1f} read from the SD, {} blocks "
+                "evicted",
                 g_cache.size(), g_cache_bytes >> 20, REXCVAR_GET(nfsmw_io_cache_mb), g_cache_aciertos,
                 g_cache_fallos, vueltas ? 100.0 * double(g_cache_aciertos) / double(vueltas) : 0.0,
                 double(g_cache_bytes_servidos) / 1048576.0, double(g_cache_bytes_disco) / 1048576.0,
@@ -456,7 +456,7 @@ bool RangoElegible(size_t pedido) {
 constexpr uint64_t kBarridoMinimo = uint64_t(4) << 20;
 
 bool EsBarridoYAnotar(uint32_t id, uint64_t desplazamiento, uint32_t pedido) {
-  // Llamar con g_rangos_mutex cogido.
+  // Call with g_rangos_mutex held.
   auto it = g_rangos_ultimo_fin.find(id);
   const bool seguida = it != g_rangos_ultimo_fin.end() && it->second == desplazamiento;
   g_rangos_ultimo_fin[id] = desplazamiento + pedido;
@@ -523,8 +523,8 @@ void GuardarRango(uint32_t id, uint64_t desplazamiento, uint32_t pedido, const u
     }
     g_rangos_entradas.store(0, std::memory_order_relaxed);
     g_rangos_bytes_vivos.store(0, std::memory_order_relaxed);
-    REXLOG_WARN("[io] rangos-cache: sin memoria, se apaga (iba por {} MB). El juego sigue leyendo "
-                "del disco como antes",
+    REXLOG_WARN("[io] range-cache: out of memory, turning it off (it was at {} MB). The game keeps reading "
+                "from disk as before",
                 tenia);
     return;
   }

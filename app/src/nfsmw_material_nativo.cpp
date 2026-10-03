@@ -59,7 +59,7 @@
 //     hooks in "trace mode": they record the call and do their full check against the original writer.
 //     The list, the written bytes and r3/r12/lr/r1/FPCR must match.
 //   A single difference turns the function off for good (and 824511E8 if one of its writers fails), leaves
-//   the exact state of the original and writes "[material] DIFERENCIA" with the data. "[material]" line
+//   the exact state of the original and writes "[material] DIFFERENCE" with the data. "[material]" line
 //   every 10 s.
 
 #include <rex/cvar.h>
@@ -76,9 +76,9 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_material_nativo, true, "NFSMW",
-                    "Parametros de material por dibujo (sub_824511E8 y las escritoras 8244F2E0, 82449360, 82449618, "
-                    "82449988 y 82449C00) en nativo, identico bit a bit. Se comprueba contra la original al empezar y "
-                    "1 de cada 4096 llamadas despues, y se apaga sola si difiere")
+                    "Per-draw material parameters (sub_824511E8 and the writers 8244F2E0, 82449360, 82449618, "
+                    "82449988 and 82449C00) in native code, bit-identical. Checked against the original at the start "
+                    "and on 1 of every 4096 calls afterwards; turns itself off if they differ")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 REX_EXTERN(__imp__sub_824511E8);
@@ -208,7 +208,7 @@ constexpr uint32_t kConst480 = 0x8205E240;       // lfs f0,-7616(0x82060000)
 constexpr uint32_t kConst440 = 0x82062864;       // lfs f0,10340(0x82060000)
 constexpr uint32_t kConst460 = 0x828FCC78;       // lfs f31,-13192(0x82900000), for +460 and +464
 constexpr uint32_t kPunteroVector = 0x82A2C4F8;  // lwz r11,-15112(0x82A30000); addi r5,r11,48
-constexpr uint32_t kPunteroEnteros = 0x82A2D174; // lwz r11,-11916(0x82A30000); lhz 68 y 70
+constexpr uint32_t kPunteroEnteros = 0x82A2D174; // lwz r11,-11916(0x82A30000); lhz 68 and 70
 constexpr uint32_t kByte448 = 0x82A2D1A5;        // lbz r9,-11867(0x82A30000)
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -278,7 +278,7 @@ inline uint32_t EscritoraF2E0(Memoria<A>& m, uint32_t self, uint32_t puntero_man
   const uint8_t viejo = Leer8(base, sucio);                                  // lbzx r3,r9,r11
   const uint32_t palabra = Leer32(base, g.tabla + Entrada(mango) + 4);       // lwz r4,4(r6), before the stbx
   m.MarcarSucio(sucio, viejo, bit);                                          // stbx r7,r9,r11
-  m.Escribir32(Registro16(palabra) + g.destino, valor);                      // stwx r5,r10,r8 (sin alinear)
+  m.Escribir32(Registro16(palabra) + g.destino, valor);                      // stwx r5,r10,r8 (unaligned)
   return viejo;
 }
 
@@ -522,7 +522,7 @@ SalidaMaterial MaterialNativo(Memoria<A>& m, uint32_t self, uint32_t r1o, uint64
       const uint32_t efecto = Leer32(base, self + 28);
       const int16_t e = int16_t(Leer16(base, enteros + (i == 0 ? 68u : 70u)));
       m.Escribir64(hueco, uint64_t(int64_t(e)));                 // std r9,80(r1)
-      m.Escribir32(hueco, std::bit_cast<uint32_t>(float(e)));    // stfs f12,80(r1): exacto (|e| < 2^24)
+      m.Escribir32(hueco, std::bit_cast<uint32_t>(float(e)));    // stfs f12,80(r1): exact (|e| < 2^24)
       if constexpr (A) Apuntar(plan, base, k9360, efecto, mango, hueco);
       Escritora9360(m, efecto, mango, hueco, r1);
       r3 = efecto;
@@ -539,7 +539,7 @@ SalidaMaterial MaterialNativo(Memoria<A>& m, uint32_t self, uint32_t r1o, uint64
       r3 = efecto;
     }
   }
-  // Epilogo: addi r1,r1,128; lwz r12,-8(r1); mtlr r12 (y lfd f31 / ld r30 / ld r31, variables locales).
+  // Epilogue: addi r1,r1,128; lwz r12,-8(r1); mtlr r12 (and lfd f31 / ld r30 / ld r31, local variables).
   return {r3, Leer32(base, r1o - 8)};
 }
 
@@ -593,21 +593,21 @@ void Informe() {
   }
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
-    REXLOG_INFO("[material] parametros de material en nativo (824511E8 y sus escritoras); se comprueban contra la "
-                "original las primeras {} llamadas de cada funcion y despues 1 de cada 4096",
+    REXLOG_INFO("[material] material parameters in native code (824511E8 and its writers); the first {} calls of "
+                "each function are checked against the original, then 1 of every 4096",
                 kComprobaciones);
     return;
   }
   std::string linea;
   for (uint32_t t = 0; t < kTipos; ++t) {
     Contadores& c = g_c[t];
-    linea += fmt::format(" | {}: {} nativas, {} originales, {} comprobadas{}", kNombres[t],
+    linea += fmt::format(" | {}: {} native, {} original, {} checked{}", kNombres[t],
                          c.nativas.exchange(0, std::memory_order_relaxed),
                          c.originales.exchange(0, std::memory_order_relaxed),
                          c.comprobadas.exchange(0, std::memory_order_relaxed),
-                         c.apagado.load(std::memory_order_relaxed) ? " (APAGADA por diferencia)" : "");
+                         c.apagado.load(std::memory_order_relaxed) ? " (OFF after a difference)" : "");
   }
-  NFSMW_INFORME_DIFERIDO("[material] ultimos 10 s{}", linea);
+  NFSMW_INFORME_DIFERIDO("[material] last 10 s{}", linea);
 }
 
 void Apagar(uint32_t tipo) {
@@ -624,8 +624,8 @@ void NotarComprobada(uint32_t tipo) {
   const uint64_t total = c.comprobadas_total.load(std::memory_order_relaxed) + 1;
   c.comprobadas_total.store(total, std::memory_order_relaxed);
   if (total == kComprobaciones && !c.apagado.load(std::memory_order_relaxed)) {
-    REXLOG_INFO("[material] sub_{}: {} llamadas comprobadas contra la original byte a byte, 0 diferencias: camino "
-                "nativo en marcha",
+    REXLOG_INFO("[material] sub_{}: {} calls checked against the original byte by byte, 0 differences: native "
+                "path running",
                 kNombres[tipo], kComprobaciones);
   }
 }
@@ -761,10 +761,10 @@ template <uint32_t T>
   // 1) The original over the real state: same bytes, same r3, same FPCR.
   LlamarOriginal<T>(ctx, base);
   uint32_t mala = PrimeraDistinta(reg, base);
-  const char* motivo = mala < reg.n ? "bytes distintos" : nullptr;
-  if (!motivo && reg.lleno) motivo = "demasiadas escrituras";
-  if (!motivo && PoneR3(T) && ctx.r3.u64 != r3n) motivo = "r3 distinto";
-  if (!motivo && ctx.fpscr.csr != csr_esperado) motivo = "FPCR distinto";
+  const char* motivo = mala < reg.n ? "different bytes" : nullptr;
+  if (!motivo && reg.lleno) motivo = "too many writes";
+  if (!motivo && PoneR3(T) && ctx.r3.u64 != r3n) motivo = "different r3";
+  if (!motivo && ctx.fpscr.csr != csr_esperado) motivo = "different FPCR";
   if (!motivo) {
     // 2) Poison what was written and run the original again: it must write exactly there (and nowhere else,
     // because each original writer does a fixed number of writes). The registers from 1) are kept.
@@ -777,7 +777,7 @@ template <uint32_t T>
     ctx.lr = lre;
     LlamarOriginal<T>(ctx, base);
     mala = PrimeraDistinta(reg, base);
-    if (mala < reg.n) motivo = "la original escribe en otra direccion";
+    if (mala < reg.n) motivo = "the original writes to another address";
     RestaurarVolatiles(ctx, primera);
   }
   NotarComprobada(T);
@@ -796,12 +796,12 @@ template <uint32_t T>
   ctx.lr = lre;
   LlamarOriginal<T>(ctx, base);
   Apagar(T);
-  REXLOG_INFO("[material] DIFERENCIA en sub_{} ({}; llamada {}): r3 0x{:08X} r4 0x{:08X} r5 0x{:08X} r1 0x{:08X}; "
-              "direccion 0x{:08X} nativa {} original {}{}. Camino nativo APAGADO para siempre, se queda la original",
+  REXLOG_INFO("[material] DIFFERENCE in sub_{} ({}; call {}): r3 0x{:08X} r4 0x{:08X} r5 0x{:08X} r1 0x{:08X}; "
+              "address 0x{:08X} native {} original {}{}. Native path turned OFF for good, the original stays",
               kNombres[T], motivo, g_c[T].comprobadas_total.load(std::memory_order_relaxed), r3e.u32, r4e.u32,
               r5e.u32, ctx.r1.u32, a ? a->direccion : 0u, a ? Hex(a->despues, a->bytes) : std::string("-"),
               a ? Hex(ahora, a->bytes) : std::string("-"),
-              PoneR3(T) ? fmt::format("; r3 nativa 0x{:X} original 0x{:X}", r3n, ctx.r3.u64) : std::string());
+              PoneR3(T) ? fmt::format("; r3 native 0x{:X} original 0x{:X}", r3n, ctx.r3.u64) : std::string());
 }
 
 template <uint32_t T>
@@ -901,22 +901,22 @@ bool MismoPlan(const Plan& a, const Plan& b, uint32_t& donde) {
   uint32_t donde = 0;
   const uint32_t mala = PrimeraDistinta(reg, base);
   const char* motivo = nullptr;
-  if (reg.lleno) motivo = "demasiadas escrituras";
-  else if (!MismoPlan(plan, g_traza, donde)) motivo = "llamadas a escritoras distintas";
-  else if (mala < reg.n) motivo = "bytes distintos";
-  else if (ctx.r3.u64 != s.r3) motivo = "r3 distinto";
-  else if (ctx.r12.u64 != s.r12 || ctx.lr != s.r12) motivo = "r12/lr distintos";
-  else if (ctx.r1.u64 != r1e) motivo = "r1 distinto";
-  else if (ctx.fpscr.csr != csr_esperado) motivo = "FPCR distinto";
+  if (reg.lleno) motivo = "too many writes";
+  else if (!MismoPlan(plan, g_traza, donde)) motivo = "different calls to writers";
+  else if (mala < reg.n) motivo = "different bytes";
+  else if (ctx.r3.u64 != s.r3) motivo = "different r3";
+  else if (ctx.r12.u64 != s.r12 || ctx.lr != s.r12) motivo = "different r12/lr";
+  else if (ctx.r1.u64 != r1e) motivo = "different r1";
+  else if (ctx.fpscr.csr != csr_esperado) motivo = "different FPCR";
   NotarComprobada(kMaterial);
   if (!motivo) {
     return;
   }
   Apagar(kMaterial);  // the state is already the original's
   const Anotacion* a = mala < reg.n ? &reg.a[mala] : nullptr;
-  REXLOG_INFO("[material] DIFERENCIA en sub_824511E8 ({}; llamada {}): this 0x{:08X} r1 0x{:08X}; escritoras "
-              "nativa {} original {} (primera distinta: {}); direccion 0x{:08X} nativa {} original {}; r3 nativa "
-              "0x{:X} original 0x{:X}. Camino nativo APAGADO para siempre, se queda la original",
+  REXLOG_INFO("[material] DIFFERENCE in sub_824511E8 ({}; call {}): this 0x{:08X} r1 0x{:08X}; writers "
+              "native {} original {} (first different: {}); address 0x{:08X} native {} original {}; r3 native "
+              "0x{:X} original 0x{:X}. Native path turned OFF for good, the original stays",
               motivo, g_c[kMaterial].comprobadas_total.load(std::memory_order_relaxed), self, r1o, plan.n,
               g_traza.n, donde, a ? a->direccion : 0u, a ? Hex(a->despues, a->bytes) : std::string("-"),
               a ? Hex(Puntero(base, a->direccion), a->bytes) : std::string("-"), s.r3, ctx.r3.u64);

@@ -107,7 +107,7 @@ the most CPU time get one. Each comes with a [guard](#guard).
 
 A safety check that comes with every [native replacement](#native-replacement). For a while, or on some calls, the
 port runs both the original function and the replacement and compares their results. If they ever differ, it writes
-`DIFERENCIA` in the log and turns the replacement off until the game is closed.
+`DIFFERENCE` in the log and turns the replacement off until the game is closed.
 
 ## The Switch
 

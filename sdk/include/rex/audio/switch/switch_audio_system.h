@@ -36,7 +36,7 @@ class SwitchAudioDriver final : public AudioDriver {
 
   // Output thread only. Folds the oldest queued frame to stereo and adds it to
   // stereo_out (kChannelSamples interleaved pairs), then releases the guest
-  // semaphore for it if release is set (sin audio_switch_bomba). Returns false,
+  // semaphore for it if release is set (without audio_switch_bomba). Returns false,
   // touching nothing, if no frame is queued.
   bool MixFrameInto(float* stereo_out, const StereoFold& fold, float gain, bool release);
 

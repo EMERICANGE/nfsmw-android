@@ -14,14 +14,14 @@ static uint32_t LeerBE(const uint8_t* p) {
 
 int main(int argc, char** argv) try {
   if (argc != 3) {
-    std::fprintf(stderr, "uso: nfsmw_buscar_contenedores <entrada> <salida nueva>\n");
+    std::fprintf(stderr, "usage: nfsmw_buscar_contenedores <input> <new output>\n");
     return 1;
   }
   const std::filesystem::path salida(argv[2]);
-  if (std::filesystem::exists(salida)) throw std::runtime_error("la salida ya existe");
+  if (std::filesystem::exists(salida)) throw std::runtime_error("the output already exists");
   std::filesystem::create_directories(salida);
   std::ofstream indice(salida / "procedencia.tsv");
-  indice << "archivo\torigen\tdesplazamiento\tvirtual\tfisico\n";
+  indice << "file\tsource\toffset\tvirtual\tphysical\n";
   size_t total = 0;
   for (const auto& entrada : std::filesystem::recursive_directory_iterator(argv[1])) {
     if (!entrada.is_regular_file()) continue;
@@ -31,7 +31,7 @@ int main(int argc, char** argv) try {
     if (n < 24 || n > 1024ULL * 1024 * 1024) continue;
     std::vector<uint8_t> datos(n);
     std::ifstream archivo(entrada.path(), std::ios::binary);
-    if (!archivo.read(reinterpret_cast<char*>(datos.data()), n)) throw std::runtime_error("fallo de lectura");
+    if (!archivo.read(reinterpret_cast<char*>(datos.data()), n)) throw std::runtime_error("read failed");
     size_t encontrados = 0;
     for (size_t i = 0; i + 24 <= n; ++i) {
       const auto* p = datos.data() + i;
@@ -43,15 +43,15 @@ int main(int argc, char** argv) try {
       std::snprintf(nombre, sizeof(nombre), "%c_%06zu.bin", p[3] ? 'v' : 'p', total);
       std::ofstream copia(salida / nombre, std::ios::binary);
       copia.write(reinterpret_cast<const char*>(p), size_t(v) + f);
-      if (!copia) throw std::runtime_error("fallo de escritura");
+      if (!copia) throw std::runtime_error("write failed");
       indice << nombre << '\t' << entrada.path().string() << '\t' << i << '\t' << v << '\t' << f << '\n';
       ++total;
       ++encontrados;
     }
-    std::printf("%s: %zu candidatos\n", entrada.path().filename().string().c_str(), encontrados);
+    std::printf("%s: %zu candidates\n", entrada.path().filename().string().c_str(), encontrados);
     std::fflush(stdout);
   }
-  std::printf("Total: %zu candidatos; comprobar antes de traducir.\n", total);
+  std::printf("Total: %zu candidates; check them before translating.\n", total);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "error: %s\n", error.what());

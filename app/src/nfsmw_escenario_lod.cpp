@@ -53,7 +53,7 @@
  * The cost, which is the risk: the extra triangles on the same objects cost almost nothing (same
  * silhouette, same fragments, and the scene is ALU-bound: TMU 51 %, ROP 8 %). The estimate is 0.2-0.6 ms.
  * What could cost something is draws: if the full mesh brings more materials, that means more draw calls
- * at ~12 us of CPU each, and that gets expensive. It shows in "C7" and "C6 dibujos" in the log.
+ * at ~12 us of CPU each, and that gets expensive. It shows in "C7" and "C6 draws" in the log.
  *
  * If it turns out expensive: lower it to 150 in the toml (it covers everything that looks large, for
  * tenths of a ms) or to 0 to go back exactly to the game's behavior.
@@ -61,8 +61,8 @@
 /*
  * Off. The hypothesis was wrong, and this is measured.
  *
- * With the hook reaching 100 % of the objects (the log says "8.684.579 que el juego dibuja, 8.684.579
- * con la malla buena forzada"), the scenery triangles did not move (37.1 k without the hook against
+ * With the hook reaching 100 % of the objects (the log says "8,684,579 that the game draws, 8,684,579
+ * with the good mesh forced"), the scenery triangles did not move (37.1 k without the hook against
  * 39.5 k with it, and that 6 % is driving noise). Forcing the full mesh changes nothing because there is
  * almost never a better mesh to choose.
  *
@@ -80,14 +80,14 @@
  * is still useful; but the default is 0 = the game decides, which is what retail does.
  */
 REXCVAR_DEFINE_INT32(nfsmw_escenario_detalle, 0, "NFSMW",
-                     "Unidades del mundo que se le adelanta al escenario el cambio a la malla buena. "
-                     "0 = el juego decide (salta a media pantalla). 150 = la malla buena entra 150 "
-                     "unidades antes. -1 = malla buena SIEMPRE mientras el objeto se dibuje")
+                     "World units by which the scenery switch to the full mesh is brought forward. "
+                     "0 = the game decides (it pops at half-screen size). 150 = the full mesh comes in 150 "
+                     "units earlier. -1 = full mesh ALWAYS while the object is drawn")
     .range(-1, 20000);
 
 REXCVAR_DEFINE_BOOL(nfsmw_escenario_detalle_diag, false, "NFSMW",
-                    "Anota cada 10 s cuantos objetos de escenario entran en la lista, cuantos con "
-                    "malla reducida, y los triangulos que costaria subirlos todos a la buena");
+                    "Logs every 10 s how many scenery objects enter the list, how many with the "
+                    "reduced mesh, and the triangles it would cost to raise them all to the full one");
 
 namespace nfsmw::escenario_lod {
 namespace {
@@ -183,8 +183,8 @@ REX_HOOK_RAW(sub_824C2720) {
    */
 
   if (!g_anotado.exchange(true)) {
-    REXLOG_INFO("[escenario lod] el juego pasa a la malla buena por debajo de {:.1f} unidades; "
-                "con el ajuste en {} se le adelanta esa decision",
+    REXLOG_INFO("[escenario lod] the game switches to the full mesh below {:.1f} units; "
+                "with the setting at {} that decision is brought forward",
                 double(LeerFlotante(base, kUmbralDistancia)), adelanto);
   }
 
@@ -208,8 +208,8 @@ std::string Resumen() {
   const uint64_t e = g_entradas.load(std::memory_order_relaxed);
   const uint64_t g = g_grandes.load(std::memory_order_relaxed);
   const uint64_t f = g_forzadas.load(std::memory_order_relaxed);
-  return "escenario lod: " + std::to_string(e) + " objetos mirados, " + std::to_string(g) +
-         " que el juego dibuja (>=18 px), " + std::to_string(f) + " con la malla buena forzada";
+  return "scenery lod: " + std::to_string(e) + " objects looked at, " + std::to_string(g) +
+         " that the game draws (>=18 px), " + std::to_string(f) + " with the good mesh forced";
 }
 }  // namespace nfsmw::escenario_lod
 

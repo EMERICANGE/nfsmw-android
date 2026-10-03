@@ -65,7 +65,7 @@ extern "C" {
 typedef enum {
     REX_GM_NONE  = 0,
     REX_GM_READ  = 1 << 0,
-    REX_GM_WRITE = (1 << 0) | (1 << 1),  /* lectura + escritura */
+    REX_GM_WRITE = (1 << 0) | (1 << 1),  /* read + write */
 } RexGmAccess;
 
 /* Reserves the window. size is usually 0x120000000. Returns the base or NULL. */

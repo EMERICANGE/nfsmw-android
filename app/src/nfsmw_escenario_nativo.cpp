@@ -65,7 +65,7 @@
 //   and the block that would be allocated are snapshotted; the native version runs, what it leaves is
 //   saved and undone (whole memory and context), the original runs and they are compared byte by byte,
 //   along with r3, f1, r1, r12, lr and the FPCR. The original's state is always kept. A single difference
-//   turns the native version off for the session and writes "[escenario] DIFERENCIA" (REXLOG_ERROR).
+//   turns the native version off for the session and writes "[escenario] DIFFERENCE" (REXLOG_ERROR).
 //   "[escenario]" line every 10 s with the counts.
 
 #include <rex/cvar.h>
@@ -83,17 +83,17 @@
 #include <string>
 
 REXCVAR_DEFINE_BOOL(nfsmw_escenario_nativo, true, "NFSMW",
-                    "ScenerySectionHeader::DrawAScenery (sub_824C2850: culling, tamano en pixeles, LOD y SceneryDrawInfo "
-                    "de cada objeto de escenario) en nativo (build 184), identico bit a bit. Se comprueba contra la "
-                    "original (las primeras 100.000 llamadas, las primeras 5.000 con viento y despues 1 de cada 4096) "
-                    "y se apaga sola si difiere; false = la original")
+                    "ScenerySectionHeader::DrawAScenery (sub_824C2850: culling, size in pixels, LOD and SceneryDrawInfo "
+                    "of each scenery object) in native code (build 184), bit-identical. Checked against the "
+                    "original (the first 100,000 calls, the first 5,000 with wind and then 1 of every 4096) "
+                    "and turns itself off if they differ; false = the original")
     .lifecycle(rex::cvar::Lifecycle::kInitOnly);
 
 // The LOD setting of nfsmw_escenario_lod.cpp (its hook of sub_824C2720). Nonzero: the original runs, since
 // it uses it.
 REXCVAR_DECLARE(int32_t, nfsmw_escenario_detalle);
 
-REX_EXTERN(__imp__sub_824C2850);  // la original
+REX_EXTERN(__imp__sub_824C2850);  // the original
 REX_EXTERN(sub_8243E7D8);         // GetVisibleState through its hook, like the original (itself native)
 // CreateWindRotMatrix and bMulMatrix, the originals. The name is assembled from parts on purpose:
 // tools/llamadas_directas.py treats any address that appears whole in app/src as hooked, and their calls
@@ -183,10 +183,10 @@ constexpr uint32_t kCero = 0x82061CE8;             // lfs f13,7400(0x82060000) o
 constexpr uint32_t kEscalaRotacion = 0x820AFF50;   // lfs f0,-176(0x820B0000) of the rotation: 1/8192
 constexpr uint32_t kModoVista = 0x82A2CEE4;        // lwz r11,-12572(0x82A30000): eGetCurrentViewMode()
 constexpr uint32_t kReservaActual = 0x82A2C3B4;    // eFrameMalloc: the free pointer
-constexpr uint32_t kReservaFin = 0x82A2C3B8;       //   y su final
+constexpr uint32_t kReservaFin = 0x82A2C3B8;       //   and its end
 constexpr uint32_t kReservaAgotada = 0x82A2C3C4;   // out of space: the flag
 constexpr uint32_t kReservaPerdida = 0x82A2C3C8;   // and the requested bytes
-constexpr uint32_t kVistas = 0x82A38070;           // addi r26,r11,-32656 con r11 = 0x82A40000
+constexpr uint32_t kVistas = 0x82A38070;           // addi r26,r11,-32656 with r11 = 0x82A40000
 constexpr uint32_t kVista1 = kVistas + 112;        // eGetView(1)
 constexpr uint32_t kVista2 = kVistas + 224;        // eGetView(2)
 constexpr uint32_t kMagia360 = 0xB60B60B7u;        // lis r4,-18933; ori r10,r4,24759: divide by 360
@@ -199,13 +199,13 @@ constexpr uint32_t kVueltaViento = 0x824C2C74;
 constexpr uint32_t kVueltaMultiplicar = 0x824C2C84;
 constexpr uint32_t kVueltaMarcador = 0x824C2CE8;
 
-// [inicio, inicio + n) toca la pila vigilada [pila - kPila, pila)?
+// [inicio, inicio + n) touches the watched stack [pila - kPila, pila)?
 [[gnu::always_inline]] inline bool EnPila(uint32_t inicio, uint32_t n, uint32_t pila) {
   return uint64_t(inicio) + n > uint64_t(pila) - kPila && uint64_t(inicio) < uint64_t(pila);
 }
 
 enum Camino : uint32_t { kDescarte = 0, kSinMatriz = 1, kConMatriz = 2, kConViento = 3, kCaminos = 4 };
-constexpr const char* kNombresCamino[kCaminos] = {"descarte", "sin matriz", "con matriz", "con viento"};
+constexpr const char* kNombresCamino[kCaminos] = {"discard", "without matrix", "with matrix", "with wind"};
 enum Motivo : uint32_t {
   kPorApagada = 0,
   kPorDetalle = 1,
@@ -258,7 +258,7 @@ inline bool Activo() {
 template <bool kGuardia>
 Salida Nativa(PPCContext& ctx, uint8_t* base) {
   const uint32_t yo = ctx.r3.u32;      // ScenerySectionHeader
-  const uint32_t numero = ctx.r4.u32;  // numero de instancia
+  const uint32_t numero = ctx.r4.u32;  // instance number
   const uint32_t cull = ctx.r5.u32;    // SceneryCullInfo (r25)
   const uint64_t estado = ctx.r6.u64;  // visibility_state (r26)
   const uint32_t pila = ctx.r1.u32;
@@ -296,7 +296,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     return {true, 0, camino};
   };
 
-  // --- Prologo ---
+  // --- Prologue ---
   ctx.r12.u64 = ctx.lr;             // mflr r12
   ctx.lr = kVueltaPrologo;          // bl __savegprlr_22
   ctx.fpscr.disableFlushMode();     // the one of "stfd f29,-112(r1)"
@@ -312,7 +312,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     const uint32_t fila = uint32_t(int32_t(int16_t(Leer16(base, inst + 28)))) << 7;  // lhz; extsh; rlwinm 7,0,24
     const uint32_t byte = Leer8(base, fila + uint32_t(seccion >> 3) + Leer32(base, yo + 48));  // srawi; add; lbzx
     if ((byte & (1u << (uint32_t(seccion) & 7u))) != 0) {  // slw r11,r4,r7; and; cmpwi; bne
-      return salir(kDescarte);                              // r3 = this, sin tocar
+      return salir(kDescarte);                              // r3 = this, untouched
     }
   }
 
@@ -326,13 +326,13 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
   if (((marcadas ^ 0xFFFFFF60u) & banderas_vista & 0x080000FFu) != 0) {  // xor; and; clrlwi 4; rlwinm 0,24,4
     return salir(kDescarte);
   }
-  // lhz r9,62(r30); extsh; x 72 (rlwinm, add, rlwinm); add r31,r11,r10 con r10 = [r3+24]
+  // lhz r9,62(r30); extsh; x 72 (rlwinm, add, rlwinm); add r31,r11,r10 with r10 = [r3+24]
   const uint32_t info = uint32_t(int32_t(int16_t(Leer16(base, inst + 62)))) * 72u + Leer32(base, yo + 24);
   if (EnPila(info, 72, pila)) {
     return a_la_original(kPorPila);
   }
 
-  // --- 3. Visibilidad parcial ---
+  // --- 3. Partial visibility ---
   uint64_t visibilidad = estado;               // r26
   if (int32_t(uint32_t(estado)) == 1) {        // cmpwi cr6,r26,1
     uint32_t caja[6];
@@ -351,7 +351,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     ctx.r6.s64 = 0;
     ctx.r5.s64 = ctx.r1.s64 + 112;
     ctx.r4.s64 = ctx.r1.s64 + 80;
-    ctx.r3.u64 = Leer32(base, cull + 128);     // lwz r3,128(r25): la vista
+    ctx.r3.u64 = Leer32(base, cull + 128);     // lwz r3,128(r25): the view
     ctx.lr = kVueltaVisible;
     sub_8243E7D8(ctx, base);                   // GetVisibleState
     visibilidad = ctx.r3.u64;                  // mr r26,r3
@@ -412,7 +412,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     }
     PPCRegister entero;
     entero.s64 = Fctiwz(tam);                                 // fctiwz f8,f12
-    Escribir32(base, marco - 16, entero.u32);                 // stfiwx f8,0,r11 con r11 = r1-16
+    Escribir32(base, marco - 16, entero.u32);                 // stfiwx f8,0,r11 with r11 = r1-16
     r3 = entero.u32;                                          // lwz r3,-16(r1)
   }
   if (int32_t(uint32_t(r3)) <= 1) {                           // cmpwi cr6,r3,1; ble
@@ -425,7 +425,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
   const int32_t pixeles = int32_t(uint32_t(r3));
   ctx.r3.u64 = r3;  // what remains in r3 if it is discarded from here
 
-  // --- 5. La malla (r28) ---
+  // --- 5. The mesh (r28) ---
   uint32_t modelo;
   if ((banderas_vista & 0x800u) != 0 || (banderas_vista & 0x1000u) != 0) {  // loc_824C2A90
     const uint32_t vista = Leer32(base, cull + 128);
@@ -478,10 +478,10 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
         const double f5 = double(px64);                                    // lfd f6,80(r1); fcfid f5,f6
         const double f4 = double(float(f5));                               // frsp f4,f5
         const double cociente = double(float(f4 / densidad));              // fdivs f0,f4,f0
-        if (!cerca) {                                                      // blt cr6 -> la buena
+        if (!cerca) {                                                      // blt cr6 -> the good one
           const double umbral_lod = Lfs(w_umbral);                         // lfs f13,-4396(r27)
           if (cociente < umbral_lod || std::isnan(cociente)) {             // blt / bso -> loc_824C2AC8
-            modelo = Leer32(base, info + 48);                              // la reducida
+            modelo = Leer32(base, info + 48);                              // the reduced one
           }
         }
       }
@@ -491,11 +491,11 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     return salir(kDescarte);
   }
 
-  // --- 6. SceneryDrawInfo sin matriz ---
+  // --- 6. SceneryDrawInfo without matrix ---
   if ((banderas & 0x200u) != 0) {
     const uint32_t tope = Leer32(base, cull + 144);
     const uint32_t actual = Leer32(base, cull + 140);
-    if (actual >= tope) {                                                   // cmplw; bge: lleno
+    if (actual >= tope) {                                                   // cmplw; bge: full
       return salir(kDescarte);
     }
     const uint64_t modelo_y_estado = uint64_t(modelo) + visibilidad;        // add r3,r28,r26
@@ -615,7 +615,7 @@ Salida Nativa(PPCContext& ctx, uint8_t* base) {
     ctx.r4.s64 = ctx.r1.s64 + 128;
     ctx.r6.u64 = matriz;
     ctx.lr = kVueltaViento;
-    NFSMW_ESCENARIO_VIENTO(ctx, base);                    // CreateWindRotMatrix(vista, r1+128, desfase, matriz)
+    NFSMW_ESCENARIO_VIENTO(ctx, base);                    // CreateWindRotMatrix(vista, r1+128, phase, matriz)
     ctx.r5.u64 = matriz;
     ctx.r4.s64 = ctx.r1.s64 + 128;
     ctx.r3.u64 = matriz;
@@ -645,8 +645,8 @@ void Informe() {
   g_siguiente_ms.store(ahora + 10000, std::memory_order_relaxed);
   if (siguiente == 0) {
     REXLOG_INFO("[escenario] DrawAScenery (sub_824C2850) {}",
-                Activo() ? "en nativo (build 184): empieza comprobando contra la original"
-                         : "por la original (nfsmw_escenario_nativo = false)");
+                Activo() ? "in native code (build 184): starts by checking against the original"
+                         : "through the original (nfsmw_escenario_nativo = false)");
     return;
   }
   uint64_t nativas[kCaminos];
@@ -662,17 +662,17 @@ void Informe() {
     total_originales += originales[m];
   }
   NFSMW_INFORME_DIFERIDO(
-      "[escenario] ultimos 10 s: {} en nativo ({} descartes, {} sin matriz, {} con matriz, {} con viento), {} por la "
-      "original (apagada {}, nfsmw_escenario_detalle {}, pila {}, NaN {}, destellos {}, viento a comprobar {}); "
-      "comprobadas contra la original desde el arranque: {} ({} descartes, {} sin matriz, {} con matriz, {} con "
-      "viento; las primeras {}, las primeras {} con viento y despues 1 de cada {}){}",
+      "[escenario] last 10 s: {} in native code ({} discards, {} without matrix, {} with matrix, {} with wind), {} by "
+      "the original (off {}, nfsmw_escenario_detalle {}, stack {}, NaN {}, flares {}, wind to be checked {}); "
+      "checked against the original since startup: {} ({} discards, {} without matrix, {} with matrix, {} with "
+      "wind; the first {}, the first {} with wind and then 1 of every {}){}",
       total, nativas[kDescarte], nativas[kSinMatriz], nativas[kConMatriz], nativas[kConViento], total_originales,
       originales[kPorApagada], originales[kPorDetalle], originales[kPorPila], originales[kPorNaN],
       originales[kPorDestellos], originales[kPorComprobar], g_comprobadas_total.load(std::memory_order_relaxed),
       g_comprobadas[kDescarte].load(std::memory_order_relaxed), g_comprobadas[kSinMatriz].load(std::memory_order_relaxed),
       g_comprobadas[kConMatriz].load(std::memory_order_relaxed), g_comprobadas[kConViento].load(std::memory_order_relaxed),
       kComprobaciones, kMinimoViento, kPeriodo,
-      g_apagado.load(std::memory_order_relaxed) ? " | APAGADA por diferencia" : "");
+      g_apagado.load(std::memory_order_relaxed) ? " | OFF after a difference" : "");
 }
 
 // A memory area that the native version or the original can write: the state before, what the native version
@@ -716,19 +716,19 @@ std::string Hex(const uint8_t* bytes, uint32_t n) {
     zonas[nz++] = {nombre, direccion, bytes, chicas_antes + usado, chicas_nativa + usado};
     usado += bytes;
   };
-  zonas[nz++] = {"pila", pila - kPila, kPila, pila_antes, pila_nativa};
+  zonas[nz++] = {"stack", pila - kPila, kPila, pila_antes, pila_nativa};
   agregar("cull+140", cull + 140, 4);
   const uint32_t actual = Leer32(base, cull + 140);
   if (actual < Leer32(base, cull + 144)) {
     agregar("SceneryDrawInfo", actual, 12);
   }
-  agregar("reserva", kReservaActual, 4);
-  agregar("reserva agotada", kReservaAgotada, 8);
+  agregar("allocator", kReservaActual, 4);
+  agregar("allocator out of space", kReservaAgotada, 8);
   // The block that would be allocated. With the pointer at 0 the original does not write to it (it exits
   // with r3 = 0): it is not checked.
   const uint32_t reserva = Leer32(base, kReservaActual);
   if (reserva != 0 && uint32_t(reserva + 64u) < Leer32(base, kReservaFin)) {
-    agregar("matriz", reserva, 64);
+    agregar("matrix", reserva, 64);
   }
   for (uint32_t i = 0; i < nz; ++i) {
     std::memcpy(zonas[i].antes, Puntero(base, zonas[i].direccion), zonas[i].bytes);
@@ -775,7 +775,7 @@ std::string Hex(const uint8_t* bytes, uint32_t n) {
     }
   }
   if (mala) {
-    que = "memoria";
+    que = "memory";
   } else if (ctx.r3.u64 != r3n) {
     que = "r3";
   } else if (ctx.f1.u64 != f1n) {
@@ -794,24 +794,24 @@ std::string Hex(const uint8_t* bytes, uint32_t n) {
     const uint64_t total = g_comprobadas_total.load(std::memory_order_relaxed) + 1;
     g_comprobadas_total.store(total, std::memory_order_relaxed);
     if (total == kComprobaciones) {
-      REXLOG_INFO("[escenario] {} llamadas comprobadas contra la original (r3, f1, r1, r12, lr, FPCR, la pila, "
-                  "[cull+140], el SceneryDrawInfo, la reserva y la matriz), 0 diferencias: DrawAScenery en nativo, y "
-                  "sigue comprobando 1 de cada {}",
+      REXLOG_INFO("[escenario] {} calls checked against the original (r3, f1, r1, r12, lr, FPCR, the stack, "
+                  "[cull+140], the SceneryDrawInfo, the allocator and the matrix), 0 differences: DrawAScenery in "
+                  "native code, and it keeps checking 1 of every {}",
                   total, kPeriodo);
     }
     if (s.camino == kConViento && g_comprobadas[kConViento].load(std::memory_order_relaxed) == kMinimoViento) {
-      REXLOG_INFO("[escenario] viento: {} llamadas comprobadas contra la original, 0 diferencias: tambien en nativo",
+      REXLOG_INFO("[escenario] wind: {} calls checked against the original, 0 differences: native too",
                   kMinimoViento);
     }
     return;
   }
   g_apagado.store(true, std::memory_order_relaxed);  // the state is already the original's
   const uint32_t n = mala ? (mala->bytes - byte < 8u ? mala->bytes - byte : 8u) : 0u;
-  REXLOG_ERROR("[escenario] DIFERENCIA con la original ({}{}{}; camino {}): nativa {} original {}; r3 nativa 0x{:X} "
+  REXLOG_ERROR("[escenario] DIFFERENCE from the original ({}{}{}; path {}): native {} original {}; r3 native 0x{:X} "
                "original 0x{:X}, f1 0x{:016X} / 0x{:016X}, r12 0x{:X} / 0x{:X}, lr 0x{:X} / 0x{:X}, FPCR 0x{:X} / "
-               "0x{:X}; entrada: this 0x{:08X}, instancia {}, cull 0x{:08X}, estado {}, pila 0x{:08X}. Camino nativo "
-               "APAGADO para el resto de la sesion: se queda la original",
-               que, mala ? " en " : "", mala ? fmt::format("{} +{}", mala->nombre, byte) : std::string(),
+               "0x{:X}; entry: this 0x{:08X}, instance {}, cull 0x{:08X}, state {}, stack 0x{:08X}. Native path "
+               "turned OFF for the rest of the session: the original stays",
+               que, mala ? " in " : "", mala ? fmt::format("{} +{}", mala->nombre, byte) : std::string(),
                kNombresCamino[s.camino], mala ? Hex(mala->nativa + byte, n) : std::string("-"),
                mala ? Hex(Puntero(base, mala->direccion) + byte, n) : std::string("-"), r3n, ctx.r3.u64, f1n,
                ctx.f1.u64, r12n, ctx.r12.u64, lrn, ctx.lr, csrn, ctx.fpscr.csr, entrada.r3.u32, entrada.r4.u32,
