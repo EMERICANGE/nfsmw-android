@@ -200,12 +200,17 @@ public final class MainActivity extends Activity {
         launchGame.setEnabled(false);
         Diagnostics.recordLaunch(this);
         importer.execute(() -> {
-            String problem = "nativo".equals(GameOptions.get(this, GameOptions.RENDERER))
-                    ? Diagnostics.incompatibility(this) : null;
+            boolean nativo = "nativo".equals(GameOptions.get(this, GameOptions.RENDERER));
+            String problem = nativo ? Diagnostics.incompatibility(this)
+                    : Diagnostics.compatibilityIncompatibility(this);
+            // Non-null when the compatibility mode would stop at startup too: then it is not offered.
+            String unsupported = nativo && problem != null ? Diagnostics.unsupported(this) : problem;
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 launchGame.setEnabled(true);
-                if (problem != null) {
+                if (problem == null) {
+                    playCompatibleGame();
+                } else if (unsupported == null) {
                     new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                             .setTitle(R.string.renderer_problem_title)
                             .setMessage(getString(R.string.renderer_problem_message, problem))
@@ -217,7 +222,11 @@ public final class MainActivity extends Activity {
                             .setNeutralButton(R.string.send_diagnostics, (dialog, which) -> chooseReportDestination())
                             .setNegativeButton(R.string.back, null).show();
                 } else {
-                    playCompatibleGame();
+                    new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                            .setTitle(R.string.renderer_unsupported_title)
+                            .setMessage(unsupported)
+                            .setPositiveButton(R.string.send_diagnostics, (dialog, which) -> chooseReportDestination())
+                            .setNegativeButton(R.string.back, null).show();
                 }
             });
         });

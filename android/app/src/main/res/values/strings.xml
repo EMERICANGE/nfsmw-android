@@ -29,6 +29,9 @@
     <string name="incompatible_driver">The driver of %1$s does not offer the features the native renderer needs.\n\nDevice Vulkan: %2$s\n\nLowering the resolution does not fix this incompatibility. You can send the diagnostics to help us study support.</string>
     <string name="this_gpu">this GPU</string>
     <string name="not_available">not available</string>
+    <string name="renderer_unsupported_title">This GPU cannot run the game</string>
+    <string name="renderer_unsupported_message">The driver of %1$s does not offer the features the native renderer needs, nor those of the experimental compatibility mode (missing: %2$s).\n\nDevice Vulkan: %3$s\n\nYou can send the diagnostics to help us study support.</string>
+    <string name="incompatible_driver_compat">The driver of %1$s does not offer the features the experimental compatibility mode needs (missing: %2$s).\n\nDevice Vulkan: %3$s\n\nYou can send the diagnostics to help us study support.</string>
 
     <!-- Shader library -->
     <string name="generating_shaders">Generating the native renderer\'s shaders (first time only)…</string>

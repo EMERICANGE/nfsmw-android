@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Process;
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -54,6 +55,36 @@ final class Diagnostics {
         if (result.optBoolean("compatible", true)) return null;
         return context.getString(R.string.incompatible_driver,
                 result.optString("gpu", context.getString(R.string.this_gpu)),
+                result.optString("vulkan", context.getString(R.string.not_available)));
+    }
+
+    /** The features the compatibility mode lacks, or null if it can start (or if the probe cannot tell). */
+    static String compatibilityMissing() {
+        JSONObject result = gpu();
+        if (result.optBoolean("xenosCompatible", true)) return null;
+        JSONArray missing = result.optJSONArray("xenosMissing");
+        StringBuilder names = new StringBuilder();
+        for (int i = 0; missing != null && i < missing.length(); i++) {
+            if (names.length() > 0) names.append(", ");
+            names.append(missing.optString(i));
+        }
+        return names.length() > 0 ? names.toString() : "?";
+    }
+
+    static String compatibilityIncompatibility(Context context) {
+        return compatibilityMessage(context, R.string.incompatible_driver_compat);
+    }
+
+    /** Once the native renderer check has failed: the message if the compatibility mode cannot start either. */
+    static String unsupported(Context context) {
+        return compatibilityMessage(context, R.string.renderer_unsupported_message);
+    }
+
+    private static String compatibilityMessage(Context context, int message) {
+        String missing = compatibilityMissing();
+        if (missing == null) return null;
+        JSONObject result = gpu();
+        return context.getString(message, result.optString("gpu", context.getString(R.string.this_gpu)), missing,
                 result.optString("vulkan", context.getString(R.string.not_available)));
     }
 

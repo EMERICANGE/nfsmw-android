@@ -15,6 +15,13 @@ std::string Json(const std::string& value) {
   return result + '"';
 }
 
+// Neither renderer can start: the same reason for both verdicts.
+std::string Failure(const std::string& reason) {
+  const std::string missing = "[" + Json(reason) + "]";
+  return "{\"compatible\":false,\"missing\":" + missing +
+      ",\"xenosCompatible\":false,\"xenosMissing\":" + missing + "}";
+}
+
 std::string Probe() {
   uint32_t loader_version = VK_API_VERSION_1_0;
   auto version = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(
@@ -29,20 +36,19 @@ std::string Probe() {
   VkInstance instance{};
   VkResult result = vkCreateInstance(&ci, nullptr, &instance);
   if (result != VK_SUCCESS) {
-    return "{\"compatible\":false,\"missing\":[\"Could not initialize Vulkan (" +
-        std::to_string(result) + ")\"]}";
+    return Failure("Could not initialize Vulkan (" + std::to_string(result) + ")");
   }
   uint32_t count = 0;
   result = vkEnumeratePhysicalDevices(instance, &count, nullptr);
   if (result != VK_SUCCESS || !count) {
     vkDestroyInstance(instance, nullptr);
-    return "{\"compatible\":false,\"missing\":[\"No Vulkan GPU found\"]}";
+    return Failure("No Vulkan GPU found");
   }
   std::vector<VkPhysicalDevice> devices(count);
   result = vkEnumeratePhysicalDevices(instance, &count, devices.data());
   if (result != VK_SUCCESS) {
     vkDestroyInstance(instance, nullptr);
-    return "{\"compatible\":false,\"missing\":[\"Could not query the GPU\"]}";
+    return Failure("Could not query the GPU");
   }
   // Android's native renderer selects the first physical device by default.
   VkPhysicalDevice gpu = devices[0];
@@ -71,6 +77,23 @@ std::string Probe() {
   require(v12.descriptorBindingPartiallyBound, "descriptorBindingPartiallyBound");
   require(v12.descriptorBindingSampledImageUpdateAfterBind, "descriptorBindingSampledImageUpdateAfterBind");
   require(v12.descriptorBindingUpdateUnusedWhilePending, "descriptorBindingUpdateUnusedWhilePending");
+  // Both renderers create their Vulkan device with the SDK's GPU emulation checks
+  // (VulkanDevice::CreateIfSupported with with_gpu_emulation, sdk/src/ui/vulkan/vulkan_device.cpp): a GPU
+  // without these features is refused before anything is drawn. In the compatibility mode (xenos), the command
+  // processor checks the two stores-and-atomics features again when it starts.
+  std::vector<std::string> xenos_missing;
+  auto require_both = [&](bool supported, const char* name) {
+    if (!supported) {
+      missing.emplace_back(name);
+      xenos_missing.emplace_back(name);
+    }
+  };
+  require_both(features.independentBlend, "independentBlend");
+  require_both(features.fragmentStoresAndAtomics, "fragmentStoresAndAtomics");
+  require_both(features.vertexPipelineStoresAndAtomics, "vertexPipelineStoresAndAtomics");
+  // The launcher turns these two checks off only for the compatibility mode (GameOptions.arguments).
+  require(features.geometryShader, "geometryShader");
+  require(features.fillModeNonSolid, "fillModeNonSolid");
   std::ostringstream formats;
   formats << '{';
   const VkFormat bc[] = {VK_FORMAT_BC1_RGBA_UNORM_BLOCK, VK_FORMAT_BC2_UNORM_BLOCK,
@@ -99,6 +122,11 @@ std::string Probe() {
   for (size_t i = 0; i < missing.size(); ++i) {
     if (i) output << ',';
     output << Json(missing[i]);
+  }
+  output << "],\"xenosCompatible\":" << (xenos_missing.empty() ? "true" : "false") << ",\"xenosMissing\":[";
+  for (size_t i = 0; i < xenos_missing.size(); ++i) {
+    if (i) output << ',';
+    output << Json(xenos_missing[i]);
   }
   output << "]}";
   vkDestroyInstance(instance, nullptr);

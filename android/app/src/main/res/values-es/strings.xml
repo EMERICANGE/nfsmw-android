@@ -29,6 +29,9 @@
     <string name="incompatible_driver">El controlador de %1$s no ofrece las funciones que necesita el renderizador nativo.\n\nVulkan del dispositivo: %2$s\n\nBajar la resolución no resuelve esta incompatibilidad. Puedes enviar el diagnóstico para ayudarnos a estudiar soporte.</string>
     <string name="this_gpu">esta GPU</string>
     <string name="not_available">no disponible</string>
+    <string name="renderer_unsupported_title">Esta GPU no puede ejecutar el juego</string>
+    <string name="renderer_unsupported_message">El controlador de %1$s no ofrece las funciones que necesita el renderizador nativo, ni las del modo de compatibilidad experimental (no disponible: %2$s).\n\nVulkan del dispositivo: %3$s\n\nPuedes enviar el diagnóstico para ayudarnos a estudiar soporte.</string>
+    <string name="incompatible_driver_compat">El controlador de %1$s no ofrece las funciones que necesita el modo de compatibilidad experimental (no disponible: %2$s).\n\nVulkan del dispositivo: %3$s\n\nPuedes enviar el diagnóstico para ayudarnos a estudiar soporte.</string>
 
     <!-- Shader library -->
     <string name="generating_shaders">Generando los shaders del renderizador nativo (solo la primera vez)…</string>

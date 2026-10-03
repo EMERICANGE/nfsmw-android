@@ -58,6 +58,13 @@ The launcher now checks the features required by the native renderer and
 offers **Try compatibility** and access to the report.
 BC4/5 are not required in this check, because the tested Galaxy A55 supports
 BC1/2/3 and lacks BC4/5.
+It also checks the features that the SDK requires before it creates the Vulkan
+device, in both modes: `independentBlend`, `fragmentStoresAndAtomics` and
+`vertexPipelineStoresAndAtomics`, plus `geometryShader` and `fillModeNonSolid`
+for the native renderer. When the compatibility mode lacks one of them too, as
+on a Mali-G72 with Vulkan 1.1, the launcher says that neither mode can run
+instead of offering **Try compatibility**. The probe's `gpu.json` has the two
+verdicts: `compatible`/`missing` and `xenosCompatible`/`xenosMissing`.
 
 ## Trying the compatibility mode
 
